@@ -4,7 +4,7 @@
 -- each tenant_<slug> database). Money/business tables belong to the tenant PU.
 --
 -- Column names follow Spring's default physical naming (camelCase -> snake_case)
--- so they match the JPA @Entity mappings in com.burgerflow.model.control.
+-- so they match the JPA @Entity mappings in com.menuflow.model.control.
 -- The control EMF runs with hibernate.ddl-auto = validate, so this DDL is the
 -- single source of truth — keep it in sync with the entities, rolling forward.
 --

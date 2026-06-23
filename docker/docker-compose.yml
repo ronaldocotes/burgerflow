@@ -4,12 +4,12 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
-    container_name: burgerflow-postgres
+    container_name: menuflow-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: burgerflow
-      POSTGRES_USER: burgerflow
-      POSTGRES_PASSWORD: burgerflow123
+      POSTGRES_DB: menuflow
+      POSTGRES_USER: menuflow
+      POSTGRES_PASSWORD: menuflow123
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -17,9 +17,9 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - burgerflow-network
+      - menuflow-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U burgerflow -d burgerflow"]
+      test: ["CMD-SHELL", "pg_isready -U menuflow -d menuflow"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -28,14 +28,14 @@ services:
   # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: burgerflow-redis
+    container_name: menuflow-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
-      - burgerflow-network
+      - menuflow-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -45,7 +45,7 @@ services:
   # Apache Kafka
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
-    container_name: burgerflow-zookeeper
+    container_name: menuflow-zookeeper
     restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -53,7 +53,7 @@ services:
     ports:
       - "2181:2181"
     networks:
-      - burgerflow-network
+      - menuflow-network
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "2181"]
       interval: 5s
@@ -62,7 +62,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.6.0
-    container_name: burgerflow-kafka
+    container_name: menuflow-kafka
     restart: unless-stopped
     depends_on:
       - zookeeper
@@ -79,20 +79,20 @@ services:
     ports:
       - "9092:9092"
     networks:
-      - burgerflow-network
+      - menuflow-network
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
       interval: 5s
       timeout: 3s
       retries: 5
-    command: bash -c "((sleep 15 && kafka-topics --bootstrap-server kafka:9092 --create --topic burgerflow-orders --partitions 3 --replication-factor 1) &) && /etc/confluent/docker/run"
+    command: bash -c "((sleep 15 && kafka-topics --bootstrap-server kafka:9092 --create --topic menuflow-orders --partitions 3 --replication-factor 1) &) && /etc/confluent/docker/run"
 
   # Backend Service (Spring Boot)
   backend:
     build:
       context: ../backend
       dockerfile: Dockerfile
-    container_name: burgerflow-backend
+    container_name: menuflow-backend
     restart: unless-stopped
     depends_on:
       postgres:
@@ -103,9 +103,9 @@ services:
         condition: service_healthy
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/burgerflow
-      - SPRING_DATASOURCE_USERNAME=burgerflow
-      - SPRING_DATASOURCE_PASSWORD=burgerflow123
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/menuflow
+      - SPRING_DATASOURCE_USERNAME=menuflow
+      - SPRING_DATASOURCE_PASSWORD=menuflow123
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
@@ -114,7 +114,7 @@ services:
     ports:
       - "8080:8080"
     networks:
-      - burgerflow-network
+      - menuflow-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
@@ -127,7 +127,7 @@ services:
     build:
       context: ../frontend
       dockerfile: Dockerfile
-    container_name: burgerflow-frontend
+    container_name: menuflow-frontend
     restart: unless-stopped
     depends_on:
       - backend
@@ -139,7 +139,7 @@ services:
     ports:
       - "3000:3000"
     networks:
-      - burgerflow-network
+      - menuflow-network
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
       interval: 10s
@@ -152,26 +152,26 @@ services:
     build:
       context: ../ia
       dockerfile: Dockerfile
-    container_name: burgerflow-ia
+    container_name: menuflow-ia
     restart: unless-stopped
     depends_on:
       - postgres
       - redis
       - backend
     environment:
-      - DATABASE_URL=postgresql://burgerflow:burgerflow123@postgres:5432/burgerflow
+      - DATABASE_URL=postgresql://menuflow:menuflow123@postgres:5432/menuflow
       - REDIS_URL=redis://redis:6379
       - BACKEND_URL=http://backend:8080/api/v1
       - PORT=8000
     ports:
       - "8000:8000"
     networks:
-      - burgerflow-network
+      - menuflow-network
 
   # Nginx Reverse Proxy
   nginx:
     image: nginx:1.25-alpine
-    container_name: burgerflow-nginx
+    container_name: menuflow-nginx
     restart: unless-stopped
     depends_on:
       - frontend
@@ -185,7 +185,7 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
     networks:
-      - burgerflow-network
+      - menuflow-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost"]
       interval: 10s
@@ -195,25 +195,25 @@ services:
   # PgAdmin (Optional - for development)
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: burgerflow-pgadmin
+    container_name: menuflow-pgadmin
     restart: unless-stopped
     depends_on:
       - postgres
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@burgerflow.com
+      PGADMIN_DEFAULT_EMAIL: admin@menuflow.com
       PGADMIN_DEFAULT_PASSWORD: admin123
       PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:
       - "5050:80"
     networks:
-      - burgerflow-network
+      - menuflow-network
     profiles:
       - dev
 
   # Redis Commander (Optional - for development)
   redis-commander:
     image: rediscommander/redis-commander:latest
-    container_name: burgerflow-redis-commander
+    container_name: menuflow-redis-commander
     restart: unless-stopped
     depends_on:
       - redis
@@ -222,26 +222,26 @@ services:
     ports:
       - "8081:8081"
     networks:
-      - burgerflow-network
+      - menuflow-network
     profiles:
       - dev
 
   # Kafka UI (Optional - for development)
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
-    container_name: burgerflow-kafka-ui
+    container_name: menuflow-kafka-ui
     restart: unless-stopped
     depends_on:
       - kafka
       - zookeeper
     environment:
-      KAFKA_CLUSTERS_0_NAME: burgerflow-cluster
+      KAFKA_CLUSTERS_0_NAME: menuflow-cluster
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
     ports:
       - "8082:8080"
     networks:
-      - burgerflow-network
+      - menuflow-network
     profiles:
       - dev
 
@@ -250,7 +250,7 @@ volumes:
   redis_data:
 
 networks:
-  burgerflow-network:
+  menuflow-network:
     driver: bridge
     ipam:
       config:

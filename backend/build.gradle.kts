@@ -8,7 +8,7 @@ plugins {
     kotlin("plugin.noarg") version "2.0.20"
 }
 
-group = "com.burgerflow"
+group = "com.menuflow"
 version = "0.0.1-SNAPSHOT"
 java.sourceCompatibility = JavaVersion.VERSION_21
 

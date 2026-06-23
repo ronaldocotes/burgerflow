@@ -1,4 +1,4 @@
-# BurgerFlow — production compose (Oracle A1, molde SISATER).
+# MenuFlow — production compose (Oracle A1, molde SISATER).
 #
 # Principles:
 #  - ONLY Caddy publishes 80/443; postgres/redis/backend stay on the internal
@@ -23,16 +23,16 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: burgerflow-postgres
+    container_name: menuflow-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${BF_DB_USER}
       POSTGRES_PASSWORD: ${BF_DB_PASSWORD}
       # Control DB is created at init; tenant DBs are created on first access.
-      POSTGRES_DB: ${BF_DB_CONTROL:-burgerflow_control}
+      POSTGRES_DB: ${BF_DB_CONTROL:-menuflow_control}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks: [burgerflow-internal]
+    networks: [menuflow-internal]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${BF_DB_USER}"]
       interval: 10s
@@ -42,10 +42,10 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: burgerflow-redis
+    container_name: menuflow-redis
     restart: unless-stopped
     command: ["redis-server", "--requirepass", "${SPRING_REDIS_PASSWORD}"]
-    networks: [burgerflow-internal]
+    networks: [menuflow-internal]
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${SPRING_REDIS_PASSWORD}", "ping"]
       interval: 10s
@@ -56,8 +56,8 @@ services:
     build:
       context: ../backend
       dockerfile: Dockerfile
-    image: burgerflow-backend:latest
-    container_name: burgerflow-backend
+    image: menuflow-backend:latest
+    container_name: menuflow-backend
     restart: unless-stopped
     depends_on:
       postgres: { condition: service_healthy }
@@ -68,8 +68,8 @@ services:
       BF_DB_HOST: postgres:5432
       BF_DB_USER: ${BF_DB_USER}
       BF_DB_PASSWORD: ${BF_DB_PASSWORD}
-      BF_DB_CONTROL: ${BF_DB_CONTROL:-burgerflow_control}
-      BF_DB_MAINTENANCE: ${BF_DB_CONTROL:-burgerflow_control}
+      BF_DB_CONTROL: ${BF_DB_CONTROL:-menuflow_control}
+      BF_DB_MAINTENANCE: ${BF_DB_CONTROL:-menuflow_control}
       BF_DB_PREFIX: tenant_
       BF_DB_AUTOCREATE: "true"
       # --- Redis (rate-limit shared counter) ---
@@ -81,7 +81,7 @@ services:
       BF_JWT_SECRET: ${BF_JWT_SECRET}
       BF_RATELIMIT_LOGIN_BACKEND: redis
       SERVER_PORT: "8080"
-    networks: [burgerflow-internal]
+    networks: [menuflow-internal]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/actuator/health"]
       interval: 15s
@@ -93,15 +93,15 @@ services:
   # Frontend (Next.js) — uncomment when the web app is ready to ship.
   # frontend:
   #   build: { context: ../frontend, dockerfile: Dockerfile }
-  #   container_name: burgerflow-frontend
+  #   container_name: menuflow-frontend
   #   restart: unless-stopped
   #   environment:
   #     NEXT_PUBLIC_API_BASE: https://${SITE_ADDRESS}/api/v1
-  #   networks: [burgerflow-internal]
+  #   networks: [menuflow-internal]
 
   caddy:
     image: caddy:2-alpine
-    container_name: burgerflow-caddy
+    container_name: menuflow-caddy
     restart: unless-stopped
     depends_on: [backend]
     environment:
@@ -113,7 +113,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-    networks: [burgerflow-internal]
+    networks: [menuflow-internal]
 
 volumes:
   postgres_data:
@@ -121,5 +121,5 @@ volumes:
   caddy_config:
 
 networks:
-  burgerflow-internal:
+  menuflow-internal:
     driver: bridge

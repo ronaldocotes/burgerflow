@@ -6,7 +6,7 @@
 # HARD RULE: the JWT secret MUST be provided by the environment. We deliberately
 # leave NO dev fallback here so the app FAILS TO START if BF_JWT_SECRET is unset,
 # instead of silently booting with the well-known dev secret (token forgery risk).
-burgerflow:
+menuflow:
   jwt:
     # No default on purpose: missing BF_JWT_SECRET -> startup fails (fail-closed).
     secret: ${BF_JWT_SECRET}
@@ -37,6 +37,6 @@ management:
 
 logging:
   level:
-    com.burgerflow: INFO
+    com.menuflow: INFO
     org.springframework: WARN
     org.hibernate: WARN
