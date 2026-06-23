@@ -1,70 +1,55 @@
 package com.burgerflow.config
 
+import com.burgerflow.security.JwtAuthFilter
+import jakarta.servlet.http.HttpServletResponse
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
+import org.springframework.security.web.AuthenticationEntryPoint
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 
+/**
+ * Stateless JWT security. The servlet context-path is api-v1, so the matchers
+ * below are RELATIVE to it (the auth matcher maps to the full context path).
+ * Everything except auth, health and swagger requires a valid access token.
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-class SecurityConfig(
-    private val tenantIdentifierResolver: TenantIdentifierResolver
-) {
+class SecurityConfig(private val jwtAuthFilter: JwtAuthFilter) {
 
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
             .csrf { it.disable() }
-            .sessionManagement { 
-                it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) 
-            }
-            .authorizeHttpRequests { requests ->
-                requests
-                    // Public endpoints
-                    .requestMatchers("/api/v1/auth/**").permitAll()
-                    .requestMatchers("/api/v1/public/**").permitAll()
+            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+            .authorizeHttpRequests { reg ->
+                reg
+                    .requestMatchers("/auth/**").permitAll()
                     .requestMatchers("/actuator/health").permitAll()
-                    
-                    // Swagger
-                    .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                    
-                    // Admin endpoints
-                    .requestMatchers(HttpMethod.GET, "/api/v1/tenants/**").hasRole("ADMIN")
-                    .requestMatchers(HttpMethod.POST, "/api/v1/tenants/**").hasRole("ADMIN")
-                    .requestMatchers(HttpMethod.PUT, "/api/v1/tenants/**").hasRole("ADMIN")
-                    .requestMatchers(HttpMethod.DELETE, "/api/v1/tenants/**").hasRole("ADMIN")
-                    
-                    // Tenant-level endpoints
-                    .requestMatchers("/api/v1/products/**").hasAnyRole("ADMIN", "MANAGER", "STAFF")
-                    .requestMatchers("/api/v1/orders/**").hasAnyRole("ADMIN", "MANAGER", "STAFF")
-                    .requestMatchers("/api/v1/customers/**").hasAnyRole("ADMIN", "MANAGER", "STAFF")
-                    
-                    // KDS endpoints
-                    .requestMatchers("/api/v1/kds/**").hasAnyRole("ADMIN", "MANAGER", "KITCHEN")
-                    
-                    // PDV endpoints
-                    .requestMatchers("/api/v1/pos/**").hasAnyRole("ADMIN", "MANAGER", "CASHIER")
-                    
-                    // Default
+                    .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                     .anyRequest().authenticated()
             }
-            
-        // Add tenant filter before authentication
-        http.addFilterBefore(TenantFilter(tenantIdentifierResolver), UsernamePasswordAuthenticationFilter::class.java)
-        
+            // Unauthenticated access to a protected route -> 401 (not 403). 403 is
+            // reserved for an authenticated user lacking the required role.
+            .exceptionHandling { it.authenticationEntryPoint(unauthorizedEntryPoint()) }
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
         return http.build()
     }
 
     @Bean
-    fun passwordEncoder(): PasswordEncoder {
-        return BCryptPasswordEncoder(12)
-    }
+    fun unauthorizedEntryPoint(): AuthenticationEntryPoint =
+        AuthenticationEntryPoint { _, response, _ ->
+            response.setHeader("WWW-Authenticate", "Bearer")
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required")
+        }
+
+    @Bean
+    fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder(12)
 }
