@@ -86,6 +86,20 @@ class GlobalExceptionHandler {
             .body(body(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Validation failed", req, errors = errors))
     }
 
+    /**
+     * Method-security (@PreAuthorize) denial for an AUTHENTICATED user lacking the
+     * required role -> 403. Without this explicit handler the catch-all below
+     * turned every RBAC denial into a 500 (it affected ALL @PreAuthorize routes,
+     * not just the admin one — surfaced by the SUPER_ADMIN drift-check test).
+     * Must be declared BEFORE the catch-all so it wins for AccessDeniedException.
+     */
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException::class)
+    fun accessDenied(
+        ex: org.springframework.security.access.AccessDeniedException,
+        req: WebRequest,
+    ) = ResponseEntity.status(HttpStatus.FORBIDDEN)
+        .body(body(HttpStatus.FORBIDDEN, "FORBIDDEN", "You do not have permission to perform this action", req))
+
     @ExceptionHandler(Exception::class)
     fun unexpected(ex: Exception, req: WebRequest): ResponseEntity<ErrorResponse> {
         org.slf4j.LoggerFactory.getLogger(javaClass).error("Unhandled exception on {}", path(req), ex)
