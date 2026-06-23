@@ -2,12 +2,15 @@ package com.burgerflow.config
 
 import com.burgerflow.model.Category
 import com.burgerflow.model.Customer
+import com.burgerflow.model.DeliveryDriver
 import com.burgerflow.model.IdempotencyKey
 import com.burgerflow.model.Ingredient
 import com.burgerflow.model.Order
 import com.burgerflow.model.OrderItem
+import com.burgerflow.model.Payment
 import com.burgerflow.model.Product
 import com.burgerflow.model.ProductIngredient
+import com.burgerflow.model.RefreshToken
 import com.burgerflow.tenant.DynamicTenantRoutingDataSource
 import com.burgerflow.tenant.TenantDataSourceProperties
 import com.burgerflow.tenant.TenantSchemaInitializer
@@ -61,6 +64,9 @@ class TenantDataSourceConfig {
                 ProductIngredient::class.java,
                 Customer::class.java,
                 IdempotencyKey::class.java,
+                Payment::class.java,
+                DeliveryDriver::class.java,
+                RefreshToken::class.java,
             )
             .persistenceUnit("tenant")
             .properties(
@@ -71,6 +77,13 @@ class TenantDataSourceConfig {
                     // Dialect must be explicit: the routing datasource is lazy, so
                     // Hibernate cannot auto-detect it from a connection at startup.
                     "hibernate.dialect" to "org.hibernate.dialect.PostgreSQLDialect",
+                    // Do NOT probe the DB for JDBC metadata when the EMF is built:
+                    // EMF init can happen before any tenant is bound (e.g. on the
+                    // first refresh/login that touches the tenant PU), and the
+                    // routing datasource would throw "no tenant bound". With the
+                    // dialect set explicitly the probe is unnecessary. (Hibernate
+                    // 6.6 still attempts it unless this is false.)
+                    "hibernate.boot.allow_jdbc_metadata_access" to "false",
                 ),
             )
             .build()
