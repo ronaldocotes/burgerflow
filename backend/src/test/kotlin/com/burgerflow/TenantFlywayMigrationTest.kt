@@ -64,8 +64,8 @@ class TenantFlywayMigrationTest @Autowired constructor(
 
         provision(slug)
 
-        // V1 applied exactly once in the tenant's history table.
-        assertEquals(1, countSchemaVersionRows(slug), "tenant schema_version must have exactly one applied migration (V1)")
+        // V1 + V2 applied exactly once each in the tenant's history table.
+        assertEquals(2, countSchemaVersionRows(slug), "tenant schema_version must have exactly two applied migrations (V1 + V2)")
 
         // Ledger got at least one success row for this tenant.
         assertTrue(ledgerCount(slug) >= 1, "control ledger must record the successful migration")
@@ -78,7 +78,7 @@ class TenantFlywayMigrationTest @Autowired constructor(
         provision(slug)
         val firstCount = countSchemaVersionRows(slug)
         val firstLedger = ledgerCount(slug)
-        assertEquals(1, firstCount)
+        assertEquals(2, firstCount)
 
         // Re-provision: the pool already exists, so we drop it to force a fresh
         // build that re-invokes the migrator against the SAME (already-migrated)
@@ -86,7 +86,7 @@ class TenantFlywayMigrationTest @Autowired constructor(
         routing.evictPool(slug)
         provision(slug)
 
-        assertEquals(1, countSchemaVersionRows(slug), "re-running migrate must NOT add a second V1 row")
+        assertEquals(2, countSchemaVersionRows(slug), "re-running migrate must NOT add duplicate rows")
         // The migrator still logs each invocation; a fresh successful no-op run
         // appends one more ledger row (audit of the attempt), so it grows by one.
         assertEquals(firstLedger + 1, ledgerCount(slug), "each migrate invocation appends one ledger row")
