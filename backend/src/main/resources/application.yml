@@ -76,3 +76,12 @@ burgerflow:
     access-ttl-seconds: ${BF_JWT_ACCESS_TTL:3600}
     refresh-ttl-seconds: ${BF_JWT_REFRESH_TTL:604800}
     issuer: burgerflow
+  # Login rate limit (Sprint 2): 5 attempts / 60s per client IP.
+  # backend=redis shares the counter across instances (needs Spring Redis);
+  # backend=memory (default) is node-local Bucket4j.
+  rate-limit:
+    login:
+      enabled: ${BF_RATELIMIT_LOGIN_ENABLED:true}
+      backend: ${BF_RATELIMIT_LOGIN_BACKEND:memory}
+      capacity: ${BF_RATELIMIT_LOGIN_CAPACITY:5}
+      refill-period-seconds: ${BF_RATELIMIT_LOGIN_PERIOD:60}

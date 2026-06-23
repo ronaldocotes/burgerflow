@@ -43,6 +43,11 @@ abstract class IntegrationTestBase {
             registry.add("burgerflow.tenant.db-prefix") { "tenant_" }
             registry.add("burgerflow.tenant.auto-create-database") { "true" }
             registry.add("burgerflow.jwt.secret") { "test-secret-key-for-burgerflow-integration-tests-256!" }
+            // NOTE: login rate-limit is disabled by default for tests via
+            // src/test/resources/application.yml (MockMvc always reports
+            // 127.0.0.1, so a shared bucket would trip across the suite). The
+            // dedicated LoginRateLimitTest re-enables it through
+            // @DynamicPropertySource, which overrides the YAML default.
         }
     }
 }

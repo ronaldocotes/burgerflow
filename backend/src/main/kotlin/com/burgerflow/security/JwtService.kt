@@ -43,6 +43,11 @@ class JwtService(private val props: JwtProperties) {
         return Jwts.builder()
             .issuer(props.issuer)
             .subject(userId.toString())
+            // Unique token id: guarantees two tokens issued in the same second with
+            // identical claims are still byte-distinct (so their SHA-256 hashes in
+            // the refresh_tokens table never collide on the UNIQUE constraint), and
+            // it strengthens rotation (each refresh token is individually identifiable).
+            .id(UUID.randomUUID().toString())
             .claim("type", type)
             .claim("tenantId", tenantSlug)
             .claim("tenantUuid", tenantUuid.toString())

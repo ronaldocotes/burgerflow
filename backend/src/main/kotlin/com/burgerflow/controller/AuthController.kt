@@ -1,6 +1,7 @@
 package com.burgerflow.controller
 
 import com.burgerflow.dto.LoginRequest
+import com.burgerflow.dto.LogoutRequest
 import com.burgerflow.dto.RefreshRequest
 import com.burgerflow.dto.TokenResponse
 import com.burgerflow.service.AuthService
@@ -22,4 +23,11 @@ class AuthController(private val authService: AuthService) {
     @PostMapping("/refresh")
     fun refresh(@Valid @RequestBody request: RefreshRequest): ResponseEntity<TokenResponse> =
         ResponseEntity.ok(authService.refresh(request))
+
+    /** Revokes the presented refresh token. Idempotent; always 204. */
+    @PostMapping("/logout")
+    fun logout(@Valid @RequestBody request: LogoutRequest): ResponseEntity<Void> {
+        authService.logout(request)
+        return ResponseEntity.noContent().build()
+    }
 }
