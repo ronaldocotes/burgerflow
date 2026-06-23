@@ -1,0 +1,298 @@
+name: Continuous Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_run:
+    workflows: ["Continuous Integration"]
+    branches: [main, develop]
+    types:
+      - completed
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: docker.io
+  IMAGE_PREFIX: ${{ secrets.DOCKER_HUB_USERNAME }}/burgerflow
+
+jobs:
+  # ============================================================================
+  # Deploy to Development (Oracle Cloud A1)
+  # ============================================================================
+  deploy-dev:
+    name: Deploy to Development
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_run' && github.event.workflow == 'Continuous Integration' && github.event.conclusion == 'success' && github.event.ref == 'refs/heads/develop') }}
+    runs-on: ubuntu-latest
+    environment:
+      name: development
+      url: https://dev.burgerflow.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Configure SSH
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+      
+      - name: Pull Docker Images
+        run: |
+          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.DEV_SERVER_IP }} "
+            docker pull ${{ env.IMAGE_PREFIX }}-backend:latest && \
+            docker pull ${{ env.IMAGE_PREFIX }}-frontend:latest && \
+            docker pull ${{ env.IMAGE_PREFIX }}-ia:latest
+          " || true
+      
+      - name: Deploy with Docker Compose
+        run: |
+          scp -o StrictHostKeyChecking=no docker/docker-compose.yml burgerflow@${{ secrets.DEV_SERVER_IP }}:/home/burgerflow/docker-compose.yml
+          
+          scp -o StrictHostKeyChecking=no backend/.env.example burgerflow@${{ secrets.DEV_SERVER_IP }}:/home/burgerflow/.env
+          
+          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.DEV_SERVER_IP }} "
+            cd /home/burgerflow && \
+            export COMPOSE_PROFILES=dev && \
+            docker-compose -f docker-compose.yml down && \
+            docker-compose -f docker-compose.yml pull && \
+            docker-compose -f docker-compose.yml up -d
+          "
+      
+      - name: Verify Deployment
+        run: |
+          # Wait for services to start
+          sleep 30
+          
+          # Check health endpoints
+          curl -f http://${{ secrets.DEV_SERVER_IP }}:8080/actuator/health || exit 1
+          curl -f http://${{ secrets.DEV_SERVER_IP }}:3000/api/health || exit 1
+          curl -f http://${{ secrets.DEV_SERVER_IP }}:8000/health || exit 1
+      
+      - name: Send Deployment Notification
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_COLOR: '#36a64f'
+          SLACK_TITLE: "🚀 Deployment - BurgerFlow Development"
+          SLACK_MESSAGE: "Deployed to development environment\nURL: https://dev.burgerflow.com\nCommit: ${{ github.sha }}"
+
+  # ============================================================================
+  # Deploy to Staging (Oracle Cloud A1)
+  # ============================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' || (github.event_name == 'workflow_run' && github.event.workflow == 'Continuous Integration' && github.event.conclusion == 'success' && github.event.ref == 'refs/heads/main') }}
+    needs: [deploy-dev]
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.burgerflow.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Configure SSH
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_STAGING }}
+      
+      - name: Pull Docker Images
+        run: |
+          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.STAGING_SERVER_IP }} "
+            docker pull ${{ env.IMAGE_PREFIX }}-backend:latest && \
+            docker pull ${{ env.IMAGE_PREFIX }}-frontend:latest && \
+            docker pull ${{ env.IMAGE_PREFIX }}-ia:latest
+          " || true
+      
+      - name: Deploy with Docker Compose
+        run: |
+          scp -o StrictHostKeyChecking=no docker/docker-compose.yml burgerflow@${{ secrets.STAGING_SERVER_IP }}:/home/burgerflow/docker-compose.yml
+          
+          scp -o StrictHostKeyChecking=no backend/.env.production burgerflow@${{ secrets.STAGING_SERVER_IP }}:/home/burgerflow/.env
+          
+          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.STAGING_SERVER_IP }} "
+            cd /home/burgerflow && \
+            export COMPOSE_PROFILES=staging && \
+            docker-compose -f docker-compose.yml down && \
+            docker-compose -f docker-compose.yml pull && \
+            docker-compose -f docker-compose.yml up -d
+          "
+      
+      - name: Run Database Migrations
+        run: |
+          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.STAGING_SERVER_IP }} "
+            cd /home/burgerflow && \
+            docker exec burgerflow-backend ./gradlew flywayMigrate
+          " || true
+      
+      - name: Verify Deployment
+        run: |
+          # Wait for services to start
+          sleep 60
+          
+          # Check health endpoints
+          curl -f https://staging.burgerflow.com/api/v1/health || exit 1
+          curl -f https://staging.burgerflow.com/health || exit 1
+      
+      - name: Run Smoke Tests
+        run: |
+          # Run basic API tests
+          curl -f https://staging.burgerflow.com/api/v1/tenants || exit 1
+      
+      - name: Send Deployment Notification
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_COLOR: '#36a64f'
+          SLACK_TITLE: "🚀 Deployment - BurgerFlow Staging"
+          SLACK_MESSAGE: "Deployed to staging environment\nURL: https://staging.burgerflow.com\nCommit: ${{ github.sha }}"
+
+  # ============================================================================
+  # Deploy to Production (Manual Approval)
+  # ============================================================================
+  deploy-prod:
+    name: Deploy to Production
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+    needs: [deploy-staging]
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://burgerflow.com
+    
+    steps:
+      - name: Wait for Manual Approval
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ secrets.PROD_DEPLOY_APPROVAL_SECRET }}
+          approvers: ${{ secrets.PROD_DEPLOY_APPROVERS }}
+          issue-title: "Production Deployment Approval - BurgerFlow"
+          issue-body: "Please review and approve the production deployment for commit ${{ github.sha }}"
+          exclude-authors: true
+      
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Configure SSH
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_PROD }}
+      
+      - name: Pull Docker Images
+        run: |
+          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.PROD_SERVER_IP }} "
+            docker pull ${{ env.IMAGE_PREFIX }}-backend:latest && \
+            docker pull ${{ env.IMAGE_PREFIX }}-frontend:latest && \
+            docker pull ${{ env.IMAGE_PREFIX }}-ia:latest
+          " || true
+      
+      - name: Deploy with Docker Compose
+        run: |
+          scp -o StrictHostKeyChecking=no docker/docker-compose.yml burgerflow@${{ secrets.PROD_SERVER_IP }}:/home/burgerflow/docker-compose.yml
+          
+          scp -o StrictHostKeyChecking=no backend/.env.production burgerflow@${{ secrets.PROD_SERVER_IP }}:/home/burgerflow/.env
+          
+          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.PROD_SERVER_IP }} "
+            cd /home/burgerflow && \
+            export COMPOSE_PROFILES=prod && \
+            docker-compose -f docker-compose.yml down && \
+            docker-compose -f docker-compose.yml pull && \
+            docker-compose -f docker-compose.yml up -d
+          "
+      
+      - name: Run Database Migrations
+        run: |
+          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.PROD_SERVER_IP }} "
+            cd /home/burgerflow && \
+            docker exec burgerflow-backend ./gradlew flywayMigrate
+          "
+      
+      - name: Verify Deployment
+        run: |
+          # Wait for services to start
+          sleep 120
+          
+          # Check health endpoints
+          curl -f https://burgerflow.com/api/v1/health || exit 1
+          curl -f https://burgerflow.com/health || exit 1
+          
+          # Check main page
+          curl -f https://burgerflow.com || exit 1
+      
+      - name: Run Smoke Tests
+        run: |
+          # Run production smoke tests
+          curl -f https://burgerflow.com/api/v1/tenants || exit 1
+          curl -f https://burgerflow.com/api/v1/products || exit 1
+      
+      - name: Send Deployment Notification
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_COLOR: '#36a64f'
+          SLACK_TITLE: "🚀 Deployment - BurgerFlow Production"
+          SLACK_MESSAGE: "Deployed to production environment\nURL: https://burgerflow.com\nCommit: ${{ github.sha }}"
+      
+      - name: Send Email Notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "Production Deployment - BurgerFlow"
+          body: "Production deployment completed successfully.\n\nCommit: ${{ github.sha }}\nURL: https://burgerflow.com"
+          to: ${{ secrets.DEPLOY_EMAILS }}
+          from: "BurgerFlow Bot"
+          content_type: "text/plain"
+
+  # ============================================================================
+  # Rollback (Manual)
+  # ============================================================================
+  rollback:
+    name: Rollback Deployment
+    if: false  # Manual trigger only
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Configure SSH
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_PROD }}
+      
+      - name: Rollback to Previous Version
+        run: |
+          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.PROD_SERVER_IP }} "
+            cd /home/burgerflow && \
+            # Get previous version from history
+            PREV_COMMIT=\$(git rev-parse HEAD~1) && \
+            docker pull ${{ env.IMAGE_PREFIX }}-backend:\$PREV_COMMIT && \
+            docker pull ${{ env.IMAGE_PREFIX }}-frontend:\$PREV_COMMIT && \
+            docker pull ${{ env.IMAGE_PREFIX }}-ia:\$PREV_COMMIT && \
+            docker-compose -f docker-compose.yml down && \
+            docker-compose -f docker-compose.yml pull && \
+            docker-compose -f docker-compose.yml up -d
+          "
+      
+      - name: Send Rollback Notification
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_COLOR: '#ff0000'
+          SLACK_TITLE: "⚠️ Rollback - BurgerFlow Production"
+          SLACK_MESSAGE: "Production rollback performed\nURL: https://burgerflow.com"
