@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.DependsOn
 import org.springframework.context.annotation.Primary
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories
 import org.springframework.orm.jpa.JpaTransactionManager
@@ -42,6 +43,8 @@ class ControlDataSourceConfig {
 
     @Bean
     @Primary
+    // Flyway must bring the control schema to HEAD before Hibernate validates it.
+    @DependsOn("flywayControl")
     fun controlEntityManagerFactory(
         builder: EntityManagerFactoryBuilder,
         @Qualifier("controlDataSource") dataSource: DataSource,
@@ -52,7 +55,11 @@ class ControlDataSourceConfig {
             .persistenceUnit("control")
             .properties(
                 mapOf(
-                    "hibernate.hbm2ddl.auto" to "update",
+                    // Flyway owns the control DDL now (V1__control_baseline.sql);
+                    // Hibernate only VALIDATES the entities against it — it must
+                    // never silently ALTER the schema. Schema changes roll forward
+                    // as new control migrations (V2, V3, ...).
+                    "hibernate.hbm2ddl.auto" to "validate",
                     "hibernate.dialect" to "org.hibernate.dialect.PostgreSQLDialect",
                 ),
             )

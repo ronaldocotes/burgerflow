@@ -1,0 +1,25 @@
+-- BurgerFlow CONTROL database — Flyway V2: refresh_tokens.
+--
+-- OWNER: Craudio (Sprint 2 auth — refresh-token rotation / revocation).
+--
+-- This file is a PLACEHOLDER. It is intentionally a no-op today so the control
+-- DB Flyway pipeline already has a V2 slot wired and tested; Craudio fills in
+-- the real DDL here. Once this file is APPLIED anywhere it is frozen by Flyway
+-- checksum — so fill it in BEFORE it ships / before any environment runs it.
+--
+-- Suggested shape (Curador's recommendation — adjust to the JPA entity):
+--   CREATE TABLE refresh_tokens (
+--       id          uuid PRIMARY KEY,
+--       user_id     uuid        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+--       tenant_id   uuid        NOT NULL,          -- denormalized for fast revoke-by-tenant
+--       token_hash  varchar(255) NOT NULL UNIQUE,  -- store a HASH, never the raw token
+--       issued_at   timestamptz NOT NULL DEFAULT now(),
+--       expires_at  timestamptz NOT NULL,
+--       revoked_at  timestamptz,                   -- non-null => revoked
+--       replaced_by uuid                           -- rotation chain (token reuse detection)
+--   );
+--   CREATE INDEX idx_refresh_tokens_user   ON refresh_tokens (user_id);
+--   CREATE INDEX idx_refresh_tokens_expiry ON refresh_tokens (expires_at);
+--
+-- No-op statement so the file is a valid (non-empty) migration until filled:
+SELECT 1;
