@@ -73,4 +73,12 @@ enum class UserRole {
     // DRIVER, OPERATOR or ADMIN (see PdvController / DeliveryController).
     OPERATOR,
     DRIVER,
+
+    // PLATFORM role (cross-tenant), NOT a tenant role. Grants access to platform
+    // operations that read across ALL tenants (e.g. the migration drift-check at
+    // GET /admin/tenants/migration-status). It must be assigned deliberately and
+    // sparingly; an ordinary tenant ADMIN must never receive it, otherwise it
+    // would expose other hamburguerias' state (cross-tenant IDOR). The role name
+    // flows into the JWT as ROLE_SUPER_ADMIN via the normal AuthService path.
+    SUPER_ADMIN,
 }
