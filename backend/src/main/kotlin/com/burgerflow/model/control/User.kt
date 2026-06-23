@@ -1,63 +1,62 @@
-package com.burgerflow.model
+package com.burgerflow.model.control
 
 import jakarta.persistence.*
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 
+/**
+ * Auth principal, stored in the CONTROL database. A user belongs to exactly one
+ * tenant (by [tenantId]); login is scoped by (tenantId, email) so the same email
+ * may exist across different hamburguerias.
+ */
 @Entity
-@Table(name = "users")
+@Table(
+    name = "users",
+    uniqueConstraints = [UniqueConstraint(columnNames = ["tenant_id", "email"])],
+)
 data class User(
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     val id: UUID? = null,
-    
-    @Column(nullable = false)
+
+    @Column(name = "tenant_id", nullable = false)
     var tenantId: UUID,
-    
-    @Column(nullable = false, unique = true)
+
+    @Column(nullable = false)
     var email: String,
-    
-    @Column(nullable = false)
+
+    @Column(name = "password_hash", nullable = false)
     var passwordHash: String,
-    
-    @Column(nullable = false)
+
+    @Column(name = "first_name", nullable = false)
     var firstName: String,
-    
-    @Column(nullable = false)
-    var lastName: String,
-    
+
+    @Column(name = "last_name", nullable = false)
+    var lastName: String = "",
+
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     var role: UserRole = UserRole.STAFF,
-    
-    @Column(nullable = false)
+
+    @Column(name = "is_active", nullable = false)
     var isActive: Boolean = true,
-    
-    @Column(name = "email_verified", nullable = false)
-    var isEmailVerified: Boolean = false,
-    
-    @Column(name = "phone_number")
-    var phoneNumber: String? = null,
-    
-    @Column(name = "profile_image_url")
-    var profileImageUrl: String? = null,
-    
+
     @Column(name = "created_at", nullable = false, updatable = false)
-    val createdAt: LocalDateTime = LocalDateTime.now(),
-    
-    @Column(name = "updated_at")
-    var updatedAt: LocalDateTime = LocalDateTime.now(),
-    
+    val createdAt: Instant = Instant.now(),
+
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: Instant = Instant.now(),
+
     @Column(name = "last_login_at")
-    var lastLoginAt: LocalDateTime? = null
+    var lastLoginAt: Instant? = null,
 ) {
     @PreUpdate
     fun preUpdate() {
-        updatedAt = LocalDateTime.now()
+        updatedAt = Instant.now()
     }
-    
+
     val fullName: String
-        get() = "$firstName $lastName"
+        get() = "$firstName $lastName".trim()
 }
 
 enum class UserRole {
@@ -66,5 +65,5 @@ enum class UserRole {
     STAFF,
     CASHIER,
     KITCHEN,
-    DELIVERY
+    DELIVERY,
 }

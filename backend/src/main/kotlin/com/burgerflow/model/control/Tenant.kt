@@ -1,54 +1,51 @@
-package com.burgerflow.model
+package com.burgerflow.model.control
 
 import jakarta.persistence.*
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 
+/**
+ * Registry row in the CONTROL database. Each tenant maps to a physical Postgres
+ * database named `tenant_<slug>`. The control DB never holds business data.
+ */
 @Entity
 @Table(name = "tenants")
 data class Tenant(
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     val id: UUID? = null,
-    
+
+    /** Logical tenant key used in the X-Tenant-ID header / JWT, e.g. "abc". */
     @Column(nullable = false, unique = true)
-    var name: String,
-    
-    @Column(nullable = false, unique = true)
-    var schemaName: String,
-    
+    var slug: String,
+
     @Column(nullable = false)
     var displayName: String,
-    
+
     @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
     var subscriptionPlan: SubscriptionPlan = SubscriptionPlan.BASIC,
-    
-    @Column(nullable = false)
-    var maxUsers: Int = 10,
-    
-    @Column(nullable = false)
-    var maxProducts: Int = 100,
-    
-    @Column(nullable = false)
+
+    @Column(name = "is_active", nullable = false)
     var isActive: Boolean = true,
-    
+
     @Column(name = "created_at", nullable = false, updatable = false)
-    val createdAt: LocalDateTime = LocalDateTime.now(),
-    
-    @Column(name = "updated_at")
-    var updatedAt: LocalDateTime = LocalDateTime.now(),
-    
+    val createdAt: Instant = Instant.now(),
+
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: Instant = Instant.now(),
+
     @Column(name = "expires_at")
-    var expiresAt: LocalDateTime? = null
+    var expiresAt: Instant? = null,
 ) {
     @PreUpdate
     fun preUpdate() {
-        updatedAt = LocalDateTime.now()
+        updatedAt = Instant.now()
     }
 }
 
 enum class SubscriptionPlan {
     BASIC,
     PRO,
-    ENTERPRISE
+    ENTERPRISE,
 }
