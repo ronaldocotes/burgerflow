@@ -1,0 +1,7 @@
+# Test overrides. Login rate-limit is OFF by default for the suite because
+# MockMvc always reports 127.0.0.1 (one shared bucket would trip across classes).
+# LoginRateLimitTest re-enables it via @DynamicPropertySource (highest precedence).
+burgerflow:
+  rate-limit:
+    login:
+      enabled: false

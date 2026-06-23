@@ -87,7 +87,9 @@ class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception::class)
-    fun unexpected(ex: Exception, req: WebRequest) =
-        ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+    fun unexpected(ex: Exception, req: WebRequest): ResponseEntity<ErrorResponse> {
+        org.slf4j.LoggerFactory.getLogger(javaClass).error("Unhandled exception on {}", path(req), ex)
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(body(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "An unexpected error occurred", req))
+    }
 }

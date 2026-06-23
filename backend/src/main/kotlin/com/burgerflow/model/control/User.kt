@@ -66,4 +66,11 @@ enum class UserRole {
     CASHIER,
     KITCHEN,
     DELIVERY,
+
+    // Sprint 2 roles. OPERATOR = PDV/cashier operator (front of house);
+    // DRIVER = delivery courier. Added additively; stored as STRING so existing
+    // rows are unaffected. RBAC: PDV requires OPERATOR or ADMIN; Delivery accepts
+    // DRIVER, OPERATOR or ADMIN (see PdvController / DeliveryController).
+    OPERATOR,
+    DRIVER,
 }

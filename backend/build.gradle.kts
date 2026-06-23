@@ -19,6 +19,7 @@ repositories {
 dependencies {
     // Spring Boot Starters
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-websocket")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
@@ -38,6 +39,13 @@ dependencies {
 
     // Redis
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
+
+    // Rate limiting (Sprint 2): Bucket4j core + Redis (Lettuce) proxy manager.
+    // The Redis-backed limiter is the production path (counters shared across
+    // instances). When no Lettuce connection is configured (dev/test) the limiter
+    // falls back to a local in-memory bucket so the limit is still enforced.
+    implementation("com.bucket4j:bucket4j-core:8.10.1")
+    implementation("com.bucket4j:bucket4j-redis:8.10.1")
 
     // Kafka
     implementation("org.springframework.kafka:spring-kafka")

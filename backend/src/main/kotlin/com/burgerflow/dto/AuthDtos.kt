@@ -17,6 +17,11 @@ data class RefreshRequest(
     val refreshToken: String,
 )
 
+data class LogoutRequest(
+    @field:NotBlank
+    val refreshToken: String,
+)
+
 data class TokenResponse(
     val token: String,
     val refreshToken: String,
