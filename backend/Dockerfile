@@ -5,14 +5,15 @@ FROM gradle:8.11.0-jdk21 AS build
 WORKDIR /home/gradlew
 
 # Copy build files
+COPY gradlew .
 COPY gradle/wrapper/gradle-wrapper.properties gradle/wrapper/
 COPY gradle/wrapper/gradle-wrapper.jar gradle/wrapper/
 COPY build.gradle.kts .
 COPY settings.gradle.kts .
 COPY src src/
 
-# Build the application
-RUN ./gradlew bootJar --no-daemon --stacktrace
+# Build the application (skip tests: they need Docker/Testcontainers, unavailable here)
+RUN chmod +x gradlew && ./gradlew bootJar --no-daemon --stacktrace -x test
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-jammy

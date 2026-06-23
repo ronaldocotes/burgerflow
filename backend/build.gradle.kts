@@ -4,7 +4,8 @@ plugins {
     kotlin("jvm") version "2.0.20"
     kotlin("plugin.spring") version "2.0.20"
     kotlin("plugin.jpa") version "2.0.20"
-    id("org.jetbrains.kotlin.plugin.allopen") version "2.0.20"
+    kotlin("plugin.allopen") version "2.0.20"
+    kotlin("plugin.noarg") version "2.0.20"
 }
 
 group = "com.burgerflow"
@@ -15,12 +16,6 @@ repositories {
     mavenCentral()
 }
 
-dependencyManagement {
-    imports {
-        mavenBom("org.springframework.cloud:spring-cloud-dependencies:2024.0.0")
-    }
-}
-
 dependencies {
     // Spring Boot Starters
     implementation("org.springframework.boot:spring-boot-starter-web")
@@ -29,54 +24,51 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-cache")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
-    
+
     // Database
     implementation("org.postgresql:postgresql")
     implementation("com.zaxxer:HikariCP")
-    
+
     // Redis
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
-    
+
     // Kafka
     implementation("org.springframework.kafka:spring-kafka")
-    
+
     // JSON
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
-    
+
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
-    
-    // Multi-tenant
-    implementation("org.hibernate:hibernate-core")
-    
+
+    // JWT (HS256) — io.jsonwebtoken (jjwt)
+    implementation("io.jsonwebtoken:jjwt-api:0.12.6")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")
+
+    // OpenAPI / Swagger (springdoc for Spring Boot 3.x)
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0")
+
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.springframework.kafka:spring-kafka-test")
     testImplementation("org.springframework.security:spring-security-test")
-    testImplementation("org.junit.jupiter:junit-jupiter-api")
-    testImplementation("org.junit.jupiter:junit-jupiter-engine")
-    testImplementation("org.mockito:mockito-core")
-    testImplementation("org.mockito.kotlin:mockito-kotlin")
-    testImplementation("com.nhaarman.mockitokotlin2:mockito-kotlin:5.4.0")
-    
-    // Lombok alternative for Kotlin
-    implementation("org.projectlombok:lombok:1.18.30")
-    annotationProcessor("org.projectlombok:lombok:1.18.30")
-    
-    // Multi-tenant support
-    implementation("com.github.vladmihalcea:hibernate-types-60:2.21.1")
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    // Testcontainers
+    testImplementation("org.testcontainers:junit-jupiter:1.20.4")
+    testImplementation("org.testcontainers:postgresql:1.20.4")
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
 }
 
 tasks {
     withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions {
-            freeCompilerArgs = listOf("-Xjsr305=strict")
-            jvmTarget = "21"
+        compilerOptions {
+            freeCompilerArgs.add("-Xjsr305=strict")
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
         }
     }
-    
+
     withType<Test> {
         useJUnitPlatform()
     }
