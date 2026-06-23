@@ -1,0 +1,42 @@
+# Production profile (activated by the Docker image via -Dspring.profiles.active=prod).
+# Inherits everything from application.yml; this file ONLY tightens production
+# defaults. Every secret/host comes from the environment (.env.prod on the host) —
+# nothing sensitive is committed.
+#
+# HARD RULE: the JWT secret MUST be provided by the environment. We deliberately
+# leave NO dev fallback here so the app FAILS TO START if BF_JWT_SECRET is unset,
+# instead of silently booting with the well-known dev secret (token forgery risk).
+burgerflow:
+  jwt:
+    # No default on purpose: missing BF_JWT_SECRET -> startup fails (fail-closed).
+    secret: ${BF_JWT_SECRET}
+  tenant:
+    # In prod the tenant databases are provisioned ahead of time by the platform;
+    # auto-create stays on (db-per-tenant on first access) but the DB role should
+    # be the least-privileged one that can CREATE DATABASE for new tenants.
+    auto-create-database: ${BF_DB_AUTOCREATE:true}
+  rate-limit:
+    login:
+      enabled: true
+      # Shared counter across instances in prod (single instance today, but this
+      # is correct for when we scale horizontally). Requires Redis to be reachable.
+      backend: ${BF_RATELIMIT_LOGIN_BACKEND:redis}
+
+# Actuator: expose only health over HTTP; never leak build/env/metrics publicly.
+# Caddy should additionally NOT proxy /actuator to the internet (defense in depth).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+logging:
+  level:
+    com.burgerflow: INFO
+    org.springframework: WARN
+    org.hibernate: WARN

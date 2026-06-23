@@ -1,0 +1,125 @@
+# BurgerFlow — production compose (Oracle A1, molde SISATER).
+#
+# Principles:
+#  - ONLY Caddy publishes 80/443; postgres/redis/backend stay on the internal
+#    network (no host ports), so nothing but the proxy is reachable from outside.
+#  - Secrets come from .env.prod (generated on the host with openssl, NOT in git).
+#  - NO Kafka/Zookeeper/pgadmin/kafka-ui: the backend has no @KafkaListener (boots
+#    fine without a broker), and admin UIs must never be exposed in prod. This
+#    keeps RAM low on the shared A1 box.
+#  - The app uses BF_DB_* / BF_JWT_* / SPRING_REDIS_* env vars (DataSource
+#    auto-config is EXCLUDED — db-per-tenant is wired manually), NOT
+#    SPRING_DATASOURCE_* (the dev compose got that wrong).
+#
+# ⚠️ The A1 host already runs SISATER/Alicia/Posthumus behind a Caddy on 80/443.
+# Coordinate with o Capataz before binding 80/443 here — either merge this site
+# into the existing Caddy or run isolated. This file is the standalone reference.
+#
+# Deploy (on the A1, after creating .env.prod):
+#   docker compose -f docker-compose.prod.yml up -d --build
+# Apply Flyway to existing tenant DBs out-of-band (control runs on boot):
+#   ../scripts/apply-migrations.sh "<control_jdbc_url>" "<tenant_jdbc_url>" ...
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: burgerflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${BF_DB_USER}
+      POSTGRES_PASSWORD: ${BF_DB_PASSWORD}
+      # Control DB is created at init; tenant DBs are created on first access.
+      POSTGRES_DB: ${BF_DB_CONTROL:-burgerflow_control}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [burgerflow-internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${BF_DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # No host port: only the backend (same network) reaches Postgres.
+
+  redis:
+    image: redis:7-alpine
+    container_name: burgerflow-redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${SPRING_REDIS_PASSWORD}"]
+    networks: [burgerflow-internal]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${SPRING_REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: burgerflow-backend:latest
+    container_name: burgerflow-backend
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      # --- Datasource (db-per-tenant; app wires these, NOT SPRING_DATASOURCE_*) ---
+      BF_DB_HOST: postgres:5432
+      BF_DB_USER: ${BF_DB_USER}
+      BF_DB_PASSWORD: ${BF_DB_PASSWORD}
+      BF_DB_CONTROL: ${BF_DB_CONTROL:-burgerflow_control}
+      BF_DB_MAINTENANCE: ${BF_DB_CONTROL:-burgerflow_control}
+      BF_DB_PREFIX: tenant_
+      BF_DB_AUTOCREATE: "true"
+      # --- Redis (rate-limit shared counter) ---
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: "6379"
+      SPRING_REDIS_PASSWORD: ${SPRING_REDIS_PASSWORD}
+      SPRING_CACHE_TYPE: redis
+      # --- Security: NO dev fallback. Missing -> app fails to start (intended). ---
+      BF_JWT_SECRET: ${BF_JWT_SECRET}
+      BF_RATELIMIT_LOGIN_BACKEND: redis
+      SERVER_PORT: "8080"
+    networks: [burgerflow-internal]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    # No host port: Caddy reaches the backend over the internal network.
+
+  # Frontend (Next.js) — uncomment when the web app is ready to ship.
+  # frontend:
+  #   build: { context: ../frontend, dockerfile: Dockerfile }
+  #   container_name: burgerflow-frontend
+  #   restart: unless-stopped
+  #   environment:
+  #     NEXT_PUBLIC_API_BASE: https://${SITE_ADDRESS}/api/v1
+  #   networks: [burgerflow-internal]
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: burgerflow-caddy
+    restart: unless-stopped
+    depends_on: [backend]
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [burgerflow-internal]
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  burgerflow-internal:
+    driver: bridge
