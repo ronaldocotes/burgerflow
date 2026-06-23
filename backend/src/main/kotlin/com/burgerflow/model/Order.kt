@@ -85,6 +85,16 @@ data class Order(
 
     @Column(name = "cancelled_reason")
     var cancelledReason: String? = null,
+
+    // --- Sprint 2: delivery dispatch (tenant DB) ---
+    /** Assigned delivery courier (DeliveryDriver.id in the tenant DB), if any. */
+    @Column(name = "driver_id")
+    var driverId: UUID? = null,
+
+    /** Delivery dispatch status; null until the order is assigned to a driver. */
+    @Column(name = "delivery_status")
+    @Enumerated(EnumType.STRING)
+    var deliveryStatus: DeliveryStatus? = null,
 ) {
     @PreUpdate
     fun preUpdate() {
@@ -133,4 +143,15 @@ enum class OrderPriority {
     NORMAL,
     HIGH,
     URGENT,
+}
+
+/**
+ * Delivery dispatch lifecycle (Sprint 2), independent of the kitchen [OrderStatus].
+ * ASSIGNED -> OUT_FOR_DELIVERY -> DELIVERED. Set only for delivery orders that
+ * have been assigned to a courier.
+ */
+enum class DeliveryStatus {
+    ASSIGNED,
+    OUT_FOR_DELIVERY,
+    DELIVERED,
 }
