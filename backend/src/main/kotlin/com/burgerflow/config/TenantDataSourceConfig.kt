@@ -10,7 +10,7 @@ import com.burgerflow.model.Product
 import com.burgerflow.model.ProductIngredient
 import com.burgerflow.tenant.DynamicTenantRoutingDataSource
 import com.burgerflow.tenant.TenantDataSourceProperties
-import com.burgerflow.tenant.TenantSchemaInitializer
+import com.burgerflow.tenant.TenantFlywayMigrator
 import jakarta.persistence.EntityManagerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder
@@ -36,11 +36,15 @@ import javax.sql.DataSource
 class TenantDataSourceConfig {
 
     @Bean
-    fun tenantRoutingDataSource(props: TenantDataSourceProperties): DynamicTenantRoutingDataSource {
+    fun tenantRoutingDataSource(
+        props: TenantDataSourceProperties,
+        flywayMigrator: TenantFlywayMigrator,
+    ): DynamicTenantRoutingDataSource {
         val ds = DynamicTenantRoutingDataSource(props)
-        // Each new tenant database gets its business schema created on first use.
-        val schemaInit = TenantSchemaInitializer()
-        ds.schemaInitializer = { dataSource -> schemaInit.initialize(dataSource) }
+        // Each NEW tenant database is migrated to HEAD via Flyway on first access
+        // (versioned, idempotent, auditable) and the result is logged to the
+        // control DB ledger. Replaces the old ScriptUtils baseline path.
+        ds.schemaInitializer = { slug, dataSource -> flywayMigrator.migrate(slug, dataSource) }
         return ds
     }
 
@@ -66,7 +70,7 @@ class TenantDataSourceConfig {
             .properties(
                 mapOf(
                     // DDL is NOT run at EMF boot (no tenant is bound yet). Schema is
-                    // materialized per-tenant by TenantSchemaInitializer on first access.
+                    // materialized per-tenant by TenantFlywayMigrator on first access.
                     "hibernate.hbm2ddl.auto" to "none",
                     // Dialect must be explicit: the routing datasource is lazy, so
                     // Hibernate cannot auto-detect it from a connection at startup.

@@ -29,6 +29,13 @@ dependencies {
     implementation("org.postgresql:postgresql")
     implementation("com.zaxxer:HikariCP")
 
+    // Flyway — versioned migrations. Flyway 10.x (managed by Spring Boot 3.4)
+    // split DB-specific support out of core: PostgreSQL 16 needs the postgresql
+    // module too, otherwise "Unsupported Database: PostgreSQL 16". Versions are
+    // managed by the Spring Boot BOM — do not pin them here.
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-database-postgresql")
+
     // Redis
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
 

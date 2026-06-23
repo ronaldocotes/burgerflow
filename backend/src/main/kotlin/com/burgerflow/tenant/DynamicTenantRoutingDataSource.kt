@@ -21,10 +21,12 @@ class DynamicTenantRoutingDataSource(
     private val props: TenantDataSourceProperties,
     /**
      * Invoked once, right after a NEW tenant pool is created, to materialize the
-     * business schema in that tenant database (Hibernate schema update). Null for
-     * the control pool. Set by TenantDataSourceConfig after the EMF is ready.
+     * business schema in that tenant database. Receives the tenant slug and the
+     * freshly built DataSource. In production this is TenantFlywayMigrator.migrate:
+     * it runs the versioned tenant migrations and records the result in the
+     * control DB ledger. Null for the control pool.
      */
-    @Volatile var schemaInitializer: ((DataSource) -> Unit)? = null,
+    @Volatile var schemaInitializer: ((String, DataSource) -> Unit)? = null,
 ) : AbstractRoutingDataSource() {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -58,8 +60,9 @@ class DynamicTenantRoutingDataSource(
             val dbName = props.dbPrefix + sanitize(slug)
             if (props.autoCreateDatabase) ensureDatabaseExists(dbName)
             val pool = buildPool(dbName, "tenant-$slug")
-            // Materialize the business schema in this fresh tenant database.
-            schemaInitializer?.invoke(pool)
+            // Materialize the business schema in this fresh tenant database via
+            // Flyway (idempotent: a no-op if the tenant DB is already at HEAD).
+            schemaInitializer?.invoke(slug, pool)
             pool
         }
 
@@ -110,5 +113,15 @@ class DynamicTenantRoutingDataSource(
     fun shutdownAll() {
         pools.values.forEach { runCatching { it.close() } }
         pools.clear()
+    }
+
+    /**
+     * Closes and forgets the pool for [slug] so the NEXT access rebuilds it (and
+     * re-runs the Flyway migrator against the existing tenant DB — idempotent).
+     * Used to recycle a tenant pool and exercised by the migration tests. The
+     * tenant database itself is left intact.
+     */
+    fun evictPool(slug: String) {
+        pools.remove(slug)?.let { runCatching { it.close() } }
     }
 }

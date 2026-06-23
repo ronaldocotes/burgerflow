@@ -1,6 +1,9 @@
--- BurgerFlow tenant baseline schema (database-per-tenant).
--- Applied to each tenant database on first access. Money is in CENTAVOS (bigint).
--- Idempotent: every object uses IF NOT EXISTS so re-running is safe.
+-- BurgerFlow TENANT baseline schema (database-per-tenant) — Flyway V1.
+-- Applied once per tenant database via TenantFlywayMigrator on first access.
+-- Money is in CENTAVOS (bigint). IF NOT EXISTS keeps it safe even if a tenant
+-- DB was pre-seeded by the old ScriptUtils path before this migration existed.
+-- NOTE: never edit this file once applied — Flyway tracks it by checksum.
+--       Schema changes roll FORWARD as V2, V3, ... (one logical change each).
 
 CREATE TABLE IF NOT EXISTS categories (
     id            uuid PRIMARY KEY,
