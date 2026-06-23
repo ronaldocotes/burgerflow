@@ -2,121 +2,92 @@ package com.burgerflow.exception
 
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.web.bind.MethodArgumentNotValidException
-import org.springframework.web.bind.annotation.ControllerAdvice
 import org.springframework.web.bind.annotation.ExceptionHandler
+import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.WebRequest
-import java.time.LocalDateTime
-
-@ControllerAdvice
-class GlobalExceptionHandler {
-    
-    @ExceptionHandler(ResourceNotFoundException::class)
-    fun handleResourceNotFoundException(ex: ResourceNotFoundException, request: WebRequest): ResponseEntity<ErrorResponse> {
-        val errorResponse = ErrorResponse(
-            timestamp = LocalDateTime.now(),
-            status = HttpStatus.NOT_FOUND.value(),
-            error = HttpStatus.NOT_FOUND.name,
-            message = ex.message ?: "Resource not found",
-            path = request.getDescription(false).replace("uri=", "")
-        )
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse)
-    }
-    
-    @ExceptionHandler(BusinessException::class)
-    fun handleBusinessException(ex: BusinessException, request: WebRequest): ResponseEntity<ErrorResponse> {
-        val errorResponse = ErrorResponse(
-            timestamp = LocalDateTime.now(),
-            status = HttpStatus.BAD_REQUEST.value(),
-            error = HttpStatus.BAD_REQUEST.name,
-            message = ex.message ?: "Business validation failed",
-            path = request.getDescription(false).replace("uri=", "")
-        )
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse)
-    }
-    
-    @ExceptionHandler(UnauthorizedException::class)
-    fun handleUnauthorizedException(ex: UnauthorizedException, request: WebRequest): ResponseEntity<ErrorResponse> {
-        val errorResponse = ErrorResponse(
-            timestamp = LocalDateTime.now(),
-            status = HttpStatus.UNAUTHORIZED.value(),
-            error = HttpStatus.UNAUTHORIZED.name,
-            message = ex.message ?: "Unauthorized access",
-            path = request.getDescription(false).replace("uri=", "")
-        )
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse)
-    }
-    
-    @ExceptionHandler(ForbiddenException::class)
-    fun handleForbiddenException(ex: ForbiddenException, request: WebRequest): ResponseEntity<ErrorResponse> {
-        val errorResponse = ErrorResponse(
-            timestamp = LocalDateTime.now(),
-            status = HttpStatus.FORBIDDEN.value(),
-            error = HttpStatus.FORBIDDEN.name,
-            message = ex.message ?: "Access denied",
-            path = request.getDescription(false).replace("uri=", "")
-        )
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse)
-    }
-    
-    @ExceptionHandler(ConflictException::class)
-    fun handleConflictException(ex: ConflictException, request: WebRequest): ResponseEntity<ErrorResponse> {
-        val errorResponse = ErrorResponse(
-            timestamp = LocalDateTime.now(),
-            status = HttpStatus.CONFLICT.value(),
-            error = HttpStatus.CONFLICT.name,
-            message = ex.message ?: "Conflict occurred",
-            path = request.getDescription(false).replace("uri=", "")
-        )
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse)
-    }
-    
-    @ExceptionHandler(MethodArgumentNotValidException::class)
-    fun handleValidationExceptions(ex: MethodArgumentNotValidException, request: WebRequest): ResponseEntity<ErrorResponse> {
-        val errors = ex.bindingResult.fieldErrors.map { 
-            "${it.field}: ${it.defaultMessage}" 
-        }
-        
-        val errorResponse = ErrorResponse(
-            timestamp = LocalDateTime.now(),
-            status = HttpStatus.BAD_REQUEST.value(),
-            error = HttpStatus.BAD_REQUEST.name,
-            message = "Validation failed",
-            errors = errors,
-            path = request.getDescription(false).replace("uri=", "")
-        )
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse)
-    }
-    
-    @ExceptionHandler(Exception::class)
-    fun handleAllExceptions(ex: Exception, request: WebRequest): ResponseEntity<ErrorResponse> {
-        val errorResponse = ErrorResponse(
-            timestamp = LocalDateTime.now(),
-            status = HttpStatus.INTERNAL_SERVER_ERROR.value(),
-            error = HttpStatus.INTERNAL_SERVER_ERROR.name,
-            message = ex.message ?: "An unexpected error occurred",
-            path = request.getDescription(false).replace("uri=", "")
-        )
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse)
-    }
-}
+import java.time.Instant
 
 data class ErrorResponse(
-    val timestamp: LocalDateTime,
+    val timestamp: Instant,
     val status: Int,
     val error: String,
+    val code: String,
     val message: String,
     val path: String,
-    val errors: List<String> = emptyList()
+    val errors: List<String> = emptyList(),
+    val details: List<Map<String, Any?>> = emptyList(),
 )
 
-// Custom exceptions
-class ResourceNotFoundException(message: String) : RuntimeException(message)
+@RestControllerAdvice
+class GlobalExceptionHandler {
 
-class BusinessException(message: String) : RuntimeException(message)
+    private fun path(req: WebRequest) = req.getDescription(false).removePrefix("uri=")
 
-class UnauthorizedException(message: String) : RuntimeException(message)
+    private fun body(
+        status: HttpStatus,
+        code: String,
+        message: String?,
+        req: WebRequest,
+        errors: List<String> = emptyList(),
+        details: List<Map<String, Any?>> = emptyList(),
+    ) = ErrorResponse(
+        timestamp = Instant.now(),
+        status = status.value(),
+        error = status.reasonPhrase,
+        code = code,
+        message = message ?: status.reasonPhrase,
+        path = path(req),
+        errors = errors,
+        details = details,
+    )
 
-class ForbiddenException(message: String) : RuntimeException(message)
+    @ExceptionHandler(ResourceNotFoundException::class)
+    fun notFound(ex: ResourceNotFoundException, req: WebRequest) =
+        ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(body(HttpStatus.NOT_FOUND, "NOT_FOUND", ex.message, req))
 
-class ConflictException(message: String) : RuntimeException(message)
+    @ExceptionHandler(BusinessException::class)
+    fun business(ex: BusinessException, req: WebRequest) =
+        ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(body(HttpStatus.BAD_REQUEST, "BUSINESS_ERROR", ex.message, req))
+
+    @ExceptionHandler(UnauthorizedException::class)
+    fun unauthorized(ex: UnauthorizedException, req: WebRequest) =
+        ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .header("WWW-Authenticate", "Bearer")
+            .body(body(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", ex.message, req))
+
+    @ExceptionHandler(ConflictException::class)
+    fun conflict(ex: ConflictException, req: WebRequest) =
+        ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(body(HttpStatus.CONFLICT, "CONFLICT", ex.message, req))
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException::class)
+    fun optimisticLock(ex: ObjectOptimisticLockingFailureException, req: WebRequest) =
+        ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(body(HttpStatus.CONFLICT, "CONCURRENT_MODIFICATION", "Resource was modified concurrently; retry", req))
+
+    @ExceptionHandler(UnprocessableEntityException::class)
+    fun unprocessable(ex: UnprocessableEntityException, req: WebRequest) =
+        ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+            .body(body(HttpStatus.UNPROCESSABLE_ENTITY, "UNPROCESSABLE", ex.message, req, details = ex.details))
+
+    @ExceptionHandler(IllegalArgumentException::class)
+    fun illegalArg(ex: IllegalArgumentException, req: WebRequest) =
+        ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(body(HttpStatus.BAD_REQUEST, "BAD_REQUEST", ex.message, req))
+
+    @ExceptionHandler(MethodArgumentNotValidException::class)
+    fun validation(ex: MethodArgumentNotValidException, req: WebRequest): ResponseEntity<ErrorResponse> {
+        val errors = ex.bindingResult.fieldErrors.map { "${it.field}: ${it.defaultMessage}" }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(body(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Validation failed", req, errors = errors))
+    }
+
+    @ExceptionHandler(Exception::class)
+    fun unexpected(ex: Exception, req: WebRequest) =
+        ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(body(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "An unexpected error occurred", req))
+}
