@@ -14,6 +14,7 @@ import com.burgerflow.repository.tenant.IngredientRepository
 import com.burgerflow.repository.tenant.OrderRepository
 import com.burgerflow.repository.tenant.ProductIngredientRepository
 import com.burgerflow.repository.tenant.ProductRepository
+import com.burgerflow.tenant.TenantContext
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.domain.Specification
@@ -32,6 +33,7 @@ class OrderService(
     private val productRepository: ProductRepository,
     private val productIngredientRepository: ProductIngredientRepository,
     private val ingredientRepository: IngredientRepository,
+    private val realtimePublisher: com.burgerflow.service.RealtimePublisher,
 ) {
 
     private val dateFmt = DateTimeFormatter.ofPattern("yyMMdd")
@@ -168,7 +170,38 @@ class OrderService(
             }
             else -> {}
         }
-        return OrderResponse.from(orderRepository.save(order))
+        val saved = orderRepository.save(order)
+        // Broadcast to the KDS for THIS tenant (slug from the signed token via
+        // TenantContext — authoritative, not a client header). Items are touched
+        // here while still inside the tx so the LAZY collection is initialized.
+        saved.items.size
+        realtimePublisher.publishKds(TenantContext.getOrThrow(), saved)
+        return OrderResponse.from(saved)
+    }
+
+    /**
+     * Active kitchen orders for the KDS screen: PENDING + PREPARING, oldest first.
+     * Items are eagerly touched so the response/event carry line details.
+     */
+    @Transactional("tenantTransactionManager", readOnly = true)
+    fun kdsActiveOrders(): List<com.burgerflow.dto.KdsOrderView> =
+        orderRepository
+            .findByStatusInOrderByCreatedAtAsc(listOf(OrderStatus.PENDING, OrderStatus.PREPARING))
+            .map { it.items.size; com.burgerflow.dto.KdsOrderView.from(it) }
+
+    /**
+     * Active PDV orders of the day: PENDING + PREPARING + READY since the start of
+     * "today" in São Paulo (business day), oldest first.
+     */
+    @Transactional("tenantTransactionManager", readOnly = true)
+    fun pdvActiveOrders(): List<OrderResponse> {
+        val from = LocalDate.now(saoPaulo).atStartOfDay(saoPaulo).toInstant()
+        return orderRepository
+            .findByStatusInAndCreatedAtGreaterThanEqualOrderByCreatedAtAsc(
+                listOf(OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY),
+                from,
+            )
+            .map { it.items.size; OrderResponse.from(it) }
     }
 
     /** PENDING -> PREPARING -> READY -> DELIVERED; CANCELLED from any non-terminal state. */
