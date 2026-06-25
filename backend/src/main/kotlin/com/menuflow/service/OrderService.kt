@@ -221,7 +221,7 @@ class OrderService(
     private fun generateOrderNumber(): String {
         val datePart = LocalDate.now(saoPaulo).format(dateFmt)
         val suffix = Random.nextInt(0, 1_000_000).toString().padStart(6, '0')
-        return "BF-$datePart-$suffix"
+        return "MF-$datePart-$suffix"
     }
 
     companion object {

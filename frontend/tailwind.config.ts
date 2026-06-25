@@ -8,11 +8,11 @@ const config: Config = {
     './src/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   
-  // Theme configuration with BurgerFlow branding
+  // Theme configuration with MenuFlow branding
   theme: {
     extend: {
       colors: {
-        // Primary colors - Green (BurgerFlow brand)
+        // Primary colors - Green (MenuFlow brand)
         primary: {
           50: '#ecfdf5',
           100: '#d1fae5',
@@ -78,6 +78,21 @@ const config: Config = {
           active: '#10b981',
           inactive: '#9ca3af',
           sold: '#ef4444',
+        },
+
+        bg: {
+          primary: 'var(--bg-primary)',
+          secondary: 'var(--bg-secondary)',
+          tertiary: 'var(--bg-tertiary)',
+        },
+        text: {
+          primary: 'var(--text-primary)',
+          secondary: 'var(--text-secondary)',
+          muted: 'var(--text-muted)',
+        },
+        border: {
+          light: 'var(--border-light)',
+          medium: 'var(--border-medium)',
         },
       },
       

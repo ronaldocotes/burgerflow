@@ -41,7 +41,7 @@ COPY . .
 RUN mkdir -p static/uploads
 
 # Create non-root user
-RUN groupadd -r aiservice && adduser -r -g aiservice aiservice
+RUN groupadd --system aiservice && useradd --system --gid aiservice aiservice
 
 # Change ownership
 RUN chown -R aiservice:aiservice /app

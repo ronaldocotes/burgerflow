@@ -21,6 +21,9 @@ FROM eclipse-temurin:21-jre-jammy
 # Set working directory
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy built jar from build stage
 COPY --from=build /home/gradlew/build/libs/*.jar app.jar
 
@@ -41,7 +44,7 @@ EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/actuator/health || exit 1
+    CMD curl -f http://localhost:8080/api/v1/actuator/health || exit 1
 
 # Run application
 ENTRYPOINT ["java", "-jar", "-Dspring.profiles.active=prod", "app.jar"]

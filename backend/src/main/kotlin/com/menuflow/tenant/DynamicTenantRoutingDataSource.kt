@@ -74,7 +74,7 @@ class DynamicTenantRoutingDataSource(
             driverClassName = "org.postgresql.Driver"
             maximumPoolSize = props.poolSizePerTenant
             minimumIdle = 1
-            poolName = "bf-$poolLabel"
+            poolName = "menuflow-$poolLabel"
             connectionTimeout = 30_000
         }
         log.info("Creating Hikari pool '{}' -> {}", cfg.poolName, dbName)

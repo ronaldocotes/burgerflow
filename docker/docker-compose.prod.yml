@@ -7,7 +7,7 @@
 #  - NO Kafka/Zookeeper/pgadmin/kafka-ui: the backend has no @KafkaListener (boots
 #    fine without a broker), and admin UIs must never be exposed in prod. This
 #    keeps RAM low on the shared A1 box.
-#  - The app uses BF_DB_* / BF_JWT_* / SPRING_REDIS_* env vars (DataSource
+#  - The app uses MF_DB_* / MF_JWT_* / SPRING_REDIS_* env vars (DataSource
 #    auto-config is EXCLUDED — db-per-tenant is wired manually), NOT
 #    SPRING_DATASOURCE_* (the dev compose got that wrong).
 #
@@ -26,15 +26,15 @@ services:
     container_name: menuflow-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${BF_DB_USER}
-      POSTGRES_PASSWORD: ${BF_DB_PASSWORD}
+      POSTGRES_USER: ${MF_DB_USER}
+      POSTGRES_PASSWORD: ${MF_DB_PASSWORD}
       # Control DB is created at init; tenant DBs are created on first access.
-      POSTGRES_DB: ${BF_DB_CONTROL:-menuflow_control}
+      POSTGRES_DB: ${MF_DB_CONTROL:-menuflow_control}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks: [menuflow-internal]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${BF_DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${MF_DB_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -65,21 +65,21 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       # --- Datasource (db-per-tenant; app wires these, NOT SPRING_DATASOURCE_*) ---
-      BF_DB_HOST: postgres:5432
-      BF_DB_USER: ${BF_DB_USER}
-      BF_DB_PASSWORD: ${BF_DB_PASSWORD}
-      BF_DB_CONTROL: ${BF_DB_CONTROL:-menuflow_control}
-      BF_DB_MAINTENANCE: ${BF_DB_CONTROL:-menuflow_control}
-      BF_DB_PREFIX: tenant_
-      BF_DB_AUTOCREATE: "true"
+      MF_DB_HOST: postgres:5432
+      MF_DB_USER: ${MF_DB_USER}
+      MF_DB_PASSWORD: ${MF_DB_PASSWORD}
+      MF_DB_CONTROL: ${MF_DB_CONTROL:-menuflow_control}
+      MF_DB_MAINTENANCE: ${MF_DB_CONTROL:-menuflow_control}
+      MF_DB_PREFIX: tenant_
+      MF_DB_AUTOCREATE: "true"
       # --- Redis (rate-limit shared counter) ---
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: "6379"
       SPRING_REDIS_PASSWORD: ${SPRING_REDIS_PASSWORD}
       SPRING_CACHE_TYPE: redis
       # --- Security: NO dev fallback. Missing -> app fails to start (intended). ---
-      BF_JWT_SECRET: ${BF_JWT_SECRET}
-      BF_RATELIMIT_LOGIN_BACKEND: redis
+      MF_JWT_SECRET: ${MF_JWT_SECRET}
+      MF_RATELIMIT_LOGIN_BACKEND: redis
       SERVER_PORT: "8080"
     networks: [menuflow-internal]
     healthcheck:

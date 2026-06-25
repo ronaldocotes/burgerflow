@@ -1,6 +1,12 @@
-import { UserRole } from '../app/types';
+export type UserRole =
+  | "SUPER_ADMIN"
+  | "ADMIN"
+  | "MANAGER"
+  | "STAFF"
+  | "CASHIER"
+  | "KITCHEN"
+  | "DELIVERY";
 
-// User types
 export interface User {
   id: string;
   tenantId: string;
@@ -21,7 +27,6 @@ export interface UserProfile extends User {
   fullName: string;
 }
 
-// Authentication types
 export interface LoginCredentials {
   email: string;
   password: string;
@@ -35,49 +40,9 @@ export interface LoginResponse {
   expiresAt: string;
 }
 
-export interface RegisterRequest {
-  tenantId: string;
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  phoneNumber?: string;
-  role?: UserRole;
-}
-
-export interface RefreshTokenRequest {
-  refreshToken: string;
-}
-
-export interface RefreshTokenResponse {
-  token: string;
-  refreshToken: string;
-  expiresAt: string;
-}
-
-// Password reset types
-export interface ForgotPasswordRequest {
-  email: string;
-}
-
-export interface ResetPasswordRequest {
-  token: string;
-  password: string;
-  confirmPassword: string;
-}
-
-// Auth state
 export interface AuthState {
   user: UserProfile | null;
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-}
-
-// Tenant user for auth context
-export interface TenantUser {
-  user: UserProfile;
-  token: string;
-  tenantId: string;
-  permissions: string[];
 }

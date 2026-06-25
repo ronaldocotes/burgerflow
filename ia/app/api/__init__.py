@@ -1,3 +1,3 @@
 """
-BurgerFlow AI API Package
+MenuFlow AI API Package
 """

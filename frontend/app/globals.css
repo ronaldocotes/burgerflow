@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom CSS Variables for BurgerFlow Theme */
+/* Custom CSS Variables for MenuFlow Theme */
 :root {
   /* Primary colors */
   --color-primary-500: #10b981;

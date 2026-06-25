@@ -17,7 +17,7 @@ concurrency:
 
 env:
   REGISTRY: docker.io
-  IMAGE_PREFIX: ${{ secrets.DOCKER_HUB_USERNAME }}/burgerflow
+  IMAGE_PREFIX: ${{ secrets.DOCKER_HUB_USERNAME }}/menuflow
 
 jobs:
   # ============================================================================
@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: development
-      url: https://dev.burgerflow.com
+      url: https://dev.menuflow.com
     
     steps:
       - name: Checkout code
@@ -44,7 +44,7 @@ jobs:
       
       - name: Pull Docker Images
         run: |
-          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.DEV_SERVER_IP }} "
+          ssh -o StrictHostKeyChecking=no menuflow@${{ secrets.DEV_SERVER_IP }} "
             docker pull ${{ env.IMAGE_PREFIX }}-backend:latest && \
             docker pull ${{ env.IMAGE_PREFIX }}-frontend:latest && \
             docker pull ${{ env.IMAGE_PREFIX }}-ia:latest
@@ -52,12 +52,12 @@ jobs:
       
       - name: Deploy with Docker Compose
         run: |
-          scp -o StrictHostKeyChecking=no docker/docker-compose.yml burgerflow@${{ secrets.DEV_SERVER_IP }}:/home/burgerflow/docker-compose.yml
+          scp -o StrictHostKeyChecking=no docker/docker-compose.yml menuflow@${{ secrets.DEV_SERVER_IP }}:/home/menuflow/docker-compose.yml
           
-          scp -o StrictHostKeyChecking=no backend/.env.example burgerflow@${{ secrets.DEV_SERVER_IP }}:/home/burgerflow/.env
+          scp -o StrictHostKeyChecking=no backend/.env.example menuflow@${{ secrets.DEV_SERVER_IP }}:/home/menuflow/.env
           
-          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.DEV_SERVER_IP }} "
-            cd /home/burgerflow && \
+          ssh -o StrictHostKeyChecking=no menuflow@${{ secrets.DEV_SERVER_IP }} "
+            cd /home/menuflow && \
             export COMPOSE_PROFILES=dev && \
             docker-compose -f docker-compose.yml down && \
             docker-compose -f docker-compose.yml pull && \
@@ -79,8 +79,8 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
           SLACK_COLOR: '#36a64f'
-          SLACK_TITLE: "🚀 Deployment - BurgerFlow Development"
-          SLACK_MESSAGE: "Deployed to development environment\nURL: https://dev.burgerflow.com\nCommit: ${{ github.sha }}"
+          SLACK_TITLE: "🚀 Deployment - MenuFlow Development"
+          SLACK_MESSAGE: "Deployed to development environment\nURL: https://dev.menuflow.com\nCommit: ${{ github.sha }}"
 
   # ============================================================================
   # Deploy to Staging (Oracle Cloud A1)
@@ -92,7 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: staging
-      url: https://staging.burgerflow.com
+      url: https://staging.menuflow.com
     
     steps:
       - name: Checkout code
@@ -107,7 +107,7 @@ jobs:
       
       - name: Pull Docker Images
         run: |
-          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.STAGING_SERVER_IP }} "
+          ssh -o StrictHostKeyChecking=no menuflow@${{ secrets.STAGING_SERVER_IP }} "
             docker pull ${{ env.IMAGE_PREFIX }}-backend:latest && \
             docker pull ${{ env.IMAGE_PREFIX }}-frontend:latest && \
             docker pull ${{ env.IMAGE_PREFIX }}-ia:latest
@@ -115,12 +115,12 @@ jobs:
       
       - name: Deploy with Docker Compose
         run: |
-          scp -o StrictHostKeyChecking=no docker/docker-compose.yml burgerflow@${{ secrets.STAGING_SERVER_IP }}:/home/burgerflow/docker-compose.yml
+          scp -o StrictHostKeyChecking=no docker/docker-compose.yml menuflow@${{ secrets.STAGING_SERVER_IP }}:/home/menuflow/docker-compose.yml
           
-          scp -o StrictHostKeyChecking=no backend/.env.production burgerflow@${{ secrets.STAGING_SERVER_IP }}:/home/burgerflow/.env
+          scp -o StrictHostKeyChecking=no backend/.env.production menuflow@${{ secrets.STAGING_SERVER_IP }}:/home/menuflow/.env
           
-          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.STAGING_SERVER_IP }} "
-            cd /home/burgerflow && \
+          ssh -o StrictHostKeyChecking=no menuflow@${{ secrets.STAGING_SERVER_IP }} "
+            cd /home/menuflow && \
             export COMPOSE_PROFILES=staging && \
             docker-compose -f docker-compose.yml down && \
             docker-compose -f docker-compose.yml pull && \
@@ -129,9 +129,9 @@ jobs:
       
       - name: Run Database Migrations
         run: |
-          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.STAGING_SERVER_IP }} "
-            cd /home/burgerflow && \
-            docker exec burgerflow-backend ./gradlew flywayMigrate
+          ssh -o StrictHostKeyChecking=no menuflow@${{ secrets.STAGING_SERVER_IP }} "
+            cd /home/menuflow && \
+            docker exec menuflow-backend ./gradlew flywayMigrate
           " || true
       
       - name: Verify Deployment
@@ -140,21 +140,21 @@ jobs:
           sleep 60
           
           # Check health endpoints
-          curl -f https://staging.burgerflow.com/api/v1/health || exit 1
-          curl -f https://staging.burgerflow.com/health || exit 1
+          curl -f https://staging.menuflow.com/api/v1/health || exit 1
+          curl -f https://staging.menuflow.com/health || exit 1
       
       - name: Run Smoke Tests
         run: |
           # Run basic API tests
-          curl -f https://staging.burgerflow.com/api/v1/tenants || exit 1
+          curl -f https://staging.menuflow.com/api/v1/tenants || exit 1
       
       - name: Send Deployment Notification
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
           SLACK_COLOR: '#36a64f'
-          SLACK_TITLE: "🚀 Deployment - BurgerFlow Staging"
-          SLACK_MESSAGE: "Deployed to staging environment\nURL: https://staging.burgerflow.com\nCommit: ${{ github.sha }}"
+          SLACK_TITLE: "🚀 Deployment - MenuFlow Staging"
+          SLACK_MESSAGE: "Deployed to staging environment\nURL: https://staging.menuflow.com\nCommit: ${{ github.sha }}"
 
   # ============================================================================
   # Deploy to Production (Manual Approval)
@@ -166,7 +166,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://burgerflow.com
+      url: https://menuflow.com
     
     steps:
       - name: Wait for Manual Approval
@@ -174,7 +174,7 @@ jobs:
         with:
           secret: ${{ secrets.PROD_DEPLOY_APPROVAL_SECRET }}
           approvers: ${{ secrets.PROD_DEPLOY_APPROVERS }}
-          issue-title: "Production Deployment Approval - BurgerFlow"
+          issue-title: "Production Deployment Approval - MenuFlow"
           issue-body: "Please review and approve the production deployment for commit ${{ github.sha }}"
           exclude-authors: true
       
@@ -190,7 +190,7 @@ jobs:
       
       - name: Pull Docker Images
         run: |
-          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.PROD_SERVER_IP }} "
+          ssh -o StrictHostKeyChecking=no menuflow@${{ secrets.PROD_SERVER_IP }} "
             docker pull ${{ env.IMAGE_PREFIX }}-backend:latest && \
             docker pull ${{ env.IMAGE_PREFIX }}-frontend:latest && \
             docker pull ${{ env.IMAGE_PREFIX }}-ia:latest
@@ -198,12 +198,12 @@ jobs:
       
       - name: Deploy with Docker Compose
         run: |
-          scp -o StrictHostKeyChecking=no docker/docker-compose.yml burgerflow@${{ secrets.PROD_SERVER_IP }}:/home/burgerflow/docker-compose.yml
+          scp -o StrictHostKeyChecking=no docker/docker-compose.yml menuflow@${{ secrets.PROD_SERVER_IP }}:/home/menuflow/docker-compose.yml
           
-          scp -o StrictHostKeyChecking=no backend/.env.production burgerflow@${{ secrets.PROD_SERVER_IP }}:/home/burgerflow/.env
+          scp -o StrictHostKeyChecking=no backend/.env.production menuflow@${{ secrets.PROD_SERVER_IP }}:/home/menuflow/.env
           
-          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.PROD_SERVER_IP }} "
-            cd /home/burgerflow && \
+          ssh -o StrictHostKeyChecking=no menuflow@${{ secrets.PROD_SERVER_IP }} "
+            cd /home/menuflow && \
             export COMPOSE_PROFILES=prod && \
             docker-compose -f docker-compose.yml down && \
             docker-compose -f docker-compose.yml pull && \
@@ -212,9 +212,9 @@ jobs:
       
       - name: Run Database Migrations
         run: |
-          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.PROD_SERVER_IP }} "
-            cd /home/burgerflow && \
-            docker exec burgerflow-backend ./gradlew flywayMigrate
+          ssh -o StrictHostKeyChecking=no menuflow@${{ secrets.PROD_SERVER_IP }} "
+            cd /home/menuflow && \
+            docker exec menuflow-backend ./gradlew flywayMigrate
           "
       
       - name: Verify Deployment
@@ -223,25 +223,25 @@ jobs:
           sleep 120
           
           # Check health endpoints
-          curl -f https://burgerflow.com/api/v1/health || exit 1
-          curl -f https://burgerflow.com/health || exit 1
+          curl -f https://menuflow.com/api/v1/health || exit 1
+          curl -f https://menuflow.com/health || exit 1
           
           # Check main page
-          curl -f https://burgerflow.com || exit 1
+          curl -f https://menuflow.com || exit 1
       
       - name: Run Smoke Tests
         run: |
           # Run production smoke tests
-          curl -f https://burgerflow.com/api/v1/tenants || exit 1
-          curl -f https://burgerflow.com/api/v1/products || exit 1
+          curl -f https://menuflow.com/api/v1/tenants || exit 1
+          curl -f https://menuflow.com/api/v1/products || exit 1
       
       - name: Send Deployment Notification
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
           SLACK_COLOR: '#36a64f'
-          SLACK_TITLE: "🚀 Deployment - BurgerFlow Production"
-          SLACK_MESSAGE: "Deployed to production environment\nURL: https://burgerflow.com\nCommit: ${{ github.sha }}"
+          SLACK_TITLE: "🚀 Deployment - MenuFlow Production"
+          SLACK_MESSAGE: "Deployed to production environment\nURL: https://menuflow.com\nCommit: ${{ github.sha }}"
       
       - name: Send Email Notification
         uses: dawidd6/action-send-mail@v3
@@ -250,10 +250,10 @@ jobs:
           server_port: ${{ secrets.SMTP_PORT }}
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "Production Deployment - BurgerFlow"
-          body: "Production deployment completed successfully.\n\nCommit: ${{ github.sha }}\nURL: https://burgerflow.com"
+          subject: "Production Deployment - MenuFlow"
+          body: "Production deployment completed successfully.\n\nCommit: ${{ github.sha }}\nURL: https://menuflow.com"
           to: ${{ secrets.DEPLOY_EMAILS }}
-          from: "BurgerFlow Bot"
+          from: "MenuFlow Bot"
           content_type: "text/plain"
 
   # ============================================================================
@@ -277,8 +277,8 @@ jobs:
       
       - name: Rollback to Previous Version
         run: |
-          ssh -o StrictHostKeyChecking=no burgerflow@${{ secrets.PROD_SERVER_IP }} "
-            cd /home/burgerflow && \
+          ssh -o StrictHostKeyChecking=no menuflow@${{ secrets.PROD_SERVER_IP }} "
+            cd /home/menuflow && \
             # Get previous version from history
             PREV_COMMIT=\$(git rev-parse HEAD~1) && \
             docker pull ${{ env.IMAGE_PREFIX }}-backend:\$PREV_COMMIT && \
@@ -294,5 +294,5 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
           SLACK_COLOR: '#ff0000'
-          SLACK_TITLE: "⚠️ Rollback - BurgerFlow Production"
-          SLACK_MESSAGE: "Production rollback performed\nURL: https://burgerflow.com"
+          SLACK_TITLE: "⚠️ Rollback - MenuFlow Production"
+          SLACK_MESSAGE: "Production rollback performed\nURL: https://menuflow.com"

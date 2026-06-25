@@ -1,10 +1,10 @@
-# BurgerFlow — Caddy reverse proxy (production, Oracle A1 molde SISATER).
+# MenuFlow — Caddy reverse proxy (production, Oracle A1 molde SISATER).
 # ONLY Caddy publishes 80/443; everything else stays on the internal Docker
 # network. TLS is automatic (Let's Encrypt) for a real domain, or use the
 # sslip.io trick for zero-DNS testing: <anything>.<IP-with-dashes>.sslip.io
 #
 # Set the site address via the {$SITE_ADDRESS} env var in .env.prod, e.g.
-#   SITE_ADDRESS=burgerflow.163-176-212-54.sslip.io
+#   SITE_ADDRESS=menuflow.163-176-212-54.sslip.io
 #
 # IMPORTANT: this A1 host already runs SISATER/Alicia/Posthumus behind their own
 # Caddy on 80/443. Do NOT blindly bind 80/443 again — coordinate with o Capataz:
@@ -31,8 +31,8 @@
 	# deployed, this returns a simple placeholder instead of proxying a dead host.
 	# When the frontend ships: replace the `respond` line with
 	#   reverse_proxy frontend:3000
-	respond / "BurgerFlow API is up. Web app coming soon." 200
-	respond "BurgerFlow API is up. Web app coming soon." 200
+	respond / "MenuFlow API is up. Web app coming soon." 200
+	respond "MenuFlow API is up. Web app coming soon." 200
 
 	header {
 		# Basic hardening headers (Caddy already sets sane TLS).

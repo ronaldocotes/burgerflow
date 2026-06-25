@@ -37,7 +37,7 @@ class ControlDataSourceConfig {
         ds.password = props.password
         ds.driverClassName = "org.postgresql.Driver"
         ds.maximumPoolSize = 5
-        ds.poolName = "bf-control"
+        ds.poolName = "menuflow-control"
         return ds
     }
 

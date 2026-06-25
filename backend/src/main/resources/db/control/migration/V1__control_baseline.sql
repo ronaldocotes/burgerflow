@@ -1,4 +1,4 @@
--- BurgerFlow CONTROL database baseline — Flyway V1.
+-- MenuFlow CONTROL database baseline — Flyway V1.
 -- The control DB is the GLOBAL registry: tenants, users (auth) and the
 -- per-tenant migration ledger. It NEVER holds business data (that lives in
 -- each tenant_<slug> database). Money/business tables belong to the tenant PU.

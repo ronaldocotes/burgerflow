@@ -1,3 +1,3 @@
 """
-BurgerFlow AI Core Package
+MenuFlow AI Core Package
 """

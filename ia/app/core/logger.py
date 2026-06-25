@@ -53,7 +53,7 @@ def setup_logging():
     logging.getLogger("confluent_kafka").setLevel(logging.WARNING)
     
     # Add specific loggers
-    logger = logging.getLogger("burgerflow.ai")
+    logger = logging.getLogger("menuflow.ai")
     logger.info(f"Logging configured - Level: {settings.LOG_LEVEL}, Format: {settings.LOG_FORMAT}")
 
 
@@ -72,4 +72,4 @@ class RequestIdFilter(logging.Filter):
 
 def get_logger(name: str) -> logging.Logger:
     """Get a logger with the given name"""
-    return logging.getLogger(f"burgerflow.ai.{name}")
+    return logging.getLogger(f"menuflow.ai.{name}")

@@ -12,4 +12,4 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "burgerflow-backend"
+rootProject.name = "menuflow-backend"

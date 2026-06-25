@@ -35,8 +35,7 @@ spacy==3.7.4
 statsmodels==0.14.1
 prophet==1.1.5
 
-# WhatsApp Business API (simulated)
-whatsapp-business-api-python==1.0.0
+# WhatsApp Business API will use the official HTTP API when implemented.
 
 # OpenAI (for advanced AI features)
 openai==1.12.0

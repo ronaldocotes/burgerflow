@@ -1,4 +1,4 @@
--- BurgerFlow TENANT baseline schema (database-per-tenant) — Flyway V1.
+-- MenuFlow TENANT baseline schema (database-per-tenant) — Flyway V1.
 -- Applied once per tenant database via TenantFlywayMigrator on first access.
 -- Money is in CENTAVOS (bigint). IF NOT EXISTS keeps it safe even if a tenant
 -- DB was pre-seeded by the old ScriptUtils path before this migration existed.

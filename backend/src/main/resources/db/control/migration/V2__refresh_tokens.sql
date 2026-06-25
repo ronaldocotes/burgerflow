@@ -1,4 +1,4 @@
--- BurgerFlow CONTROL database — Flyway V2: refresh_tokens.
+-- MenuFlow CONTROL database — Flyway V2: refresh_tokens.
 --
 -- OWNER: Craudio (Sprint 2 auth — refresh-token rotation / revocation).
 --

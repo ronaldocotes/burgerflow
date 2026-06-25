@@ -56,6 +56,10 @@ def get_kafka_admin() -> AdminClient:
 
 async def init_kafka():
     """Initialize Kafka connection and create topics if needed"""
+    if not settings.KAFKA_ENABLED:
+        logger.info("Kafka disabled; skipping broker initialization")
+        return
+
     logger.info("Initializing Kafka connection...")
     
     try:
@@ -73,6 +77,9 @@ async def init_kafka():
 
 async def close_kafka():
     """Close Kafka connection"""
+    if not settings.KAFKA_ENABLED:
+        return
+
     logger.info("Closing Kafka connection...")
     
     global _kafka_producer, _kafka_consumer, _kafka_admin
@@ -129,6 +136,10 @@ async def create_kafka_topics():
 
 async def produce_message(topic: str, message: dict) -> bool:
     """Produce a message to Kafka"""
+    if not settings.KAFKA_ENABLED:
+        logger.debug("Kafka disabled; skipping message for topic %s: %s", topic, message)
+        return False
+
     producer = get_kafka_producer()
     
     try:

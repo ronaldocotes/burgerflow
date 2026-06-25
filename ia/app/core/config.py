@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     """Application settings"""
     
     # Application
-    APP_NAME: str = "BurgerFlow AI"
-    APP_DESCRIPTION: str = "AI Service for BurgerFlow - Demand forecasting, chatbot, recommendations"
+    APP_NAME: str = "MenuFlow AI"
+    APP_DESCRIPTION: str = "AI Service for MenuFlow - Demand forecasting, chatbot, recommendations"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = True
     
@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
     
     # Database (PostgreSQL)
-    DATABASE_URL: str = "postgresql+asyncpg://burgerflow:burgerflow123@localhost:5432/burgerflow"
+    DATABASE_URL: str = "postgresql+asyncpg://menuflow:menuflow123@localhost:5432/menuflow"
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 10
     DATABASE_POOL_TIMEOUT: int = 30
@@ -37,17 +37,18 @@ class Settings(BaseSettings):
     REDIS_MAX_CONNECTIONS: int = 50
     
     # Kafka
+    KAFKA_ENABLED: bool = False
     KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
-    KAFKA_GROUP_ID: str = "burgerflow-ai"
+    KAFKA_GROUP_ID: str = "menuflow-ai"
     KAFKA_AUTO_OFFSET_RESET: str = "earliest"
     KAFKA_ENABLE_AUTO_COMMIT: bool = False
     KAFKA_AUTO_COMMIT_INTERVAL_MS: int = 5000
     
     # Kafka Topics
-    KAFKA_TOPIC_ORDERS: str = "burgerflow-orders"
-    KAFKA_TOPIC_CHATBOT: str = "burgerflow-chatbot"
-    KAFKA_TOPIC_NOTIFICATIONS: str = "burgerflow-notifications"
-    KAFKA_TOPIC_ANALYTICS: str = "burgerflow-analytics"
+    KAFKA_TOPIC_ORDERS: str = "menuflow-orders"
+    KAFKA_TOPIC_CHATBOT: str = "menuflow-chatbot"
+    KAFKA_TOPIC_NOTIFICATIONS: str = "menuflow-notifications"
+    KAFKA_TOPIC_ANALYTICS: str = "menuflow-analytics"
     
     # Backend API
     BACKEND_API_URL: str = "http://localhost:8080/api/v1"
@@ -58,11 +59,11 @@ class Settings(BaseSettings):
         "http://localhost",
         "http://localhost:3000",
         "http://localhost:8080",
-        "http://burgerflow.local",
+        "http://menuflow.local",
     ]
     
     # Trusted Hosts
-    TRUSTED_HOSTS: List[str] = ["localhost", "127.0.0.1", "burgerflow.local"]
+    TRUSTED_HOSTS: List[str] = ["localhost", "127.0.0.1", "menuflow.local"]
     
     # Authentication
     SECRET_KEY: str = "your-secret-key-here-change-in-production"

@@ -1,3 +1,3 @@
 """
-BurgerFlow AI Application Package
+MenuFlow AI Application Package
 """

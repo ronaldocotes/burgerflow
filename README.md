@@ -1,12 +1,14 @@
-# 🍔 BurgerFlow - Sistema de Gestão para Hamburguerias
+# 🍔 MenuFlow - Sistema de Gestão para Hamburguerias
 
 ## 📋 Visão Geral
 
-BurgerFlow é um **Sistema de Gestão Integrada SaaS** desenvolvido especificamente para **Pequenas e Médias Hamburguerias (SMB)**. O sistema aborda o **gap de mercado** identificado na pesquisa: ausência de soluções acessíveis (< R$150/mês) com **KDS + PDV + Delivery NATIVO** completamente integrado.
+MenuFlow é um **Sistema de Gestão Integrada SaaS** desenvolvido especificamente para **Pequenas e Médias Hamburguerias (SMB)**. O sistema aborda o **gap de mercado** identificado na pesquisa: ausência de soluções acessíveis (< R$150/mês) com **KDS + PDV + Delivery NATIVO** completamente integrado.
+
+> **Estado canônico do código vivo (2026-06-25):** o backend Spring Boot/Kotlin é a parte operacional mais madura e testada. Web e mobile estão como bases compiláveis em React atual, prontas para receber as telas reais. A IA FastAPI está parcial, com `health` e `demand_forecasting`. Para produção MVP, a fundação atual é **Docker Compose + Caddy + Postgres + Redis + backend**. Kafka, K3s, WhatsApp, chatbot, Growth Center e observabilidade completa ficam como roadmap até haver necessidade real.
 
 ### 🎯 Gap de Mercado
 
-| Recurso | Saipos | Simpliza | Anota AI | **BurgerFlow** |
+| Recurso | Saipos | Simpliza | Anota AI | **MenuFlow** |
 |---------|--------|----------|----------|----------------|
 | **Preço** | ~R$220 | R$79+ | R$99,90+ | **R$79-149** |
 | **KDS** | ✅ | ❌ | ✅ | **✅** |
@@ -22,25 +24,21 @@ BurgerFlow é um **Sistema de Gestão Integrada SaaS** desenvolvido especificame
 ## 🏗️ Stack Tecnológica
 
 ### Frontend Web
-- **Framework:** Next.js 14
-- **UI Library:** Tailwind CSS + Radix UI + shadcn/ui
-- **State Management:** Zustand
-- **HTTP Client:** Axios
-- **Real-time:** Socket.IO Client
+- **Framework:** Next.js 16
+- **UI Library:** Tailwind CSS
+- **Runtime:** React 19
+- **Status:** base compilável; telas operacionais ainda em construção
 
 ### Frontend Mobile
-- **Framework:** React Native 0.74
-- **Navigation:** React Navigation 6
-- **UI Library:** @shopify/restyle
-- **State Management:** Zustand
-- **HTTP Client:** Axios
-- **Real-time:** Socket.IO Client
+- **Framework:** React Native 0.86
+- **Runtime:** React 19
+- **Status:** base compilável; fluxos de PDV/KDS/delivery ainda em construção
 
 ### Backend Core
 - **Framework:** Spring Boot 3.4 (Kotlin)
 - **Database:** PostgreSQL 16
 - **Cache:** Redis 7
-- **Messaging:** Apache Kafka
+- **Messaging:** Outbox transacional planejado; Kafka adiado
 - **Security:** Spring Security + JWT
 - **API:** REST + WebSocket
 
@@ -48,29 +46,29 @@ BurgerFlow é um **Sistema de Gestão Integrada SaaS** desenvolvido especificame
 - **Framework:** FastAPI (Python)
 - **Database:** PostgreSQL 16 (shared)
 - **Cache:** Redis 7 (shared)
-- **Messaging:** Apache Kafka (shared)
+- **Messaging:** Kafka opcional/desabilitado por padrão
 - **ML Libraries:** scikit-learn, pandas, numpy, statsmodels
 - **AI:** OpenAI API (optional)
 
 ### Infraestrutura
 - **Container:** Docker
-- **Orchestration:** Kubernetes (K3s)
+- **Orchestration:** Docker Compose no MVP; K3s adiado
 - **Cloud:** Oracle Cloud A1 (Free Tier)
-- **Reverse Proxy:** Nginx
+- **Reverse Proxy:** Caddy
 - **CI/CD:** GitHub Actions
-- **Monitoring:** Prometheus + Grafana
-- **Logging:** Loki + ELK
+- **Monitoring:** roadmap
+- **Logging:** logs de aplicação; stack completa é roadmap
 
 ---
 
 ## 📦 Estrutura do Repositório
 
 ```
-burgerflow/
+menuflow/
 ├── backend/                  # Backend Core (Spring Boot Kotlin)
 │   ├── src/
 │   │   ├── main/
-│   │   │   ├── kotlin/com/burgerflow/
+│   │   │   ├── kotlin/com/menuflow/
 │   │   │   │   ├── config/          # Configurações
 │   │   │   │   ├── controller/       # Controladores REST
 │   │   │   │   ├── dto/             # Data Transfer Objects
@@ -169,8 +167,8 @@ burgerflow/
 
 ```bash
 cd /home/ronaldo
-git init burgerflow
-cd burgerflow
+git init menuflow
+cd menuflow
 # Copiar todos os arquivos criados para cá
 ```
 
@@ -650,10 +648,10 @@ MIT License - Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
 ## 🏢 Sobre o Projeto
 
-**BurgerFlow** é um projeto desenvolvido pelo **Mistral Vibe** (Agente Construtor) em colaboração com todos os agentes do laboratório (Craudio, Gepeto, Curador, Nick, Centurião, Testador).
+**MenuFlow** é um projeto desenvolvido pelo **Mistral Vibe** (Agente Construtor) em colaboração com todos os agentes do laboratório (Craudio, Gepeto, Curador, Nick, Centurião, Testador).
 
 O projeto nasceu da necessidade de preencher o gap de mercado identificado na pesquisa de sistemas para hamburguerias, oferecendo uma solução completa, integrada e acessível para pequenas e médias empresas do setor de Food Service.
 
 ---
 
-**© 2026 BurgerFlow - Todos os direitos reservados**
+**© 2026 MenuFlow - Todos os direitos reservados**

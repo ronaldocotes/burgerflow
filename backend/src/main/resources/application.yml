@@ -56,32 +56,32 @@ management:
 
 logging:
   level:
-    com.menuflow: ${LOGGING_LEVEL_COM_BURGERFLOW:INFO}
+    com.menuflow: ${LOGGING_LEVEL_COM_MENUFLOW:INFO}
     org.springframework: WARN
     org.hibernate: WARN
 
 # MenuFlow multi-tenant connection template (database-per-tenant)
 menuflow:
   tenant:
-    host: ${BF_DB_HOST:localhost:5432}
-    username: ${BF_DB_USER:menuflow}
-    password: ${BF_DB_PASSWORD:menuflow123}
-    db-prefix: ${BF_DB_PREFIX:tenant_}
-    maintenance-db: ${BF_DB_MAINTENANCE:postgres}
-    control-db: ${BF_DB_CONTROL:menuflow_control}
-    pool-size-per-tenant: ${BF_DB_POOL:5}
-    auto-create-database: ${BF_DB_AUTOCREATE:true}
+    host: ${MF_DB_HOST:localhost:5432}
+    username: ${MF_DB_USER:menuflow}
+    password: ${MF_DB_PASSWORD:menuflow123}
+    db-prefix: ${MF_DB_PREFIX:tenant_}
+    maintenance-db: ${MF_DB_MAINTENANCE:postgres}
+    control-db: ${MF_DB_CONTROL:menuflow_control}
+    pool-size-per-tenant: ${MF_DB_POOL:5}
+    auto-create-database: ${MF_DB_AUTOCREATE:true}
   jwt:
-    secret: ${BF_JWT_SECRET:change-me-in-prod-menuflow-dev-secret-key-256bits!}
-    access-ttl-seconds: ${BF_JWT_ACCESS_TTL:3600}
-    refresh-ttl-seconds: ${BF_JWT_REFRESH_TTL:604800}
+    secret: ${MF_JWT_SECRET:change-me-in-prod-menuflow-dev-secret-key-256bits!}
+    access-ttl-seconds: ${MF_JWT_ACCESS_TTL:3600}
+    refresh-ttl-seconds: ${MF_JWT_REFRESH_TTL:604800}
     issuer: menuflow
   # Login rate limit (Sprint 2): 5 attempts / 60s per client IP.
   # backend=redis shares the counter across instances (needs Spring Redis);
   # backend=memory (default) is node-local Bucket4j.
   rate-limit:
     login:
-      enabled: ${BF_RATELIMIT_LOGIN_ENABLED:true}
-      backend: ${BF_RATELIMIT_LOGIN_BACKEND:memory}
-      capacity: ${BF_RATELIMIT_LOGIN_CAPACITY:5}
-      refill-period-seconds: ${BF_RATELIMIT_LOGIN_PERIOD:60}
+      enabled: ${MF_RATELIMIT_LOGIN_ENABLED:true}
+      backend: ${MF_RATELIMIT_LOGIN_BACKEND:memory}
+      capacity: ${MF_RATELIMIT_LOGIN_CAPACITY:5}
+      refill-period-seconds: ${MF_RATELIMIT_LOGIN_PERIOD:60}

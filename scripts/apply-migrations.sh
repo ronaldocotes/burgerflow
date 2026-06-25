@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# apply-migrations.sh — run BurgerFlow Flyway migrations against N databases
+# apply-migrations.sh — run MenuFlow Flyway migrations against N databases
 # OUT-OF-BAND, the same way the app does on boot / first tenant access.
 #
 # WHY: the Spring app migrates the control DB on startup and each tenant DB on
@@ -19,7 +19,7 @@
 #   scripts/apply-migrations.sh <control_url> [tenant_url ...]
 #
 # Each *_url is a full JDBC URL, e.g.:
-#   jdbc:postgresql://HOST:5432/burgerflow_control?user=U&password=P
+#   jdbc:postgresql://HOST:5432/menuflow_control?user=U&password=P
 #   jdbc:postgresql://HOST:5432/tenant_abc?user=U&password=P
 #
 # The FIRST argument is treated as the CONTROL database (control migrations +
@@ -28,9 +28,9 @@
 #
 # EXAMPLES:
 #   scripts/apply-migrations.sh \
-#     "jdbc:postgresql://localhost:5432/burgerflow_control?user=burgerflow&password=burgerflow123" \
-#     "jdbc:postgresql://localhost:5432/tenant_abc?user=burgerflow&password=burgerflow123" \
-#     "jdbc:postgresql://localhost:5432/tenant_xyz?user=burgerflow&password=burgerflow123"
+#     "jdbc:postgresql://localhost:5432/menuflow_control?user=menuflow&password=menuflow123" \
+#     "jdbc:postgresql://localhost:5432/tenant_abc?user=menuflow&password=menuflow123" \
+#     "jdbc:postgresql://localhost:5432/tenant_xyz?user=menuflow&password=menuflow123"
 #
 set -euo pipefail
 

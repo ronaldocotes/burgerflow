@@ -1,20 +1,20 @@
 """
-BurgerFlow AI Service
+MenuFlow AI Service
 =====================
 
 FastAPI application for AI/ML features:
 - Demand forecasting
-- Chatbot for customer service
-- WhatsApp integration
-- Recommendation engine
-- Image recognition (for product photos)
+- Future: chatbot for customer service
+- Future: WhatsApp integration
+- Future: recommendation engine
+- Future: image recognition for product photos
 """
 
 import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi import FastAPI, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
@@ -22,12 +22,8 @@ from fastapi.staticfiles import StaticFiles
 
 # Import routers
 from app.api.v1 import (
-    chatbot,
     demand_forecasting,
     health,
-    recommendations,
-    whatsapp,
-    analytics,
 )
 
 # Import config
@@ -45,22 +41,23 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager"""
     # Startup
-    logger.info("Starting BurgerFlow AI Service...")
+    logger.info("Starting MenuFlow AI Service...")
     
     # Initialize database
     logger.info("Initializing database connection...")
     await init_db()
     
-    # Initialize Kafka
-    logger.info("Initializing Kafka connection...")
+    # Kafka is optional in the current MenuFlow production alignment. The A1
+    # deployment path uses Docker Compose + Caddy + Postgres + Redis, without a
+    # broker until volume justifies it.
     await init_kafka()
     
-    logger.info("BurgerFlow AI Service started successfully!")
+    logger.info("MenuFlow AI Service started successfully!")
     
     yield
     
     # Shutdown
-    logger.info("Shutting down BurgerFlow AI Service...")
+    logger.info("Shutting down MenuFlow AI Service...")
     
     # Close Kafka
     logger.info("Closing Kafka connection...")
@@ -70,7 +67,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Closing database connection...")
     await close_db()
     
-    logger.info("BurgerFlow AI Service shutdown complete")
+    logger.info("MenuFlow AI Service shutdown complete")
 
 
 # Create FastAPI application
@@ -103,31 +100,11 @@ app.add_middleware(
 
 
 # Include API routers
-app.include_router(health.router, prefix="/api/v1/health", tags=["Health"])
+app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 app.include_router(
     demand_forecasting.router,
-    prefix="/api/v1/forecast",
+    prefix="/api/v1",
     tags=["Demand Forecasting"],
-)
-app.include_router(
-    recommendations.router,
-    prefix="/api/v1/recommendations",
-    tags=["Recommendations"],
-)
-app.include_router(
-    chatbot.router,
-    prefix="/api/v1/chatbot",
-    tags=["Chatbot"],
-)
-app.include_router(
-    whatsapp.router,
-    prefix="/api/v1/whatsapp",
-    tags=["WhatsApp"],
-)
-app.include_router(
-    analytics.router,
-    prefix="/api/v1/analytics",
-    tags=["Analytics"],
 )
 
 

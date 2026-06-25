@@ -1,4 +1,4 @@
--- BurgerFlow Sprint 2 — additive TENANT schema (database-per-tenant).
+-- MenuFlow Sprint 2 — additive TENANT schema (database-per-tenant).
 -- Money is in CENTAVOS (bigint).
 
 -- 1) Delivery dispatch columns on orders
