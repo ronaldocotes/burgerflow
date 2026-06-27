@@ -1,0 +1,14 @@
+# Perfil de DESENVOLVIMENTO. Ativado por padrão (application.yml define
+# spring.profiles.active=${SPRING_PROFILES_ACTIVE:dev}), então subir o backend
+# localmente já cai aqui. Os datasources/multitenancy vêm do application.yml base;
+# este arquivo só acrescenta overrides de DEV (log mais verboso + o seeder).
+
+logging:
+  level:
+    com.menuflow: DEBUG
+
+menuflow:
+  dev:
+    # Liga o DevDataSeeder (tenant demo + admin@demo.com + produtos + mesas).
+    # Coloque false para subir o dev sem semear nada.
+    seed: true
