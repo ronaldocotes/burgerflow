@@ -1,16 +1,14 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { api } from "@/lib/api";
-import { getToken, logout } from "@/lib/auth";
+import { useSearchParams } from "next/navigation";
+import { API_BASE, api, TOKEN_KEY } from "@/lib/api";
 import { Category, Page, Product, formatBRL } from "@/types/menu";
 import LoadingSpinner from "@/components/loading-spinner";
 
-// ── Conteudo principal (usa useSearchParams — precisa de Suspense) ─────────────
+const PUBLIC_TENANT = process.env.NEXT_PUBLIC_TENANT_SLUG ?? "demo";
 
 function CardapioContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const tableParam = searchParams.get("table");
   const tableLabel = tableParam ? decodeURIComponent(tableParam) : null;
@@ -24,12 +22,28 @@ function CardapioContent() {
     setLoading(true);
     setError(null);
     try {
-      const [cats, prods] = await Promise.all([
-        api.get<Page<Category>>("/categories?size=100"),
-        api.get<Page<Product>>("/products?size=200"),
-      ]);
-      setCategories(cats.content);
-      setProducts(prods.content);
+      const token =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem(TOKEN_KEY)
+          : null;
+
+      if (token) {
+        const [cats, prods] = await Promise.all([
+          api.get<Page<Category>>("/categories?size=100"),
+          api.get<Page<Product>>("/products?size=200"),
+        ]);
+        setCategories(cats.content);
+        setProducts(prods.content);
+      } else {
+        const res = await fetch(`${API_BASE}/public/${PUBLIC_TENANT}/menu`);
+        if (!res.ok) throw new Error("Cardapio indisponivel no momento.");
+        const data = (await res.json()) as {
+          categories: Category[];
+          products: Product[];
+        };
+        setCategories(data.categories);
+        setProducts(data.products);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar o cardapio.");
     } finally {
@@ -38,17 +52,8 @@ function CardapioContent() {
   }, []);
 
   useEffect(() => {
-    if (!getToken()) {
-      router.push("/login");
-      return;
-    }
     void load();
-  }, [router, load]);
-
-  function onLogout() {
-    logout();
-    router.push("/login");
-  }
+  }, [load]);
 
   if (loading) {
     return (
@@ -61,22 +66,14 @@ function CardapioContent() {
   if (error) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-bg-secondary px-4 text-center">
-        <p className="text-error font-medium" role="alert">
-          {error}
-        </p>
-        <div className="flex gap-2">
-          <button className="btn-primary" onClick={() => void load()}>
-            Tentar de novo
-          </button>
-          <button className="btn-outline" onClick={onLogout}>
-            Sair
-          </button>
-        </div>
+        <p className="text-error font-medium" role="alert">{error}</p>
+        <button className="btn-primary" onClick={() => void load()}>
+          Tentar de novo
+        </button>
       </div>
     );
   }
 
-  // Agrupa produtos por categoria; o que nao casar com categoria conhecida vai em "Outros".
   const byCategory = new Map<string, Product[]>();
   for (const p of products) {
     const list = byCategory.get(p.categoryId) ?? [];
@@ -85,23 +82,17 @@ function CardapioContent() {
   }
   const knownIds = new Set(categories.map((c) => c.id));
   const orphans = products.filter((p) => !knownIds.has(p.categoryId));
-  const orderedCategories = [...categories].sort(
-    (a, b) => a.displayOrder - b.displayOrder,
-  );
+  const orderedCategories = [...categories].sort((a, b) => a.displayOrder - b.displayOrder);
 
   const sections: { key: string; title: string; items: Product[] }[] = [
     ...orderedCategories
       .map((c) => ({
         key: c.id,
         title: c.name,
-        items: (byCategory.get(c.id) ?? []).sort(
-          (a, b) => a.displayOrder - b.displayOrder,
-        ),
+        items: (byCategory.get(c.id) ?? []).sort((a, b) => a.displayOrder - b.displayOrder),
       }))
       .filter((s) => s.items.length > 0),
-    ...(orphans.length > 0
-      ? [{ key: "__orphans__", title: "Outros", items: orphans }]
-      : []),
+    ...(orphans.length > 0 ? [{ key: "__orphans__", title: "Outros", items: orphans }] : []),
   ];
 
   return (
@@ -110,12 +101,8 @@ function CardapioContent() {
         <h1 className="header-title">
           <span aria-hidden="true">🍔</span> Cardapio
         </h1>
-        <button className="btn-outline" onClick={onLogout}>
-          Sair
-        </button>
       </header>
 
-      {/* Banner de mesa — exibido quando ?table= esta presente na URL */}
       {tableLabel && (
         <div
           className="bg-primary-700 text-white px-4 py-2 text-sm font-semibold flex items-center gap-2"
@@ -131,10 +118,7 @@ function CardapioContent() {
         {products.length === 0 ? (
           <div className="empty-state">
             <p className="empty-state-title">Cardapio vazio</p>
-            <p className="empty-state-description">
-              Nenhum produto cadastrado ainda. Cadastre produtos para que aparecam
-              aqui.
-            </p>
+            <p className="empty-state-description">Nenhum produto cadastrado ainda.</p>
           </div>
         ) : (
           sections.map((section) => (
@@ -155,8 +139,6 @@ function CardapioContent() {
   );
 }
 
-// ── Pagina exportada — envolve em Suspense (exigido pelo Next.js 16 para useSearchParams) ──
-
 export default function CardapioPage() {
   return (
     <Suspense
@@ -174,14 +156,14 @@ export default function CardapioPage() {
 function ProductCard({ product }: { product: Product }) {
   const unavailable = !product.isAvailable;
   return (
-    <article
-      className={`pos-product-card relative ${unavailable ? "opacity-60" : ""}`}
-    >
+    <article className={`pos-product-card relative ${unavailable ? "opacity-60" : ""}`}>
       {product.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={product.imageUrl}
           alt={product.name}
+          width={400}
+          height={192}
           className="pos-product-image"
         />
       ) : (
@@ -212,22 +194,14 @@ function ProductCard({ product }: { product: Product }) {
       </div>
 
       <div className="p-3">
-        <h3 className="font-semibold text-text-primary leading-tight">
-          {product.name}
-        </h3>
+        <h3 className="font-semibold text-text-primary leading-tight">{product.name}</h3>
         {product.description && (
-          <p className="text-sm text-text-secondary mt-1 line-clamp-2">
-            {product.description}
-          </p>
+          <p className="text-sm text-text-secondary mt-1 line-clamp-2">{product.description}</p>
         )}
         <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-lg font-bold text-primary-600">
-            {formatBRL(product.effectivePriceCents)}
-          </span>
+          <span className="text-lg font-bold text-primary-600">{formatBRL(product.effectivePriceCents)}</span>
           {product.onPromo && (
-            <span className="text-sm text-text-muted line-through">
-              {formatBRL(product.priceCents)}
-            </span>
+            <span className="text-sm text-text-muted line-through">{formatBRL(product.priceCents)}</span>
           )}
         </div>
       </div>
