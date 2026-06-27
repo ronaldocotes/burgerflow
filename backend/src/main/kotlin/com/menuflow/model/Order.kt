@@ -95,6 +95,16 @@ data class Order(
     @Column(name = "delivery_status")
     @Enumerated(EnumType.STRING)
     var deliveryStatus: DeliveryStatus? = null,
+
+    // --- Módulo Mesas e Comandas (tenant DB) ---
+    /**
+     * Comanda (TableSession) à qual o pedido pertence; null para pedidos de
+     * balcão/delivery sem mesa. Fechar a comanda exige que nenhum pedido seu
+     * esteja PENDING/PREPARING (ver TableService.closeSession).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "table_session_id")
+    var tableSession: TableSession? = null,
 ) {
     @PreUpdate
     fun preUpdate() {

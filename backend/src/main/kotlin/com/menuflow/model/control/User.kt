@@ -74,6 +74,12 @@ enum class UserRole {
     OPERATOR,
     DRIVER,
 
+    // Módulo Mesas e Comandas. WAITER = garçom (atende mesas: abre comanda, lança
+    // pedido na mesa, pede a conta). Aditivo, STRING — linhas existentes intactas.
+    // RBAC: abrir/pedir-conta aceita ADMIN/MANAGER/CASHIER/WAITER; fechar comanda
+    // (envolve caixa) aceita ADMIN/MANAGER/CASHIER (ver TableController).
+    WAITER,
+
     // PLATFORM role (cross-tenant), NOT a tenant role. Grants access to platform
     // operations that read across ALL tenants (e.g. the migration drift-check at
     // GET /admin/tenants/migration-status). It must be assigned deliberately and

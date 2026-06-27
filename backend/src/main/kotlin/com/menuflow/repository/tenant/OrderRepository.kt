@@ -18,6 +18,12 @@ interface OrderRepository :
     fun findByOrderNumber(orderNumber: String): Order?
 
     /**
+     * Há pedido da comanda ainda em produção (PENDING/PREPARING)? Usado por
+     * TableService.closeSession para impedir fechar a conta com a cozinha aberta.
+     */
+    fun existsByTableSession_IdAndStatusIn(sessionId: UUID, statuses: Collection<OrderStatus>): Boolean
+
+    /**
      * KDS feed: active kitchen orders ordered by age (oldest first). The status
      * set is passed in so callers choose the scope (KDS = PENDING+PREPARING).
      */

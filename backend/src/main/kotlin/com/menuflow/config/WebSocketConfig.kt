@@ -113,7 +113,11 @@ class WebSocketConfig(
      * where {slug} == the authenticated tenant. Anything else is rejected.
      */
     private fun isOwnTenantTopic(destination: String, tenantSlug: String): Boolean {
-        val allowed = setOf("/topic/kds/$tenantSlug", "/topic/delivery/$tenantSlug")
+        val allowed = setOf(
+            "/topic/kds/$tenantSlug",
+            "/topic/delivery/$tenantSlug",
+            "/topic/tables/$tenantSlug",
+        )
         return destination in allowed
     }
 }

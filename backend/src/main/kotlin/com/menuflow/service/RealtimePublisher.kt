@@ -33,4 +33,11 @@ class RealtimePublisher(
         messagingTemplate.convertAndSend(destination, payload)
         log.debug("Delivery event -> {}", destination)
     }
+
+    /** Broadcast a table/comanda state change to /topic/tables/{tenantSlug}. */
+    fun publishTables(tenantSlug: String, payload: Any) {
+        val destination = "/topic/tables/$tenantSlug"
+        messagingTemplate.convertAndSend(destination, payload)
+        log.debug("Table event -> {}", destination)
+    }
 }
