@@ -14,11 +14,11 @@ export class ApiError extends Error {
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const token = await getToken();
-  const res = await fetch(, {
+  const res = await fetch(`${AppConfig.API_URL}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization:  } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -30,10 +30,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return res.json();
 }
 
-export const api = {
-  get: <T>(path: string) => request<T>('GET', path),
-  post: <T>(path: string, body: unknown, _headers?: Record<string, string>) =>
-    request<T>('POST', path, body),
-  put: <T>(path: string, body: unknown) => request<T>('PUT', path, body),
-  patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
-};
+// Exports nomeados (usados pelas telas, ex.: LoginScreen importa { post }).
+export const get = <T>(path: string) => request<T>('GET', path);
+export const post = <T>(path: string, body: unknown, _headers?: Record<string, string>) =>
+  request<T>('POST', path, body);
+export const put = <T>(path: string, body: unknown) => request<T>('PUT', path, body);
+export const patch = <T>(path: string, body: unknown) => request<T>('PATCH', path, body);
+
+// Objeto agregador (acucar sintatico: api.get/api.post/...).
+export const api = { get, post, put, patch };

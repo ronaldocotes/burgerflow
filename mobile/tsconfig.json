@@ -5,7 +5,11 @@
     "esModuleInterop": true,
     "isolatedModules": true,
     "jsx": "react-native",
-    "lib": ["es2017", "dom", "dom.iterable"],
+    "lib": [
+      "es2017",
+      "dom",
+      "dom.iterable"
+    ],
     "moduleResolution": "node",
     "noEmit": true,
     "skipLibCheck": true,
@@ -13,22 +17,59 @@
     "target": "es6",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@/app/*": ["./src/app/*"],
-      "@/assets/*": ["./src/assets/*"],
-      "@/components/*": ["./src/components/*"],
-      "@/config/*": ["./src/config/*"],
-      "@/hooks/*": ["./src/hooks/*"],
-      "@/lib/*": ["./src/lib/*"],
-      "@/navigation/*": ["./src/navigation/*"],
-      "@/screens/*": ["./src/screens/*"],
-      "@/services/*": ["./src/services/*"],
-      "@/store/*": ["./src/store/*"],
-      "@/theme/*": ["./src/theme/*"],
-      "@/types/*": ["./src/types/*"],
-      "@/utils/*": ["./src/utils/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@/app/*": [
+        "./src/app/*"
+      ],
+      "@/assets/*": [
+        "./src/assets/*"
+      ],
+      "@/components/*": [
+        "./src/components/*"
+      ],
+      "@/config/*": [
+        "./src/config/*"
+      ],
+      "@/hooks/*": [
+        "./src/hooks/*"
+      ],
+      "@/lib/*": [
+        "./src/lib/*"
+      ],
+      "@/navigation/*": [
+        "./src/navigation/*"
+      ],
+      "@/screens/*": [
+        "./src/screens/*"
+      ],
+      "@/services/*": [
+        "./src/services/*"
+      ],
+      "@/store/*": [
+        "./src/store/*"
+      ],
+      "@/theme/*": [
+        "./src/theme/*"
+      ],
+      "@/types/*": [
+        "./src/types/*"
+      ],
+      "@/utils/*": [
+        "./src/utils/*"
+      ]
     }
   },
-  "exclude": ["node_modules", "android", "ios"],
-  "include": ["src/**/*", "App.tsx", "jest.setup.js"]
+  "exclude": [
+    "node_modules",
+    "android",
+    "ios"
+  ],
+  "include": [
+    "src/**/*",
+    "App.tsx",
+    "jest.setup.js",
+    "nativewind-env.d.ts"
+  ]
 }

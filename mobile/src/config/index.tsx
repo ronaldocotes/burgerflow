@@ -1,7 +1,9 @@
 import { Platform } from 'react-native';
 
-export interface AppConfig {
-  ENV: 'development' | 'staging' | 'production';
+// Configuracao do app. __DEV__ e injetado pelo Metro: true em debug, false em release.
+// Em release apontamos para HTTPS/WSS (prod exige TLS; o cleartext so existe no debug manifest).
+interface AppConfigShape {
+  ENV: 'development' | 'production';
   DEBUG: boolean;
   API_URL: string;
   WS_URL: string;
@@ -9,26 +11,23 @@ export interface AppConfig {
   APP_VERSION: string;
   IS_ANDROID: boolean;
   IS_IOS: boolean;
-  IS_WEB: boolean;
 }
 
-const readEnv = (key: string, fallback: string) => {
-  const env = globalThis.process?.env as Record<string, string | undefined> | undefined;
-  return env?.[key] ?? fallback;
-};
-
-const env = readEnv('MF_APP_ENV', 'development') as AppConfig['ENV'];
-
-const config: AppConfig = {
-  ENV: env,
-  DEBUG: env !== 'production',
-  API_URL: readEnv('MF_API_URL', 'http://localhost:8080/api/v1'),
-  WS_URL: readEnv('MF_WS_URL', 'ws://localhost:8080'),
+export const AppConfig: AppConfigShape = {
+  ENV: __DEV__ ? 'development' : 'production',
+  DEBUG: __DEV__,
+  // Android emulador alcanca o host pela loopback especial 10.0.2.2 (nao localhost).
+  API_URL: __DEV__
+    ? 'http://10.0.2.2:8080/api/v1'
+    : 'https://menuflow.seudominio.com/api/v1',
+  // WebSocket na RAIZ /ws, FORA do context-path /api/v1 do Spring MVC.
+  WS_URL: __DEV__
+    ? 'ws://10.0.2.2:8080/ws'
+    : 'wss://menuflow.seudominio.com/ws',
   APP_NAME: 'MenuFlow',
   APP_VERSION: '1.0.0',
   IS_ANDROID: Platform.OS === 'android',
   IS_IOS: Platform.OS === 'ios',
-  IS_WEB: Platform.OS === 'web',
 };
 
-export default config;
+export default AppConfig;
