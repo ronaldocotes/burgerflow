@@ -410,6 +410,12 @@ export default function MesasPage() {
           >
             PDV
           </button>
+          <button
+            onClick={() => router.push("/configuracoes")}
+            className="btn-outline text-sm"
+          >
+            Config
+          </button>
         </nav>
       </header>
 

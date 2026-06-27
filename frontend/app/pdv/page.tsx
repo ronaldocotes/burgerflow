@@ -291,6 +291,12 @@ export default function PdvPage() {
           >
             Mesas
           </button>
+          <button
+            className="btn-outline"
+            onClick={() => router.push("/configuracoes")}
+          >
+            Config
+          </button>
           <button className="btn-outline" onClick={onLogout}>
             Sair
           </button>
