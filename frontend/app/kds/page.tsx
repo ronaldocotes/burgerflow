@@ -37,23 +37,24 @@ const ORDER_TYPE_LABEL: Record<string, string> = {
 };
 
 // Aging: verde → âmbar → vermelho baseado em estimatedPrepTimeMinutes.
-function agingClasses(order: KdsOrder, now: number): string {
+// Padrão kohli.design: barra colorida no topo do card (mais legível em cozinha com luz forte)
+// que fundo colorido no card inteiro. Verde→âmbar→vermelho pelo tempo decorrido.
+function agingBarClass(order: KdsOrder, now: number): string {
   const elapsed =
     (now - new Date(order.createdAt).getTime()) / 60_000; // minutos
-  const limit = order.estimatedPrepTimeMinutes ?? 15;
-  if (elapsed >= limit) return "border-error bg-error-light";
-  if (elapsed >= limit * 0.75) return "border-warning bg-warning-light";
-  return "border-success bg-success-light";
-}
-
-function agingDotClass(order: KdsOrder, now: number): string {
-  const elapsed =
-    (now - new Date(order.createdAt).getTime()) / 60_000;
   const limit = order.estimatedPrepTimeMinutes ?? 15;
   if (elapsed >= limit) return "bg-error";
   if (elapsed >= limit * 0.75) return "bg-warning";
   return "bg-success";
 }
+
+function isOverdue(order: KdsOrder, now: number): boolean {
+  const elapsed = (now - new Date(order.createdAt).getTime()) / 60_000;
+  const limit = order.estimatedPrepTimeMinutes ?? 15;
+  return elapsed >= limit;
+}
+
+
 
 function elapsedLabel(order: KdsOrder, now: number): string {
   const secs = Math.floor(
@@ -166,17 +167,17 @@ function OrderCard({ order, now, onAdvance, onCancel }: OrderCardProps) {
   const nextStatus = NEXT_STATUS[order.status];
 
   return (
-    <div
-      className={`flex flex-col rounded-2xl border-2 p-4 shadow-card transition-colors ${agingClasses(order, now)}`}
-    >
+    <div className="flex flex-col overflow-hidden rounded-2xl bg-bg-primary shadow-card transition-shadow hover:shadow-dropdown">
+      {/* Barra de aging no topo (kohli.design pattern) */}
+      <div
+        className={`h-1.5 w-full transition-colors ${agingBarClass(order, now)}`}
+        aria-hidden="true"
+      />
+      <div className="flex flex-col p-4">
       {/* Cabeçalho */}
       <div className="mb-3 flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-2">
-            <span
-              className={`inline-block h-2.5 w-2.5 rounded-full ${agingDotClass(order, now)}`}
-              aria-hidden="true"
-            />
             <span className="text-xl font-bold text-text-primary">
               #{order.orderNumber}
             </span>
@@ -188,7 +189,11 @@ function OrderCard({ order, now, onAdvance, onCancel }: OrderCardProps) {
         </div>
         <div className="flex flex-col items-end gap-1">
           <span
-            className="font-mono text-sm font-semibold text-text-secondary"
+            className={`font-mono text-sm font-semibold transition-colors ${
+              isOverdue(order, now)
+                ? "text-error text-base font-bold"
+                : "text-text-secondary"
+            }`}
             aria-label={`Tempo decorrido: ${elapsedLabel(order, now)}`}
           >
             {elapsedLabel(order, now)}
@@ -211,20 +216,22 @@ function OrderCard({ order, now, onAdvance, onCancel }: OrderCardProps) {
               {item.quantity}× {item.productName}
             </span>
             {item.notes && (
-              <p className="mt-0.5 text-xs italic text-text-secondary">
-                {item.notes}
+              <p className="mt-0.5 flex items-start gap-1 text-xs text-warning-dark">
+                <span aria-hidden="true" className="mt-px shrink-0">⚠</span>
+                <span className="font-medium">{item.notes}</span>
               </p>
             )}
           </li>
         ))}
       </ul>
 
+      </div>{/* fim do conteúdo com padding */}
       {/* Botão de avanço */}
       {nextStatus && (
         <button
           onClick={handleAdvance}
           disabled={advancing}
-          className="w-full rounded-xl bg-primary-700 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 active:bg-primary-900 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
+          className="w-full rounded-b-2xl bg-primary-700 px-4 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-primary-800 active:bg-primary-900 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
           aria-label={`${ADVANCE_LABEL[order.status]} — pedido #${order.orderNumber}`}
         >
           {advancing ? "Aguarde…" : ADVANCE_LABEL[order.status]}
