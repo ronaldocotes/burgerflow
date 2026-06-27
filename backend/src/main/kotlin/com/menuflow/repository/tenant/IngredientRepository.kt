@@ -22,4 +22,6 @@ interface IngredientRepository : JpaRepository<Ingredient, UUID> {
     fun findAllByIdsForUpdate(@Param("ids") ids: Collection<UUID>): List<Ingredient>
 
     fun existsByName(name: String): Boolean
+
+    fun findByActiveTrueOrderByName(): List<Ingredient>
 }

@@ -29,6 +29,10 @@ abstract class IntegrationTestBase {
                 .withDatabaseName("menuflow_control")
                 .withUsername("menuflow")
                 .withPassword("menuflow123")
+                // A suíte provisiona muitos tenants (1 pool por tenant) no MESMO Postgres;
+                // o default max_connections=100 estoura ("too many clients"). 500 dá folga
+                // permanente conforme a suíte cresce (junto com pool-size-per-tenant=2).
+                .withCommand("postgres", "-c", "max_connections=500")
                 .also { it.start() }
 
         @JvmStatic
