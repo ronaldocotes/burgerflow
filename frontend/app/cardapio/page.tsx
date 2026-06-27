@@ -654,40 +654,30 @@ function ProductCard({
           )}
         </div>
 
-        {/* CTA flutuante sobre a imagem — canto inferior direito */}
-        {!unavailable && (
-          cartQuantity > 0 ? (
-            <div
-              className="absolute bottom-2 right-2 flex items-center gap-1 bg-bg-primary rounded-full shadow-lg px-1.5 py-1"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={onDecrement}
-                className="w-7 h-7 rounded-full border border-border-medium flex items-center justify-center text-text-primary hover:bg-bg-tertiary transition-colors text-base leading-none"
-                aria-label={`Remover um ${product.name}`}
-              >
-                {'−'}
-              </button>
-              <span className="w-5 text-center font-bold text-text-primary text-sm select-none">
-                {cartQuantity}
-              </span>
-              <button
-                onClick={onOpen}
-                className="w-7 h-7 rounded-full bg-primary-700 text-white flex items-center justify-center hover:bg-primary-800 transition-colors text-base leading-none"
-                aria-label={`Adicionar mais ${product.name} ao carrinho`}
-              >
-                +
-              </button>
-            </div>
-          ) : (
+        {/* Stepper flutuante — só aparece quando já há item no carrinho */}
+        {!unavailable && cartQuantity > 0 && (
+          <div
+            className="absolute bottom-2 right-2 flex items-center gap-1 bg-bg-primary rounded-full shadow-lg px-1.5 py-1"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
-              onClick={(e) => { e.stopPropagation(); onOpen(); }}
-              className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-primary-700 text-white shadow-lg flex items-center justify-center text-xl font-bold hover:bg-primary-800 active:bg-primary-900 transition-colors"
-              aria-label={`Adicionar ${product.name} ao carrinho`}
+              onClick={onDecrement}
+              className="w-7 h-7 rounded-full border border-border-medium flex items-center justify-center text-text-primary hover:bg-bg-tertiary transition-colors text-base leading-none"
+              aria-label={`Remover um ${product.name}`}
+            >
+              {'−'}
+            </button>
+            <span className="w-5 text-center font-bold text-text-primary text-sm select-none">
+              {cartQuantity}
+            </span>
+            <button
+              onClick={onOpen}
+              className="w-7 h-7 rounded-full bg-primary-700 text-white flex items-center justify-center hover:bg-primary-800 transition-colors text-base leading-none"
+              aria-label={`Adicionar mais ${product.name} ao carrinho`}
             >
               +
             </button>
-          )
+          </div>
         )}
       </div>
 
