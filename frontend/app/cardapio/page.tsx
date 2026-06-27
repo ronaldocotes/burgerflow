@@ -1,14 +1,44 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { API_BASE, api, TOKEN_KEY } from "@/lib/api";
 import { Category, Page, Product, formatBRL } from "@/types/menu";
 import LoadingSpinner from "@/components/loading-spinner";
+import { cartReducer } from "@/components/cardapio/types";
+import type { CartItem } from "@/components/cardapio/types";
+import { CartButton } from "@/components/cardapio/CartButton";
+import { CartSheet } from "@/components/cardapio/CartSheet";
+import { CheckoutModal } from "@/components/cardapio/CheckoutModal";
 
 const PUBLIC_TENANT = process.env.NEXT_PUBLIC_TENANT_SLUG ?? "demo";
+const CART_KEY = "mf_cart";
 
-// ── Barra de categorias sticky estilo iFood ────────────────────────────────────
+function loadCart(): CartItem[] {
+  try {
+    const raw = sessionStorage.getItem(CART_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as CartItem[];
+  } catch {
+    return [];
+  }
+}
+
+function saveCart(cart: CartItem[]): void {
+  try {
+    sessionStorage.setItem(CART_KEY, JSON.stringify(cart));
+  } catch {
+    // sessionStorage pode estar bloqueado em modo privado
+  }
+}
+
+interface PublicMenuResponse {
+  categories: Category[];
+  products: Product[];
+  pixKey: string | null;
+}
+
+// ── Barra de categorias sticky estilo iFood ─────────────────────────────────────────────
 
 function CategoryBar({
   sections,
@@ -97,6 +127,7 @@ function CardapioContent() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [pixKey, setPixKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -116,15 +147,14 @@ function CardapioContent() {
         ]);
         setCategories(cats.content);
         setProducts(prods.content);
+        setPixKey(null);
       } else {
         const res = await fetch(`${API_BASE}/public/${PUBLIC_TENANT}/menu`);
         if (!res.ok) throw new Error("Cardapio indisponivel no momento.");
-        const data = (await res.json()) as {
-          categories: Category[];
-          products: Product[];
-        };
+        const data = (await res.json()) as PublicMenuResponse;
         setCategories(data.categories);
         setProducts(data.products);
+        setPixKey(data.pixKey ?? null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar o cardapio.");
@@ -179,7 +209,14 @@ function CardapioContent() {
 
   const sectionIds = sections.map((s) => `section-${s.key}`);
 
-  return <CardapioView sections={sections} sectionIds={sectionIds} tableLabel={tableLabel} />;
+  return (
+    <CardapioView
+      sections={sections}
+      sectionIds={sectionIds}
+      tableLabel={tableLabel}
+      pixKey={pixKey}
+    />
+  );
 }
 
 // Componente separado para poder usar hooks após os dados estarem prontos
@@ -187,11 +224,35 @@ function CardapioView({
   sections,
   sectionIds,
   tableLabel,
+  pixKey,
 }: {
   sections: { key: string; title: string; items: Product[] }[];
   sectionIds: string[];
   tableLabel: string | null;
+  pixKey: string | null;
 }) {
+  // Carrinho: inicia vazio, carrega do sessionStorage após hidratação
+  const [cart, dispatch] = useReducer(cartReducer, [] as CartItem[]);
+  const [cartHydrated, setCartHydrated] = useState(false);
+
+  useEffect(() => {
+    if (cartHydrated) return;
+    const saved = loadCart();
+    saved.forEach((item) => {
+      for (let i = 0; i < item.quantity; i++) {
+        dispatch({ type: "ADD", product: item.product });
+      }
+    });
+    setCartHydrated(true);
+  }, [cartHydrated]);
+
+  useEffect(() => {
+    if (cartHydrated) saveCart(cart);
+  }, [cart, cartHydrated]);
+
+  const [showCart, setShowCart] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+
   const activeId = useActiveSection(sectionIds);
 
   function scrollTo(id: string) {
@@ -199,8 +260,14 @@ function CardapioView({
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  function handleNewOrder() {
+    dispatch({ type: "CLEAR" });
+    setShowCheckout(false);
+    setShowCart(false);
+  }
+
   return (
-    <main className="min-h-screen bg-bg-secondary">
+    <main className="min-h-screen bg-bg-secondary pb-24">
       <header className="header sticky top-0 z-10">
         <h1 className="header-title">
           <span aria-hidden="true">🍔</span> Cardapio
@@ -242,13 +309,45 @@ function CardapioView({
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {section.items.map((p) => (
-                  <ProductCard key={p.id} product={p} />
+                  <ProductCard
+                    key={p.id}
+                    product={p}
+                    cartQuantity={
+                      cart.find((i) => i.product.id === p.id)?.quantity ?? 0
+                    }
+                    onAdd={() => dispatch({ type: "ADD", product: p })}
+                  />
                 ))}
               </div>
             </section>
           ))
         )}
       </div>
+
+      <CartButton cart={cart} onClick={() => setShowCart(true)} />
+
+      {showCart && (
+        <CartSheet
+          cart={cart}
+          dispatch={dispatch}
+          onClose={() => setShowCart(false)}
+          onCheckout={() => {
+            setShowCart(false);
+            setShowCheckout(true);
+          }}
+        />
+      )}
+
+      {showCheckout && (
+        <CheckoutModal
+          cart={cart}
+          pixKey={pixKey}
+          tableLabel={tableLabel}
+          tenantSlug={PUBLIC_TENANT}
+          onClose={() => setShowCheckout(false)}
+          onNewOrder={handleNewOrder}
+        />
+      )}
     </main>
   );
 }
@@ -267,7 +366,15 @@ export default function CardapioPage() {
   );
 }
 
-function ProductCard({ product }: { product: Product }) {
+function ProductCard({
+  product,
+  cartQuantity,
+  onAdd,
+}: {
+  product: Product;
+  cartQuantity: number;
+  onAdd: () => void;
+}) {
   const unavailable = !product.isAvailable;
   return (
     <article className={`pos-product-card relative ${unavailable ? "opacity-60" : ""}`}>
@@ -313,11 +420,41 @@ function ProductCard({ product }: { product: Product }) {
           <p className="text-sm text-text-secondary mt-1 line-clamp-2">{product.description}</p>
         )}
         <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-lg font-bold text-primary-600">{formatBRL(product.effectivePriceCents)}</span>
+          <span className="text-lg font-bold text-primary-600">
+            {formatBRL(product.effectivePriceCents)}
+          </span>
           {product.onPromo && (
-            <span className="text-sm text-text-muted line-through">{formatBRL(product.priceCents)}</span>
+            <span className="text-sm text-text-muted line-through">
+              {formatBRL(product.priceCents)}
+            </span>
           )}
         </div>
+
+        {unavailable ? (
+          <button
+            disabled
+            className="btn-primary w-full mt-2 py-2 text-sm min-h-[48px]"
+            aria-label={`${product.name} indisponivel`}
+          >
+            Indisponivel
+          </button>
+        ) : cartQuantity > 0 ? (
+          <button
+            onClick={onAdd}
+            className="btn-outline w-full mt-2 py-2 text-sm min-h-[48px]"
+            aria-label={`Adicionar mais ${product.name} ao carrinho`}
+          >
+            {cartQuantity} no carrinho
+          </button>
+        ) : (
+          <button
+            onClick={onAdd}
+            className="btn-primary w-full mt-2 py-2 text-sm min-h-[48px]"
+            aria-label={`Adicionar ${product.name} ao carrinho`}
+          >
+            Adicionar
+          </button>
+        )}
       </div>
     </article>
   );
