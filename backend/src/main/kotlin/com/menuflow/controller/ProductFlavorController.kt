@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*
 import java.util.UUID
 
 @RestController
-@RequestMapping("/api/v1/products/{productId}/flavors")
+@RequestMapping("/products/{productId}/flavors")
 class ProductFlavorController(private val service: ProductFlavorService) {
 
     @GetMapping

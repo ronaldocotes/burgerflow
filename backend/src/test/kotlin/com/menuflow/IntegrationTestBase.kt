@@ -42,6 +42,9 @@ abstract class IntegrationTestBase {
             registry.add("menuflow.tenant.maintenance-db") { "menuflow_control" }
             registry.add("menuflow.tenant.db-prefix") { "tenant_" }
             registry.add("menuflow.tenant.auto-create-database") { "true" }
+            // Pool pequeno por tenant nos testes: a suite provisiona muitos tenants
+            // num unico Postgres compartilhado; o tamanho padrao esgotaria max_connections.
+            registry.add("menuflow.tenant.pool-size-per-tenant") { "2" }
             registry.add("menuflow.jwt.secret") { "test-secret-key-for-menuflow-integration-tests-256!" }
             // NOTE: login rate-limit is disabled by default for tests via
             // src/test/resources/application.yml (MockMvc always reports
