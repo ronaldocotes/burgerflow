@@ -117,7 +117,7 @@ body {
   }
   
   .glass-effect {
-    @apply bg-white/80 backdrop-blur-md;
+    @apply bg-bg-primary/80 backdrop-blur-md;
   }
   
   .card-hover {
@@ -133,8 +133,8 @@ body {
   }
   
   .btn-secondary {
-    @apply bg-secondary-400 text-white px-4 py-2 rounded-lg font-medium 
-           hover:bg-secondary-500 active:bg-secondary-600 
+    @apply bg-secondary-600 text-white px-4 py-2 rounded-lg font-medium
+           hover:bg-secondary-700 active:bg-secondary-800
            transition-colors duration-200
            focus:ring-2 focus:ring-secondary-400 focus:ring-offset-2;
   }
@@ -147,7 +147,7 @@ body {
   
   .input-field {
     @apply w-full px-4 py-2 border border-border-medium rounded-lg
-           bg-white text-text-primary placeholder:text-text-muted
+           bg-bg-primary text-text-primary placeholder:text-text-muted
            focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20
            focus:outline-none transition-all duration-200;
   }
@@ -187,7 +187,7 @@ body {
 }
 
 .kds-card {
-  @apply bg-white rounded-lg p-3 mb-3 shadow-card card-hover;
+  @apply bg-bg-primary rounded-lg p-3 mb-3 shadow-card card-hover;
 }
 
 /* POS styles */
@@ -196,7 +196,7 @@ body {
 }
 
 .pos-product-card {
-  @apply bg-white rounded-xl overflow-hidden shadow-card;
+  @apply bg-bg-primary rounded-xl overflow-hidden shadow-card;
 }
 
 .pos-product-image {
@@ -239,12 +239,12 @@ body {
 }
 
 .modal-content {
-  @apply bg-white rounded-xl p-6 max-w-lg w-full mx-4 animate-slide-down;
+  @apply bg-bg-primary rounded-xl p-6 max-w-lg w-full mx-4 animate-slide-down;
 }
 
 /* Sidebar styles */
 .sidebar {
-  @apply w-64 bg-white border-r border-border-light h-full fixed left-0 top-0 z-40;
+  @apply w-64 bg-bg-primary border-r border-border-light h-full fixed left-0 top-0 z-40;
 }
 
 .sidebar-header {
@@ -267,7 +267,7 @@ body {
 
 /* Header styles */
 .header {
-  @apply h-16 bg-white border-b border-border-light flex items-center justify-between px-6;
+  @apply h-16 bg-bg-primary border-b border-border-light flex items-center justify-between px-6;
 }
 
 .header-title {
@@ -276,7 +276,7 @@ body {
 
 /* Footer styles */
 .footer {
-  @apply bg-white border-t border-border-light p-6 text-center text-text-muted;
+  @apply bg-bg-primary border-t border-border-light p-6 text-center text-text-muted;
 }
 
 /* Loading states */

@@ -12,8 +12,8 @@ export default function HomePage() {
   useEffect(() => {
     if (!isLoading) {
       if (isAuthenticated) {
-        // Redirect to dashboard if authenticated
-        router.push('/dashboard');
+        // Autenticado -> cardápio (primeira tela operacional)
+        router.push('/cardapio');
       } else {
         // Redirect to login if not authenticated
         router.push('/login');
