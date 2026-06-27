@@ -6,6 +6,14 @@ MenuFlow é um **Sistema de Gestão Integrada SaaS** desenvolvido especificament
 
 > **Estado canônico do código vivo (2026-06-25):** o backend Spring Boot/Kotlin é a parte operacional mais madura e testada. Web e mobile estão como bases compiláveis em React atual, prontas para receber as telas reais. A IA FastAPI está parcial, com `health` e `demand_forecasting`. Para produção MVP, a fundação atual é **Docker Compose + Caddy + Postgres + Redis + backend**. Kafka, K3s, WhatsApp, chatbot, Growth Center e observabilidade completa ficam como roadmap até haver necessidade real.
 
+> **Atualização de produto (2026-06-26):** benchmark autenticado do ClickEscale reforçou que o MenuFlow deve evoluir como **sistema operacional de restaurante com growth embutido**: `cardápio -> link/QR -> campanha/WhatsApp/Instagram -> pedido -> payment_paid -> financeiro -> cliente -> recompra`. O diferencial deixa de ser apenas KDS/PDV/delivery e passa a incluir Growth Center, links rastreáveis, IA grounded, estoque/CMV e financeiro sério.
+
+Docs canônicos recentes:
+
+- [Alinhamento técnico](docs/alinhamento-tecnico.md)
+- [Growth Center, tráfego pago e redes sociais](docs/growth-center-trafego-pago.md)
+- [Blueprint ClickEscale para restaurante](docs/clickescale-blueprint-restaurante.md)
+
 ### 🎯 Gap de Mercado
 
 | Recurso | Saipos | Simpliza | Anota AI | **MenuFlow** |
@@ -82,8 +90,8 @@ menuflow/
 │   ├── Dockerfile
 │   └── settings.gradle.kts
 │
-├── frontend/                 # Frontend Web (Next.js 14)
-│   ├── app/                      # App Router (Next.js 14)
+├── frontend/                 # Frontend Web (Next.js 16)
+│   ├── app/                      # App Router (Next.js 16)
 │   │   ├── api/                 # API Routes
 │   │   ├── components/          # Componentes reutilizáveis
 │   │   ├── lib/                 # Utilitários
@@ -205,6 +213,8 @@ Este comando irá iniciar:
 - Frontend Next.js (porta 3000)
 - IA FastAPI (porta 8000)
 - Nginx (porta 80)
+
+> **Nota:** este `docker-compose.yml` é o ambiente de **desenvolvimento completo** (inclui Kafka/Zookeeper, Nginx, PgAdmin e Kafka UI como apoio). A **fundação de produção** é o `docker-compose.prod.yml` — apenas **Caddy + Postgres + Redis + backend** (sem Kafka/K3s). Veja `docker/DEPLOY-A1.md`.
 
 ### 4. Acessar o Sistema
 
@@ -577,12 +587,12 @@ pytest tests/
 
 ### 1. Stack Tecnológica
 - **Backend:** Spring Boot (Kotlin) - Robustez, tipagem estática, ecossistema maduro
-- **Frontend Web:** Next.js 14 - SSR, performance, App Router
+- **Frontend Web:** Next.js 16 - SSR, performance, App Router
 - **Frontend Mobile:** React Native - Cross-platform, compartilhamento de código
 - **IA:** FastAPI (Python) - Alta performance, fácil integração com ML
 - **Database:** PostgreSQL - ACID, JSON support, extensível
 - **Cache:** Redis - Alta performance, sessions, rate limiting
-- **Messaging:** Kafka - Escalabilidade, processamento assíncrono
+- **Messaging:** Outbox transacional (planejado); Kafka adiado (roadmap, fora do `compose.prod`)
 
 ### 2. Arquitetura Multi-tenant
 - **Estratégia:** Schema-based multi-tenancy
@@ -596,7 +606,7 @@ pytest tests/
 
 ### 4. Deployment
 - **Estratégia:** Monorepo com Docker multi-stage builds
-- **Orquestração:** Kubernetes (K3s) em Oracle Cloud A1
+- **Orquestração:** Docker Compose (MVP) em Oracle Cloud A1; K3s adiado (roadmap)
 - **CI/CD:** GitHub Actions com workflows separados
 
 ### 5. Segurança

@@ -97,6 +97,14 @@ Regra canonica:
 - exportar conversoes por outbox;
 - IA apenas como copiloto com aprovacao humana.
 
+Atualizacao 2026-06-26 - benchmark ClickEscale:
+
+- MenuFlow deve ser sistema operacional de restaurante com growth embutido.
+- Cardapio, links/QR, pedido, pagamento, financeiro, estoque, cliente e IA devem compartilhar eventos e entidades.
+- Novo documento canonico de produto: `docs/clickescale-blueprint-restaurante.md`.
+- Growth so conta como diferencial quando fecha em `payment_paid`, margem e recompra.
+- IA nunca inventa preco, produto, estoque, prazo, taxa, pagamento, margem ou ROAS; deve consultar ferramentas do dominio.
+
 ## 8. Documentos e fonte de verdade
 
 Ordem de confianca:
@@ -114,3 +122,5 @@ Ordem de confianca:
 - Implementar PaymentIntent e provider adapters.
 - Implementar modulo Growth com migrations e services.
 - Criar testes da IA garantindo que somente routers existentes sao importados.
+- Implementar links/QR por contexto: delivery, visualizacao, balcao, mesa, campanha, cupom, parceiro, Instagram e WhatsApp.
+- Expandir catalogo para complementos, disponibilidade por canal/horario, ficha tecnica e snapshot de pedido.

@@ -4,6 +4,12 @@ Data: 2026-06-24
 
 Status: plano de produto e arquitetura. Ainda nao implementado no codigo.
 
+Atualizacao 2026-06-26:
+
+- Incorporado benchmark autenticado do painel ClickEscale de restaurante.
+- Novo blueprint detalhado: `docs/clickescale-blueprint-restaurante.md`.
+- Decisao reforcada: Growth Center nao e "ferramenta de posts"; ele deve nascer colado em cardapio, links/QR, pedido, pagamento, financeiro, cliente, estoque, margem e IA.
+
 ## 1. Decisao
 
 O MenuFlow deve ter um modulo **Growth Center** para ligar redes sociais, trafego pago, WhatsApp, cupons, pedidos e pagamentos.
@@ -174,6 +180,7 @@ tracking_link
   campaign_id
   slug
   destination_url
+  link_type             // DELIVERY | VIEW_ONLY | COUNTER | TABLE | CAMPAIGN | COUPON | PARTNER | INSTAGRAM | WHATSAPP
   utm_source
   utm_medium
   utm_campaign
@@ -330,6 +337,19 @@ Passos:
 7. link rastreavel;
 8. acompanhar resultado.
 
+Inspiracao ClickEscale:
+
+- objetivo em linguagem de negocio, nao jargao de Ads;
+- selecao de regiao por mapa;
+- criativo por IA, video IA, post existente ou arquivo enviado;
+- tabela de criativos com orcamento, gasto, cliques, CPC, CTR, alcance e link.
+
+Melhoria MenuFlow:
+
+- toda campanha deve escolher produto/combo/cupom a partir do catalogo real;
+- campanha nao pode sugerir item indisponivel, sem preco real, sem ficha tecnica quando CMV for obrigatorio ou sem estoque;
+- resultado principal e `payment_paid`, com margem quando houver ficha tecnica.
+
 ### Tela: Social Studio
 
 - calendario mensal;
@@ -378,6 +398,16 @@ IA nao pode:
 - inventar preco/produto/desconto;
 - exportar audiencia sensivel;
 - mexer em pagamento.
+
+IA deve consultar ferramentas reais antes de recomendar:
+
+- catalogo/produtos/complementos;
+- pedidos e pagamentos;
+- estoque/ficha tecnica/CMV;
+- clientes/segmentos;
+- campanhas e links.
+
+Se nao houver dados suficientes, a IA deve dizer isso explicitamente e sugerir como coletar os dados.
 
 ## 12. Seguranca, LGPD e auditoria
 
