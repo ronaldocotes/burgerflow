@@ -7,6 +7,8 @@ interface AppConfigShape {
   DEBUG: boolean;
   API_URL: string;
   WS_URL: string;
+  // URL publica do frontend -- usada para gerar o QR Code do cardapio digital.
+  APP_URL: string;
   APP_NAME: string;
   APP_VERSION: string;
   IS_ANDROID: boolean;
@@ -19,11 +21,15 @@ export const AppConfig: AppConfigShape = {
   // Android emulador alcanca o host pela loopback especial 10.0.2.2 (nao localhost).
   API_URL: __DEV__
     ? 'http://10.0.2.2:8080/api/v1'
-    : 'https://menuflow.seudominio.com/api/v1',
+    : 'https://menuflow.duckdns.org/api/v1',
   // WebSocket na RAIZ /ws, FORA do context-path /api/v1 do Spring MVC.
   WS_URL: __DEV__
     ? 'ws://10.0.2.2:8080/ws'
-    : 'wss://menuflow.seudominio.com/ws',
+    : 'wss://menuflow.duckdns.org/ws',
+  // URL do frontend para o QR Code do cardapio digital.
+  APP_URL: __DEV__
+    ? 'http://10.0.2.2:3000'
+    : 'https://menuflow.duckdns.org',
   APP_NAME: 'MenuFlow',
   APP_VERSION: '1.0.0',
   IS_ANDROID: Platform.OS === 'android',
