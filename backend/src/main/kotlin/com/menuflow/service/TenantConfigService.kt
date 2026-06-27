@@ -30,6 +30,9 @@ class TenantConfigService(
     fun update(req: TenantConfigUpdateRequest): TenantConfigResponse {
         val config = repository.findFirstByOrderByCreatedAtAsc() ?: TenantConfig()
         config.autoAcceptOrders = req.autoAcceptOrders
+        // PATCH parcial: so sobrescreve a chave PIX quando o cliente a envia
+        // (req.pixKey nao-nulo). Omitir o campo preserva a chave ja salva.
+        req.pixKey?.let { config.pixKey = it.trim().ifBlank { null } }
         return TenantConfigResponse.from(repository.save(config))
     }
 }

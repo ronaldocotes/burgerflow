@@ -23,6 +23,10 @@ data class TenantConfig(
     @Column(name = "auto_accept_orders", nullable = false)
     var autoAcceptOrders: Boolean = false,
 
+    /** Chave PIX estatica do restaurante (nullable: pode nao ter PIX). */
+    @Column(name = "pix_key", nullable = true, length = 140)
+    var pixKey: String? = null,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 

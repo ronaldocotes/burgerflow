@@ -7,6 +7,7 @@ import com.menuflow.dto.ProductResponse
 import com.menuflow.model.OrderType
 import com.menuflow.model.PaymentMethod
 import com.menuflow.repository.control.TenantRepository
+import com.menuflow.repository.tenant.TenantConfigRepository
 import com.menuflow.service.CategoryService
 import com.menuflow.service.OrderService
 import com.menuflow.service.ProductService
@@ -23,6 +24,8 @@ import java.util.UUID
 data class PublicMenuResponse(
     val categories: List<CategoryResponse>,
     val products: List<ProductResponse>,
+    /** Chave PIX estatica do restaurante; null quando nao configurada. */
+    val pixKey: String?,
 )
 
 data class PublicOrderItemRequest(
@@ -52,6 +55,7 @@ class PublicMenuController(
     private val categoryService: CategoryService,
     private val productService: ProductService,
     private val orderService: OrderService,
+    private val tenantConfigRepository: TenantConfigRepository,
 ) {
     @GetMapping("/{tenantSlug}/menu")
     fun getMenu(@PathVariable tenantSlug: String): ResponseEntity<PublicMenuResponse> {
@@ -60,7 +64,9 @@ class PublicMenuController(
         return try {
             val categories = categoryService.list(Pageable.ofSize(100)).content
             val products = productService.list(Pageable.ofSize(500)).content
-            ResponseEntity.ok(PublicMenuResponse(categories, products))
+            // Dentro do TenantContext: a query roteia para o banco do tenant.
+            val pixKey = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()?.pixKey
+            ResponseEntity.ok(PublicMenuResponse(categories, products, pixKey))
         } finally {
             TenantContext.clear()
         }

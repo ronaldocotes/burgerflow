@@ -1,6 +1,7 @@
 package com.menuflow.dto
 
 import com.menuflow.model.TenantConfig
+import jakarta.validation.constraints.Size
 
 /**
  * Estado das configurações do tenant. Exposto em GET /config e devolvido por
@@ -8,9 +9,12 @@ import com.menuflow.model.TenantConfig
  */
 data class TenantConfigResponse(
     val autoAcceptOrders: Boolean,
+    /** Chave PIX estatica do restaurante; null quando nao configurada. */
+    val pixKey: String?,
 ) {
     companion object {
-        fun from(c: TenantConfig) = TenantConfigResponse(autoAcceptOrders = c.autoAcceptOrders)
+        fun from(c: TenantConfig) =
+            TenantConfigResponse(autoAcceptOrders = c.autoAcceptOrders, pixKey = c.pixKey)
     }
 }
 
@@ -20,4 +24,12 @@ data class TenantConfigResponse(
  */
 data class TenantConfigUpdateRequest(
     val autoAcceptOrders: Boolean,
+    /**
+     * Chave PIX estatica. Nullable e nao obrigatorio no corpo. Por seguranca de
+     * PATCH parcial, o service so sobrescreve quando vier NAO-nulo (cliente que
+     * omite o campo nao apaga a chave ja salva). @Size limita ao tamanho da
+     * coluna (VARCHAR(140)) — evita overflow virar 500.
+     */
+    @field:Size(max = 140)
+    val pixKey: String? = null,
 )
