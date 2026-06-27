@@ -3,12 +3,12 @@
 import { useState, useEffect, useRef } from "react";
 import { formatBRL } from "@/types/menu";
 import { API_BASE } from "@/lib/api";
-import type { CartItem } from "./types";
+import type { CartLine } from "./types";
 
 type PaymentMethod = "CASH" | "PIX" | "CREDIT_CARD" | "DEBIT_CARD";
 
 interface Props {
-  cart: CartItem[];
+  cart: CartLine[];
   pixKey: string | null;
   tableLabel: string | null;
   tenantSlug: string;
@@ -56,7 +56,7 @@ export function CheckoutModal({
   }, []);
 
   const total = cart.reduce(
-    (sum, i) => sum + i.product.effectivePriceCents * i.quantity,
+    (sum, l) => sum + l.product.effectivePriceCents * l.quantity,
     0,
   );
 
@@ -75,7 +75,7 @@ export function CheckoutModal({
           paymentMethod: payment,
           tableLabel: tableLabel ?? undefined,
           observations: obs.trim() || undefined,
-          items: cart.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
+          items: cart.map((l) => ({ productId: l.product.id, quantity: l.quantity, notes: l.notes })),
         }),
       });
 

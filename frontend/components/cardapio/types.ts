@@ -1,37 +1,40 @@
 import type { Product } from "@/types/menu";
 
-export interface CartItem {
+export interface CartLine {
+  lineId: string;
   product: Product;
   quantity: number;
+  notes?: string;
 }
 
 export type CartAction =
-  | { type: "ADD"; product: Product }
-  | { type: "INCREMENT"; productId: string }
-  | { type: "DECREMENT"; productId: string }
+  | { type: "ADD_LINE"; product: Product; quantity: number; notes?: string }
+  | { type: "INCREMENT_LINE"; lineId: string }
+  | { type: "DECREMENT_LINE"; lineId: string }
   | { type: "CLEAR" };
 
-export function cartReducer(state: CartItem[], action: CartAction): CartItem[] {
+export function cartReducer(state: CartLine[], action: CartAction): CartLine[] {
   switch (action.type) {
-    case "ADD": {
-      const idx = state.findIndex((i) => i.product.id === action.product.id);
-      if (idx >= 0) {
-        const next = [...state];
-        next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 };
-        return next;
-      }
-      return [...state, { product: action.product, quantity: 1 }];
-    }
-    case "INCREMENT":
-      return state.map((i) =>
-        i.product.id === action.productId ? { ...i, quantity: i.quantity + 1 } : i,
+    case "ADD_LINE":
+      return [
+        ...state,
+        {
+          lineId: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          product: action.product,
+          quantity: action.quantity,
+          notes: action.notes?.trim() || undefined,
+        },
+      ];
+    case "INCREMENT_LINE":
+      return state.map((l) =>
+        l.lineId === action.lineId ? { ...l, quantity: l.quantity + 1 } : l,
       );
-    case "DECREMENT":
+    case "DECREMENT_LINE":
       return state
-        .map((i) =>
-          i.product.id === action.productId ? { ...i, quantity: i.quantity - 1 } : i,
+        .map((l) =>
+          l.lineId === action.lineId ? { ...l, quantity: l.quantity - 1 } : l,
         )
-        .filter((i) => i.quantity > 0);
+        .filter((l) => l.quantity > 0);
     case "CLEAR":
       return [];
     default:

@@ -2,10 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import { formatBRL } from "@/types/menu";
-import type { CartItem, CartAction } from "./types";
+import type { CartLine, CartAction } from "./types";
 
 interface Props {
-  cart: CartItem[];
+  cart: CartLine[];
   dispatch: (action: CartAction) => void;
   onClose: () => void;
   onCheckout: () => void;
@@ -13,7 +13,7 @@ interface Props {
 
 export function CartSheet({ cart, dispatch, onClose, onCheckout }: Props) {
   const total = cart.reduce(
-    (sum, i) => sum + i.product.effectivePriceCents * i.quantity,
+    (sum, l) => sum + l.product.effectivePriceCents * l.quantity,
     0,
   );
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -69,7 +69,7 @@ export function CartSheet({ cart, dispatch, onClose, onCheckout }: Props) {
           </button>
         </div>
 
-        {/* Items */}
+        {/* Lines */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
           {cart.length === 0 ? (
             <div className="empty-state">
@@ -77,15 +77,18 @@ export function CartSheet({ cart, dispatch, onClose, onCheckout }: Props) {
               <p className="empty-state-description">Adicione produtos para continuar.</p>
             </div>
           ) : (
-            cart.map((item) => (
+            cart.map((line) => (
               <div
-                key={item.product.id}
+                key={line.lineId}
                 className="flex items-center gap-3 py-2 border-b border-border-light last:border-0"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-text-primary truncate">{item.product.name}</p>
+                  <p className="font-medium text-text-primary truncate">{line.product.name}</p>
+                  {line.notes && (
+                    <p className="text-xs text-text-muted mt-0.5 italic">{line.notes}</p>
+                  )}
                   <p className="text-sm text-text-muted">
-                    {formatBRL(item.product.effectivePriceCents)} un.
+                    {formatBRL(line.product.effectivePriceCents)} un.
                   </p>
                 </div>
 
@@ -93,22 +96,22 @@ export function CartSheet({ cart, dispatch, onClose, onCheckout }: Props) {
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
                     onClick={() =>
-                      dispatch({ type: "DECREMENT", productId: item.product.id })
+                      dispatch({ type: "DECREMENT_LINE", lineId: line.lineId })
                     }
                     className="min-h-[48px] min-w-[48px] rounded-full bg-bg-tertiary text-text-primary flex items-center justify-center font-bold text-lg hover:bg-border-light"
-                    aria-label={`Remover um ${item.product.name}`}
+                    aria-label={`Remover um ${line.product.name}`}
                   >
                     {'−'}
                   </button>
                   <span className="w-6 text-center font-semibold text-text-primary select-none">
-                    {item.quantity}
+                    {line.quantity}
                   </span>
                   <button
                     onClick={() =>
-                      dispatch({ type: "INCREMENT", productId: item.product.id })
+                      dispatch({ type: "INCREMENT_LINE", lineId: line.lineId })
                     }
                     className="min-h-[48px] min-w-[48px] rounded-full bg-primary-700 text-white flex items-center justify-center font-bold text-lg hover:bg-primary-800"
-                    aria-label={`Adicionar mais ${item.product.name}`}
+                    aria-label={`Adicionar mais ${line.product.name}`}
                   >
                     +
                   </button>
@@ -117,7 +120,7 @@ export function CartSheet({ cart, dispatch, onClose, onCheckout }: Props) {
                 {/* Subtotal */}
                 <div className="w-20 text-right flex-shrink-0">
                   <p className="font-semibold text-text-primary">
-                    {formatBRL(item.product.effectivePriceCents * item.quantity)}
+                    {formatBRL(line.product.effectivePriceCents * line.quantity)}
                   </p>
                 </div>
               </div>

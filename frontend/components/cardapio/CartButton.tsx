@@ -1,10 +1,10 @@
 "use client";
 
 import { formatBRL } from "@/types/menu";
-import type { CartItem } from "./types";
+import type { CartLine } from "./types";
 
 interface Props {
-  cart: CartItem[];
+  cart: CartLine[];
   onClick: () => void;
 }
 

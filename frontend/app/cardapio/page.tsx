@@ -6,26 +6,27 @@ import { API_BASE, api, TOKEN_KEY } from "@/lib/api";
 import { Category, Page, Product, formatBRL } from "@/types/menu";
 import LoadingSpinner from "@/components/loading-spinner";
 import { cartReducer } from "@/components/cardapio/types";
-import type { CartItem } from "@/components/cardapio/types";
+import type { CartLine } from "@/components/cardapio/types";
 import { CartButton } from "@/components/cardapio/CartButton";
 import { CartSheet } from "@/components/cardapio/CartSheet";
 import { CheckoutModal } from "@/components/cardapio/CheckoutModal";
+import { ProductDetailModal } from "@/components/cardapio/ProductDetailModal";
 import { RestaurantHero } from "@/components/cardapio/RestaurantHero";
 
 const PUBLIC_TENANT = process.env.NEXT_PUBLIC_TENANT_SLUG ?? "demo";
 const CART_KEY = "mf_cart";
 
-function loadCart(): CartItem[] {
+function loadCart(): CartLine[] {
   try {
     const raw = sessionStorage.getItem(CART_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as CartItem[];
+    return JSON.parse(raw) as CartLine[];
   } catch {
     return [];
   }
 }
 
-function saveCart(cart: CartItem[]): void {
+function saveCart(cart: CartLine[]): void {
   try {
     sessionStorage.setItem(CART_KEY, JSON.stringify(cart));
   } catch {
@@ -264,16 +265,14 @@ function CardapioView({
   bestsellerIds: string[];
 }) {
   // Carrinho: inicia vazio, carrega do sessionStorage após hidratação
-  const [cart, dispatch] = useReducer(cartReducer, [] as CartItem[]);
+  const [cart, dispatch] = useReducer(cartReducer, [] as CartLine[]);
   const [cartHydrated, setCartHydrated] = useState(false);
 
   useEffect(() => {
     if (cartHydrated) return;
     const saved = loadCart();
     saved.forEach((item) => {
-      for (let i = 0; i < item.quantity; i++) {
-        dispatch({ type: "ADD", product: item.product });
-      }
+      dispatch({ type: "ADD_LINE", product: item.product, quantity: item.quantity, notes: item.notes });
     });
     setCartHydrated(true);
   }, [cartHydrated]);
@@ -284,6 +283,7 @@ function CardapioView({
 
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const activeId = useActiveSection(sectionIds);
 
@@ -296,6 +296,14 @@ function CardapioView({
     dispatch({ type: "CLEAR" });
     setShowCheckout(false);
     setShowCart(false);
+  }
+
+  const cartQtyFor = (productId: string) =>
+    cart.reduce((sum, l) => (l.product.id === productId ? sum + l.quantity : sum), 0);
+
+  function decrementProduct(productId: string) {
+    const lastLine = [...cart].reverse().find((l) => l.product.id === productId);
+    if (lastLine) dispatch({ type: "DECREMENT_LINE", lineId: lastLine.lineId });
   }
 
   const productMap = new Map(products.map((p) => [p.id, p]));
@@ -337,19 +345,15 @@ function CardapioView({
               <span aria-hidden="true">🔥</span> Mais Pedidos
             </h2>
             <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
-              {bestsellerProducts.map((p) => {
-                const qty = cart.find((i) => i.product.id === p.id)?.quantity ?? 0;
-                return (
-                  <BestsellerCard
-                    key={p.id}
-                    product={p}
-                    cartQuantity={qty}
-                    onAdd={() => dispatch({ type: "ADD", product: p })}
-                    onIncrement={() => dispatch({ type: "INCREMENT", productId: p.id })}
-                    onDecrement={() => dispatch({ type: "DECREMENT", productId: p.id })}
-                  />
-                );
-              })}
+              {bestsellerProducts.map((p) => (
+                <BestsellerCard
+                  key={p.id}
+                  product={p}
+                  cartQuantity={cartQtyFor(p.id)}
+                  onOpen={() => setSelectedProduct(p)}
+                  onDecrement={() => decrementProduct(p.id)}
+                />
+              ))}
             </div>
           </div>
         )}
@@ -373,10 +377,9 @@ function CardapioView({
                   <ProductCard
                     key={p.id}
                     product={p}
-                    cartQuantity={
-                      cart.find((i) => i.product.id === p.id)?.quantity ?? 0
-                    }
-                    onAdd={() => dispatch({ type: "ADD", product: p })}
+                    cartQuantity={cartQtyFor(p.id)}
+                    onOpen={() => setSelectedProduct(p)}
+                    onDecrement={() => decrementProduct(p.id)}
                   />
                 ))}
               </div>
@@ -409,6 +412,17 @@ function CardapioView({
           onNewOrder={handleNewOrder}
         />
       )}
+
+      {selectedProduct && (
+        <ProductDetailModal
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          onAdd={(qty, notes) => {
+            dispatch({ type: "ADD_LINE", product: selectedProduct, quantity: qty, notes });
+            setSelectedProduct(null);
+          }}
+        />
+      )}
     </main>
   );
 }
@@ -430,20 +444,19 @@ export default function CardapioPage() {
 function BestsellerCard({
   product,
   cartQuantity,
-  onAdd,
-  onIncrement,
+  onOpen,
   onDecrement,
 }: {
   product: Product;
   cartQuantity: number;
-  onAdd: () => void;
-  onIncrement: () => void;
+  onOpen: () => void;
   onDecrement: () => void;
 }) {
   const unavailable = !product.isAvailable;
   return (
     <article
-      className={`flex gap-3 w-56 flex-shrink-0 bg-bg-primary rounded-xl p-3 shadow-sm border border-border-light ${unavailable ? "opacity-60" : ""}`}
+      className={`flex gap-3 w-56 flex-shrink-0 bg-bg-primary rounded-xl p-3 shadow-sm border border-border-light ${unavailable ? "opacity-60" : "cursor-pointer"}`}
+      onClick={!unavailable ? onOpen : undefined}
     >
       {/* Imagem com badge de destaque */}
       <div className="relative flex-shrink-0">
@@ -482,7 +495,7 @@ function BestsellerCard({
           ) : cartQuantity > 0 ? (
             <div className="flex items-center gap-1.5">
               <button
-                onClick={onDecrement}
+                onClick={(e) => { e.stopPropagation(); onDecrement(); }}
                 className="w-7 h-7 rounded-full border border-border-medium flex items-center justify-center text-text-primary hover:bg-bg-tertiary transition-colors text-sm leading-none"
                 aria-label={`Remover ${product.name} do carrinho`}
               >
@@ -492,7 +505,7 @@ function BestsellerCard({
                 {cartQuantity}
               </span>
               <button
-                onClick={onIncrement}
+                onClick={(e) => { e.stopPropagation(); onOpen(); }}
                 className="w-7 h-7 rounded-full bg-primary-700 text-white flex items-center justify-center hover:bg-primary-800 transition-colors text-sm leading-none"
                 aria-label={`Adicionar mais ${product.name} ao carrinho`}
               >
@@ -501,7 +514,7 @@ function BestsellerCard({
             </div>
           ) : (
             <button
-              onClick={onAdd}
+              onClick={(e) => { e.stopPropagation(); onOpen(); }}
               className="text-xs bg-primary-700 text-white px-2 py-1 rounded-lg hover:bg-primary-800 transition-colors"
               aria-label={`Adicionar ${product.name} ao carrinho`}
             >
@@ -517,15 +530,20 @@ function BestsellerCard({
 function ProductCard({
   product,
   cartQuantity,
-  onAdd,
+  onOpen,
+  onDecrement,
 }: {
   product: Product;
   cartQuantity: number;
-  onAdd: () => void;
+  onOpen: () => void;
+  onDecrement: () => void;
 }) {
   const unavailable = !product.isAvailable;
   return (
-    <article className={`pos-product-card relative ${unavailable ? "opacity-60" : ""}`}>
+    <article
+      className={`pos-product-card relative ${unavailable ? "opacity-60" : ""} ${!unavailable ? "cursor-pointer" : ""}`}
+      onClick={!unavailable ? onOpen : undefined}
+    >
       {product.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -587,16 +605,28 @@ function ProductCard({
             Indisponivel
           </button>
         ) : cartQuantity > 0 ? (
-          <button
-            onClick={onAdd}
-            className="btn-outline w-full mt-2 py-2 text-sm min-h-[48px]"
-            aria-label={`Adicionar mais ${product.name} ao carrinho`}
-          >
-            {cartQuantity} no carrinho
-          </button>
+          <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={onDecrement}
+              className="min-h-[48px] min-w-[48px] rounded-full bg-bg-tertiary text-text-primary flex items-center justify-center font-bold text-lg hover:bg-border-light flex-shrink-0"
+              aria-label={`Remover um ${product.name}`}
+            >
+              {'−'}
+            </button>
+            <span className="flex-1 text-center font-semibold text-text-primary text-sm select-none">
+              {cartQuantity}
+            </span>
+            <button
+              onClick={onOpen}
+              className="min-h-[48px] min-w-[48px] rounded-full bg-primary-700 text-white flex items-center justify-center font-bold text-lg hover:bg-primary-800 flex-shrink-0"
+              aria-label={`Adicionar mais ${product.name} ao carrinho`}
+            >
+              +
+            </button>
+          </div>
         ) : (
           <button
-            onClick={onAdd}
+            onClick={(e) => { e.stopPropagation(); onOpen(); }}
             className="btn-primary w-full mt-2 py-2 text-sm min-h-[48px]"
             aria-label={`Adicionar ${product.name} ao carrinho`}
           >
