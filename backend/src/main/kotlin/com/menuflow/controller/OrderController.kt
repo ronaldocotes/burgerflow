@@ -3,6 +3,8 @@ package com.menuflow.controller
 import com.menuflow.dto.OrderCreateRequest
 import com.menuflow.dto.OrderResponse
 import com.menuflow.dto.OrderStatusUpdateRequest
+import com.menuflow.dto.QuoteRequest
+import com.menuflow.dto.QuoteResponse
 import com.menuflow.exception.BusinessException
 import com.menuflow.model.OrderStatus
 import com.menuflow.security.SecurityUtils
@@ -60,6 +62,16 @@ class OrderController(
         idempotencyService.save(idempotencyKey, "orders", hash, HttpStatus.CREATED.value(), created)
         return ResponseEntity.created(URI.create("/api/v1/orders/${created.id}")).body(created)
     }
+
+    /**
+     * Cotação do carrinho SEM criar o pedido: o PDV (web/app) obtém o total
+     * autoritativo do backend em vez de duplicar a regra de dinheiro. Não persiste
+     * nada, não baixa estoque e não exige Idempotency-Key (é cálculo idempotente).
+     * Usa a MESMA lógica de preço do create -> o valor cotado é o que será cobrado.
+     */
+    @PostMapping("/quote")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','CASHIER')")
+    fun quote(@Valid @RequestBody req: QuoteRequest): QuoteResponse = orderService.quote(req)
 
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','KITCHEN')")

@@ -2,6 +2,7 @@ package com.menuflow.dto
 
 import com.menuflow.model.Order
 import com.menuflow.model.OrderItem
+import com.menuflow.model.OrderItemOption
 import com.menuflow.model.OrderStatus
 import com.menuflow.model.OrderType
 import com.menuflow.model.PaymentMethod
@@ -40,6 +41,67 @@ data class OrderCreateRequest(
 data class OrderStatusUpdateRequest(
     val status: OrderStatus,
     val reason: String? = null,
+)
+
+/**
+ * Carrinho enxuto para cotação (POST /orders/quote): só o que afeta o total.
+ * Não aceita customerId/tableNumber/paymentMethod/notes porque o quote não cria
+ * pedido — é cálculo. Reutiliza OrderItemRequest, então o snapshot de variação/
+ * complementos é idêntico ao do create e os valores cotados batem.
+ */
+data class QuoteRequest(
+    val orderType: OrderType = OrderType.DINE_IN,
+    @field:NotEmpty @field:Valid val items: List<OrderItemRequest>,
+    val deliveryFeeCents: Long = 0,
+    val discountCents: Long = 0,
+)
+
+data class QuoteItemResponse(
+    val productId: UUID,
+    val productSku: String,
+    val productName: String,
+    val quantity: Int,
+    val unitPriceCents: Long,
+    val totalPriceCents: Long,
+    val sizeId: UUID? = null,
+    val sizeName: String? = null,
+    val flavor1Id: UUID? = null,
+    val flavor1Name: String? = null,
+    val flavor2Id: UUID? = null,
+    val flavor2Name: String? = null,
+    val crustType: String? = null,
+    val doughType: String? = null,
+    val options: List<OrderItemOptionView> = emptyList(),
+) {
+    companion object {
+        fun from(i: OrderItem, opts: List<OrderItemOption>) = QuoteItemResponse(
+            productId = i.productId,
+            productSku = i.productSku,
+            productName = i.productName,
+            quantity = i.quantity,
+            unitPriceCents = i.unitPriceCents,
+            totalPriceCents = i.totalPriceCents,
+            sizeId = i.sizeId,
+            sizeName = i.sizeName,
+            flavor1Id = i.flavor1Id,
+            flavor1Name = i.flavor1Name,
+            flavor2Id = i.flavor2Id,
+            flavor2Name = i.flavor2Name,
+            crustType = i.crustType?.name,
+            doughType = i.doughType?.name,
+            options = opts.map {
+                OrderItemOptionView(it.optionId, it.groupName, it.optionName, it.priceCents)
+            },
+        )
+    }
+}
+
+data class QuoteResponse(
+    val items: List<QuoteItemResponse>,
+    val subtotalCents: Long,
+    val discountCents: Long,
+    val deliveryFeeCents: Long,
+    val totalCents: Long,
 )
 
 data class OrderItemOptionView(

@@ -1,8 +1,12 @@
 package com.menuflow.service
 
 import com.menuflow.dto.OrderCreateRequest
+import com.menuflow.dto.OrderItemRequest
 import com.menuflow.dto.OrderResponse
 import com.menuflow.dto.OrderStatusUpdateRequest
+import com.menuflow.dto.QuoteItemResponse
+import com.menuflow.dto.QuoteRequest
+import com.menuflow.dto.QuoteResponse
 import com.menuflow.exception.BusinessException
 import com.menuflow.exception.ResourceNotFoundException
 import com.menuflow.exception.UnprocessableEntityException
@@ -81,54 +85,18 @@ class OrderService(
      */
     @Transactional("tenantTransactionManager")
     fun create(req: OrderCreateRequest, userId: UUID?): OrderResponse {
-        if (req.items.isEmpty()) throw BusinessException("Order must have at least one item")
+        // 1. Resolve products, build line items (price snapshot), validar complementos
+        // e os valores monetários. MESMA lógica que o quote usa -> os totais batem.
+        val priced = priceItems(req.items, req.discountCents, req.deliveryFeeCents)
+        val items = priced.items
+        val optionsByIndex = priced.optionsByIndex
+        val subtotal = priced.subtotalCents
 
-        // 1. Resolve products and build line items (price snapshot).
-        val items = mutableListOf<OrderItem>()
-        // Snapshots de complementos por linha (index); anexados após o item ter id.
-        val optionsByIndex = HashMap<Int, List<OrderItemOption>>()
-        var subtotal = 0L
-        // Aggregate required ingredient quantities across all order lines.
+        // Ficha técnica: agrega o consumo de insumos a partir das linhas já precificadas.
         val required = HashMap<UUID, Double>()
-
-        req.items.forEachIndexed { index, line ->
-            val product = productRepository.findByIdAndActiveTrue(line.productId)
-                ?: throw ResourceNotFoundException("Product not found: ${line.productId}")
-
-            // Complementos: valida pertinência ao produto + regras min/max e faz o
-            // snapshot (nome+preço); o adicional entra no preço unitário do item.
-            val snapshots = resolveOptions(product.id!!, line.optionIds)
-            // Variação de pizza: base (tamanho ou produto) + média dos sabores + borda.
-            // Valida que tamanho/sabor pertencem ao produto (anti-IDOR) e gera o snapshot.
-            val variation = resolveVariation(product, line)
-            val unitPrice = variation.basePriceCents + snapshots.sumOf { it.priceCents }
-            val lineTotal = unitPrice * line.quantity
-            subtotal += lineTotal
-            items.add(
-                OrderItem(
-                    orderId = PLACEHOLDER, // set after order is persisted
-                    productId = product.id!!,
-                    productSku = product.sku,
-                    productName = product.name,
-                    quantity = line.quantity,
-                    unitPriceCents = unitPrice,
-                    totalPriceCents = lineTotal,
-                    notes = line.notes,
-                    displayOrder = index,
-                    sizeId = variation.sizeId,
-                    sizeName = variation.sizeName,
-                    flavor1Id = variation.flavor1Id,
-                    flavor1Name = variation.flavor1Name,
-                    flavor2Id = variation.flavor2Id,
-                    flavor2Name = variation.flavor2Name,
-                    crustType = variation.crustType,
-                    doughType = variation.doughType,
-                ),
-            )
-            if (snapshots.isNotEmpty()) optionsByIndex[index] = snapshots
-            // Ficha técnica: accumulate ingredient consumption.
-            productIngredientRepository.findByProductId(product.id!!).forEach { pi ->
-                required.merge(pi.ingredientId, pi.quantity * line.quantity, Double::plus)
+        items.forEach { item ->
+            productIngredientRepository.findByProductId(item.productId).forEach { pi ->
+                required.merge(pi.ingredientId, pi.quantity * item.quantity, Double::plus)
             }
         }
 
@@ -163,15 +131,8 @@ class OrderService(
             }
         }
 
-        // Valores monetários vindos do cliente: barra sinal negativo e desconto
-        // acima do subtotal (senão um operador poderia zerar/reduzir o total via API).
-        if (req.discountCents < 0) throw BusinessException("Desconto não pode ser negativo")
-        if (req.deliveryFeeCents < 0) throw BusinessException("Taxa de entrega não pode ser negativa")
-        if (req.discountCents > subtotal) throw BusinessException("Desconto não pode exceder o subtotal")
-
-        // 3. Compute totals (centavos) and persist the order.
-        val deliveryFee = if (req.orderType == OrderType.DELIVERY) req.deliveryFeeCents else 0L
-        val total = (subtotal - req.discountCents + deliveryFee).coerceAtLeast(0)
+        // 3. Compute totals (centavos) and persist the order. MESMO cálculo do quote.
+        val (deliveryFee, total) = computeTotals(subtotal, req.orderType, req.discountCents, req.deliveryFeeCents)
 
         val order = Order(
             orderNumber = generateOrderNumber(),
@@ -204,6 +165,116 @@ class OrderService(
         }
         return OrderResponse.from(persisted)
     }
+
+    /**
+     * Calcula o total de um carrinho SEM criar o pedido (nada é persistido, nenhuma
+     * baixa de estoque). Usa EXATAMENTE a mesma lógica de preço do create
+     * (priceItems + computeTotals), garantindo que o valor cotado é o que o pedido
+     * cobraria. Validações de complemento (obrigatório/min-max/pertencimento) e de
+     * desconto/taxa são as mesmas — um carrinho inválido falha aqui como no create.
+     */
+    @Transactional("tenantTransactionManager", readOnly = true)
+    fun quote(req: QuoteRequest): QuoteResponse {
+        val priced = priceItems(req.items, req.discountCents, req.deliveryFeeCents)
+        val (deliveryFee, total) =
+            computeTotals(priced.subtotalCents, req.orderType, req.discountCents, req.deliveryFeeCents)
+        val items = priced.items.map { item ->
+            QuoteItemResponse.from(item, priced.optionsByIndex[item.displayOrder].orEmpty())
+        }
+        return QuoteResponse(
+            items = items,
+            subtotalCents = priced.subtotalCents,
+            discountCents = req.discountCents,
+            deliveryFeeCents = deliveryFee,
+            totalCents = total,
+        )
+    }
+
+    /**
+     * Núcleo de precificação compartilhado por create e quote: resolve produtos,
+     * monta as linhas com snapshot de preço (variação de pizza + complementos),
+     * acumula o subtotal e valida os valores monetários do carrinho. NÃO toca em
+     * estoque nem persiste nada — é cálculo puro em memória.
+     */
+    private fun priceItems(
+        lines: List<OrderItemRequest>,
+        discountCents: Long,
+        deliveryFeeCents: Long,
+    ): PricedCart {
+        if (lines.isEmpty()) throw BusinessException("Order must have at least one item")
+
+        val items = mutableListOf<OrderItem>()
+        // Snapshots de complementos por linha (index); anexados após o item ter id (no create).
+        val optionsByIndex = HashMap<Int, List<OrderItemOption>>()
+        var subtotal = 0L
+
+        lines.forEachIndexed { index, line ->
+            val product = productRepository.findByIdAndActiveTrue(line.productId)
+                ?: throw ResourceNotFoundException("Product not found: ${line.productId}")
+
+            // Complementos: valida pertinência ao produto + regras min/max e faz o
+            // snapshot (nome+preço); o adicional entra no preço unitário do item.
+            val snapshots = resolveOptions(product.id!!, line.optionIds)
+            // Variação de pizza: base (tamanho ou produto) + média dos sabores + borda.
+            // Valida que tamanho/sabor pertencem ao produto (anti-IDOR) e gera o snapshot.
+            val variation = resolveVariation(product, line)
+            val unitPrice = variation.basePriceCents + snapshots.sumOf { it.priceCents }
+            val lineTotal = unitPrice * line.quantity
+            subtotal += lineTotal
+            items.add(
+                OrderItem(
+                    orderId = PLACEHOLDER, // set after order is persisted (create only)
+                    productId = product.id!!,
+                    productSku = product.sku,
+                    productName = product.name,
+                    quantity = line.quantity,
+                    unitPriceCents = unitPrice,
+                    totalPriceCents = lineTotal,
+                    notes = line.notes,
+                    displayOrder = index,
+                    sizeId = variation.sizeId,
+                    sizeName = variation.sizeName,
+                    flavor1Id = variation.flavor1Id,
+                    flavor1Name = variation.flavor1Name,
+                    flavor2Id = variation.flavor2Id,
+                    flavor2Name = variation.flavor2Name,
+                    crustType = variation.crustType,
+                    doughType = variation.doughType,
+                ),
+            )
+            if (snapshots.isNotEmpty()) optionsByIndex[index] = snapshots
+        }
+
+        // Valores monetários vindos do cliente: barra sinal negativo e desconto
+        // acima do subtotal (senão um operador poderia zerar/reduzir o total via API).
+        if (discountCents < 0) throw BusinessException("Desconto não pode ser negativo")
+        if (deliveryFeeCents < 0) throw BusinessException("Taxa de entrega não pode ser negativa")
+        if (discountCents > subtotal) throw BusinessException("Desconto não pode exceder o subtotal")
+
+        return PricedCart(items, optionsByIndex, subtotal)
+    }
+
+    /**
+     * Calcula taxa de entrega efetiva e total (centavos) a partir do subtotal.
+     * Taxa só se aplica a DELIVERY; total nunca fica negativo. Compartilhado por
+     * create e quote para garantir o MESMO valor.
+     */
+    private fun computeTotals(
+        subtotal: Long,
+        orderType: OrderType,
+        discountCents: Long,
+        deliveryFeeCents: Long,
+    ): Pair<Long, Long> {
+        val deliveryFee = if (orderType == OrderType.DELIVERY) deliveryFeeCents else 0L
+        val total = (subtotal - discountCents + deliveryFee).coerceAtLeast(0)
+        return deliveryFee to total
+    }
+
+    private data class PricedCart(
+        val items: List<OrderItem>,
+        val optionsByIndex: Map<Int, List<OrderItemOption>>,
+        val subtotalCents: Long,
+    )
 
     /**
      * Resolve as opções escolhidas em snapshots, validando: existência/ativação,
