@@ -41,6 +41,9 @@ class ProductService(private val productRepository: ProductRepository) {
             displayOrder = req.displayOrder,
             preparationTimeMinutes = req.preparationTimeMinutes,
             isFeatured = req.isFeatured,
+            promoPriceCents = req.promoPriceCents,
+            promoStartsAt = req.promoStartsAt,
+            promoEndsAt = req.promoEndsAt,
         )
         return ProductResponse.from(productRepository.save(product))
     }
@@ -62,6 +65,9 @@ class ProductService(private val productRepository: ProductRepository) {
         product.displayOrder = req.displayOrder
         product.preparationTimeMinutes = req.preparationTimeMinutes
         product.isFeatured = req.isFeatured
+        product.promoPriceCents = req.promoPriceCents
+        product.promoStartsAt = req.promoStartsAt
+        product.promoEndsAt = req.promoEndsAt
         return ProductResponse.from(productRepository.save(product))
     }
 

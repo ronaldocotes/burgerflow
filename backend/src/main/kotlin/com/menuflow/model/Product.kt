@@ -55,6 +55,16 @@ data class Product(
     @Column(name = "is_featured", nullable = false)
     var isFeatured: Boolean = false,
 
+    /** Preço promocional (centavos), opcional. Ativo dentro da janela [promoStartsAt, promoEndsAt]. */
+    @Column(name = "promo_price_cents")
+    var promoPriceCents: Long? = null,
+
+    @Column(name = "promo_starts_at")
+    var promoStartsAt: Instant? = null,
+
+    @Column(name = "promo_ends_at")
+    var promoEndsAt: Instant? = null,
+
     @Version
     @Column(nullable = false)
     var version: Long = 0,
@@ -69,4 +79,22 @@ data class Product(
     fun preUpdate() {
         updatedAt = Instant.now()
     }
+
+    /**
+     * Promo ATIVA = existe uma janela definida (ao menos promoStartsAt ou promoEndsAt)
+     * e "agora" está dentro dela (limite nulo = sem limite daquele lado). A janela é o
+     * que ativa a promoção; o preço promocional (do produto OU do tamanho de pizza)
+     * só é aplicado quando a promo está ativa. "Sempre ativa" = promoStartsAt no passado
+     * e promoEndsAt nulo.
+     */
+    fun isOnPromo(now: Instant = Instant.now()): Boolean {
+        val hasWindow = promoStartsAt != null || promoEndsAt != null
+        return hasWindow &&
+            (promoStartsAt == null || !now.isBefore(promoStartsAt)) &&
+            (promoEndsAt == null || now.isBefore(promoEndsAt))
+    }
+
+    /** Preço efetivo (centavos): promocional se a promo estiver ativa E houver promoPriceCents. */
+    fun effectivePriceCents(now: Instant = Instant.now()): Long =
+        if (isOnPromo(now) && promoPriceCents != null) promoPriceCents!! else priceCents
 }

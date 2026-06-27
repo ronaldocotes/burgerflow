@@ -4,8 +4,8 @@ import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.PositiveOrZero
 import java.util.UUID
 
-data class ProductSizeRequest(val name: String, val code: String, val priceCents: Long)
-data class ProductSizeResponse(val id: UUID, val name: String, val code: String, val priceCents: Long, val active: Boolean, val displayOrder: Int)
+data class ProductSizeRequest(val name: String, val code: String, val priceCents: Long, val promoPriceCents: Long? = null)
+data class ProductSizeResponse(val id: UUID, val name: String, val code: String, val priceCents: Long, val promoPriceCents: Long?, val active: Boolean, val displayOrder: Int)
 
 data class ProductFlavorRequest(
     val name: String,

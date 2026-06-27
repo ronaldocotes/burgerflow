@@ -12,6 +12,11 @@ data class ProductSize(
     @Column(nullable = false) var name: String,
     @Column(nullable = false) var code: String,
     @Column(name = "price_cents", nullable = false) var priceCents: Long,
+    @Column(name = "promo_price_cents") var promoPriceCents: Long? = null,
     @Column(nullable = false) var active: Boolean = true,
     @Column(name = "display_order", nullable = false) var displayOrder: Int = 0,
-)
+) {
+    /** Preço efetivo do tamanho: promocional se o produto está em promo e há promo no tamanho. */
+    fun effectivePriceCents(productOnPromo: Boolean): Long =
+        if (productOnPromo && promoPriceCents != null) promoPriceCents!! else priceCents
+}

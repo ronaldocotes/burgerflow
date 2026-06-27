@@ -20,6 +20,9 @@ data class ProductCreateRequest(
     val displayOrder: Int = 0,
     val preparationTimeMinutes: Int = 10,
     val isFeatured: Boolean = false,
+    @field:PositiveOrZero val promoPriceCents: Long? = null,
+    val promoStartsAt: Instant? = null,
+    val promoEndsAt: Instant? = null,
 )
 
 data class ProductUpdateRequest(
@@ -34,6 +37,9 @@ data class ProductUpdateRequest(
     val displayOrder: Int = 0,
     val preparationTimeMinutes: Int = 10,
     val isFeatured: Boolean = false,
+    @field:PositiveOrZero val promoPriceCents: Long? = null,
+    val promoStartsAt: Instant? = null,
+    val promoEndsAt: Instant? = null,
 )
 
 data class ProductResponse(
@@ -50,6 +56,11 @@ data class ProductResponse(
     val displayOrder: Int,
     val preparationTimeMinutes: Int,
     val isFeatured: Boolean,
+    val promoPriceCents: Long?,
+    val promoStartsAt: Instant?,
+    val promoEndsAt: Instant?,
+    val effectivePriceCents: Long,
+    val onPromo: Boolean,
     val createdAt: Instant,
     val updatedAt: Instant,
 ) {
@@ -68,6 +79,11 @@ data class ProductResponse(
             displayOrder = p.displayOrder,
             preparationTimeMinutes = p.preparationTimeMinutes,
             isFeatured = p.isFeatured,
+            promoPriceCents = p.promoPriceCents,
+            promoStartsAt = p.promoStartsAt,
+            promoEndsAt = p.promoEndsAt,
+            effectivePriceCents = p.effectivePriceCents(),
+            onPromo = p.isOnPromo(),
             createdAt = p.createdAt,
             updatedAt = p.updatedAt,
         )

@@ -265,9 +265,9 @@ class OrderService(
             if (size.productId != productId) throw BusinessException("Tamanho não pertence a este produto")
             if (!size.active) throw BusinessException("Tamanho indisponível")
             sizeId = size.id; sizeName = size.name
-            size.priceCents
+            size.effectivePriceCents(product.isOnPromo())
         } else {
-            product.priceCents
+            product.effectivePriceCents()
         }
 
         // Sabores: resolve, valida pertencimento e coleta os preços para a média.
