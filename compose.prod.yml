@@ -1,0 +1,127 @@
+# MenuFlow — compose de producao (Oracle A1, 2026-06-27).
+#
+# SEM Caddy proprio: usa o sisater-caddy (rede externa 'web').
+# Kafka excluido (sem @KafkaListener): economiza RAM, evita erro de boot.
+# Frontend inclui NEXT_PUBLIC_* via build.args (embutidos no bundle).
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: menuflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${MF_DB_USER}
+      POSTGRES_PASSWORD: ${MF_DB_PASSWORD}
+      POSTGRES_DB: ${MF_DB_CONTROL:-menuflow_control}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [menuflow-net]
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "pg_isready -U ${MF_DB_USER}"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: menuflow-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - "--requirepass"
+      - "${SPRING_REDIS_PASSWORD}"
+    networks: [menuflow-net]
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - -a
+        - "${SPRING_REDIS_PASSWORD}"
+        - ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: menuflow-backend:latest
+    container_name: menuflow-backend
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      MF_DB_HOST: postgres:5432
+      MF_DB_USER: ${MF_DB_USER}
+      MF_DB_PASSWORD: ${MF_DB_PASSWORD}
+      MF_DB_CONTROL: ${MF_DB_CONTROL:-menuflow_control}
+      MF_DB_MAINTENANCE: ${MF_DB_CONTROL:-menuflow_control}
+      MF_DB_PREFIX: tenant_
+      MF_DB_AUTOCREATE: "true"
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: "6379"
+      SPRING_REDIS_PASSWORD: ${SPRING_REDIS_PASSWORD}
+      SPRING_CACHE_TYPE: redis
+      MF_JWT_SECRET: ${MF_JWT_SECRET}
+      MF_RATELIMIT_LOGIN_BACKEND: redis
+      SERVER_PORT: "8080"
+      SPRING_AUTOCONFIGURE_EXCLUDE: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+    networks:
+      - menuflow-net
+      - web
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:8080/api/v1/actuator/health
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://menuflow.duckdns.org/api/v1
+        NEXT_PUBLIC_WS_URL: wss://menuflow.duckdns.org
+        NEXT_PUBLIC_ENVIRONMENT: production
+    image: menuflow-frontend:latest
+    container_name: menuflow-frontend
+    restart: unless-stopped
+    depends_on:
+      backend: { condition: service_healthy }
+    environment:
+      HOSTNAME: "0.0.0.0"
+    networks:
+      - menuflow-net
+      - web
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - -O
+        - /dev/null
+        - http://127.0.0.1:3000/
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  postgres_data:
+
+networks:
+  menuflow-net:
+    driver: bridge
+  web:
+    external: true
