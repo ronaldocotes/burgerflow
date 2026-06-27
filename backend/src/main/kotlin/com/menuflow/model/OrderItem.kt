@@ -50,6 +50,12 @@ data class OrderItem(
     @Column(name = "flavor2_name") var flavor2Name: String? = null,
     @Column(name = "crust_type") @Enumerated(EnumType.STRING) var crustType: CrustType? = null,
     @Column(name = "dough_type")  @Enumerated(EnumType.STRING) var doughType: DoughType? = null,
+
+    // Complementos escolhidos (snapshot). Mesmo padrão de Order.items: a FK é uma
+    // coluna simples (orderItemId), setada manualmente no service antes do persist
+    // em cascata (o orderItemId só existe depois que o item ganha id).
+    @OneToMany(mappedBy = "orderItemId", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+    var options: MutableList<OrderItemOption> = mutableListOf(),
 )
 
 enum class OrderItemStatus {

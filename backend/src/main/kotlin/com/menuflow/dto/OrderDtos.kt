@@ -21,6 +21,8 @@ data class OrderItemRequest(
     val flavor2Id: UUID? = null,
     val crustType: String? = null,
     val doughType: String? = null,
+    /** Opções de complemento escolhidas (ids do catálogo de option groups). */
+    val optionIds: List<UUID> = emptyList(),
 )
 
 data class OrderCreateRequest(
@@ -39,6 +41,13 @@ data class OrderStatusUpdateRequest(
     val reason: String? = null,
 )
 
+data class OrderItemOptionView(
+    val optionId: UUID,
+    val groupName: String,
+    val optionName: String,
+    val priceCents: Long,
+)
+
 data class OrderItemResponse(
     val id: UUID,
     val productId: UUID,
@@ -49,6 +58,7 @@ data class OrderItemResponse(
     val totalPriceCents: Long,
     val notes: String?,
     val status: String,
+    val options: List<OrderItemOptionView> = emptyList(),
 ) {
     companion object {
         fun from(i: OrderItem) = OrderItemResponse(
@@ -61,6 +71,9 @@ data class OrderItemResponse(
             totalPriceCents = i.totalPriceCents,
             notes = i.notes,
             status = i.status.name,
+            options = i.options.map {
+                OrderItemOptionView(it.optionId, it.groupName, it.optionName, it.priceCents)
+            },
         )
     }
 }

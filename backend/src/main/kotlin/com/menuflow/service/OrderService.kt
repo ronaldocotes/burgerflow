@@ -8,11 +8,14 @@ import com.menuflow.exception.ResourceNotFoundException
 import com.menuflow.exception.UnprocessableEntityException
 import com.menuflow.model.Order
 import com.menuflow.model.OrderItem
+import com.menuflow.model.OrderItemOption
 import com.menuflow.model.OrderStatus
 import com.menuflow.model.OrderType
 import com.menuflow.repository.tenant.IngredientRepository
 import com.menuflow.repository.tenant.OrderRepository
 import com.menuflow.repository.tenant.ProductIngredientRepository
+import com.menuflow.repository.tenant.ProductOptionGroupRepository
+import com.menuflow.repository.tenant.ProductOptionRepository
 import com.menuflow.repository.tenant.ProductRepository
 import com.menuflow.tenant.TenantContext
 import org.springframework.data.domain.Page
@@ -33,6 +36,8 @@ class OrderService(
     private val productRepository: ProductRepository,
     private val productIngredientRepository: ProductIngredientRepository,
     private val ingredientRepository: IngredientRepository,
+    private val productOptionGroupRepository: ProductOptionGroupRepository,
+    private val productOptionRepository: ProductOptionRepository,
     private val realtimePublisher: com.menuflow.service.RealtimePublisher,
 ) {
 
@@ -71,6 +76,8 @@ class OrderService(
 
         // 1. Resolve products and build line items (price snapshot).
         val items = mutableListOf<OrderItem>()
+        // Snapshots de complementos por linha (index); anexados após o item ter id.
+        val optionsByIndex = HashMap<Int, List<OrderItemOption>>()
         var subtotal = 0L
         // Aggregate required ingredient quantities across all order lines.
         val required = HashMap<UUID, Double>()
@@ -78,7 +85,12 @@ class OrderService(
         req.items.forEachIndexed { index, line ->
             val product = productRepository.findByIdAndActiveTrue(line.productId)
                 ?: throw ResourceNotFoundException("Product not found: ${line.productId}")
-            val lineTotal = product.priceCents * line.quantity
+
+            // Complementos: valida pertinência ao produto + regras min/max e faz o
+            // snapshot (nome+preço); o adicional entra no preço unitário do item.
+            val snapshots = resolveOptions(product.id!!, line.optionIds)
+            val unitPrice = product.priceCents + snapshots.sumOf { it.priceCents }
+            val lineTotal = unitPrice * line.quantity
             subtotal += lineTotal
             items.add(
                 OrderItem(
@@ -87,12 +99,13 @@ class OrderService(
                     productSku = product.sku,
                     productName = product.name,
                     quantity = line.quantity,
-                    unitPriceCents = product.priceCents,
+                    unitPriceCents = unitPrice,
                     totalPriceCents = lineTotal,
                     notes = line.notes,
                     displayOrder = index,
                 ),
             )
+            if (snapshots.isNotEmpty()) optionsByIndex[index] = snapshots
             // Ficha técnica: accumulate ingredient consumption.
             productIngredientRepository.findByProductId(product.id!!).forEach { pi ->
                 required.merge(pi.ingredientId, pi.quantity * line.quantity, Double::plus)
@@ -153,7 +166,55 @@ class OrderService(
         items.forEach { it.orderId = saved.id!! }
         saved.items.addAll(items)
         val persisted = orderRepository.save(saved)
+        // Com os itens já persistidos (cada um com id), anexa os complementos
+        // (snapshot) e salva em cascata — orderItemId só pode ser preenchido aqui.
+        if (optionsByIndex.isNotEmpty()) {
+            persisted.items.forEach { item ->
+                val opts = optionsByIndex[item.displayOrder].orEmpty()
+                opts.forEach { it.orderItemId = item.id!! }
+                item.options.addAll(opts)
+            }
+            return OrderResponse.from(orderRepository.save(persisted))
+        }
         return OrderResponse.from(persisted)
+    }
+
+    /**
+     * Resolve as opções escolhidas em snapshots, validando: existência/ativação,
+     * pertinência a um grupo ATIVO do produto e as regras min/max de cada grupo
+     * (grupo obrigatório não satisfeito aborta o pedido).
+     */
+    private fun resolveOptions(productId: UUID, optionIds: List<UUID>): List<OrderItemOption> {
+        val groups = productOptionGroupRepository.findByProductIdAndActiveTrue(productId)
+        val wanted = optionIds.toSet()
+        val chosen = if (wanted.isEmpty()) emptyList()
+            else productOptionRepository.findAllById(wanted).toList()
+        if (chosen.size != wanted.size) throw BusinessException("Opção de complemento inválida")
+
+        val groupsById = groups.associateBy { it.id }
+        chosen.forEach { opt ->
+            if (!opt.active) throw BusinessException("Opção de complemento indisponível")
+            groupsById[opt.groupId] ?: throw BusinessException("Opção não pertence a este produto")
+        }
+        val countByGroup = chosen.groupBy { it.groupId }.mapValues { it.value.size }
+        groups.forEach { g ->
+            val count = countByGroup[g.id] ?: 0
+            if (count < g.minSelect) {
+                throw BusinessException("Complemento obrigatório '${g.name}' exige ao menos ${g.minSelect} opção(ões)")
+            }
+            if (count > g.maxSelect) {
+                throw BusinessException("Complemento '${g.name}' aceita no máximo ${g.maxSelect} opção(ões)")
+            }
+        }
+        return chosen.map { opt ->
+            OrderItemOption(
+                orderItemId = PLACEHOLDER,
+                optionId = opt.id!!,
+                groupName = groupsById[opt.groupId]!!.name,
+                optionName = opt.name,
+                priceCents = opt.priceCents,
+            )
+        }
     }
 
     @Transactional("tenantTransactionManager")
