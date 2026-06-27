@@ -544,77 +544,65 @@ function ProductCard({
       className={`pos-product-card relative ${unavailable ? "opacity-60" : ""} ${!unavailable ? "cursor-pointer" : ""}`}
       onClick={!unavailable ? onOpen : undefined}
     >
-      {product.imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={product.imageUrl}
-          alt={product.name}
-          width={400}
-          height={192}
-          className="pos-product-image"
-        />
-      ) : (
-        <div
-          aria-hidden="true"
-          className="pos-product-image bg-bg-tertiary flex items-center justify-center text-4xl"
-        >
-          🍽️
-        </div>
-      )}
-
-      <div className="absolute top-2 left-2 flex flex-wrap gap-1">
-        {product.onPromo && (
-          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-            PROMO
-          </span>
-        )}
-        {product.isFeatured && (
-          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary-100 text-primary-800 border border-primary-300">
-            DESTAQUE
-          </span>
-        )}
-        {unavailable && (
-          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300">
-            INDISPONÍVEL
-          </span>
-        )}
-      </div>
-
-      <div className="p-3 flex flex-col gap-1">
-        <h3 className="font-semibold text-text-primary leading-tight">{product.name}</h3>
-        {product.description && (
-          <p className="text-xs text-text-secondary line-clamp-2">{product.description}</p>
-        )}
-
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <div className="flex items-baseline gap-1.5 min-w-0">
-            <span className="text-base font-bold text-text-primary">
-              {formatBRL(product.effectivePriceCents)}
-            </span>
-            {product.onPromo && (
-              <span className="text-xs text-text-muted line-through">
-                {formatBRL(product.priceCents)}
-              </span>
-            )}
+      {/* Imagem + botão flutuante sobre ela */}
+      <div className="relative">
+        {product.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            width={400}
+            height={192}
+            className="pos-product-image"
+          />
+        ) : (
+          <div
+            aria-hidden="true"
+            className="pos-product-image bg-bg-tertiary flex items-center justify-center text-4xl"
+          >
+            🍽️
           </div>
+        )}
 
-          {unavailable ? (
-            <span className="text-xs text-text-muted font-medium shrink-0">Indisponível</span>
-          ) : cartQuantity > 0 ? (
-            <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+        {/* Badges no canto superior esquerdo da imagem */}
+        <div className="absolute top-2 left-2 flex flex-wrap gap-1">
+          {product.onPromo && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+              PROMO
+            </span>
+          )}
+          {product.isFeatured && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary-100 text-primary-800 border border-primary-300">
+              DESTAQUE
+            </span>
+          )}
+          {unavailable && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300">
+              INDISPONÍVEL
+            </span>
+          )}
+        </div>
+
+        {/* CTA flutuante sobre a imagem — canto inferior direito */}
+        {!unavailable && (
+          cartQuantity > 0 ? (
+            <div
+              className="absolute bottom-2 right-2 flex items-center gap-1 bg-bg-primary rounded-full shadow-lg px-1.5 py-1"
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
                 onClick={onDecrement}
-                className="w-8 h-8 min-h-[44px] min-w-[44px] rounded-full border border-border-medium flex items-center justify-center text-text-primary hover:bg-bg-tertiary transition-colors text-base leading-none"
+                className="w-7 h-7 rounded-full border border-border-medium flex items-center justify-center text-text-primary hover:bg-bg-tertiary transition-colors text-base leading-none"
                 aria-label={`Remover um ${product.name}`}
               >
                 {'−'}
               </button>
-              <span className="w-5 text-center font-semibold text-text-primary text-sm select-none">
+              <span className="w-5 text-center font-bold text-text-primary text-sm select-none">
                 {cartQuantity}
               </span>
               <button
                 onClick={onOpen}
-                className="w-8 h-8 min-h-[44px] min-w-[44px] rounded-full bg-primary-700 text-white flex items-center justify-center hover:bg-primary-800 transition-colors text-base leading-none"
+                className="w-7 h-7 rounded-full bg-primary-700 text-white flex items-center justify-center hover:bg-primary-800 transition-colors text-base leading-none"
                 aria-label={`Adicionar mais ${product.name} ao carrinho`}
               >
                 +
@@ -623,12 +611,28 @@ function ProductCard({
           ) : (
             <button
               onClick={(e) => { e.stopPropagation(); onOpen(); }}
-              className="shrink-0 flex items-center gap-1 px-3 min-h-[44px] rounded-lg bg-primary-700 text-white text-sm font-medium hover:bg-primary-800 active:bg-primary-900 transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+              className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-primary-700 text-white shadow-lg flex items-center justify-center text-xl font-bold hover:bg-primary-800 active:bg-primary-900 transition-colors"
               aria-label={`Adicionar ${product.name} ao carrinho`}
             >
-              <span aria-hidden="true" className="text-base font-bold leading-none">+</span>
-              <span>Adicionar</span>
+              +
             </button>
+          )
+        )}
+      </div>
+
+      <div className="p-3 flex flex-col gap-0.5">
+        <h3 className="font-semibold text-text-primary leading-tight">{product.name}</h3>
+        {product.description && (
+          <p className="text-xs text-text-secondary line-clamp-2">{product.description}</p>
+        )}
+        <div className="mt-1.5 flex items-baseline gap-1.5">
+          <span className="text-base font-bold text-text-primary">
+            {formatBRL(product.effectivePriceCents)}
+          </span>
+          {product.onPromo && (
+            <span className="text-xs text-text-muted line-through">
+              {formatBRL(product.priceCents)}
+            </span>
           )}
         </div>
       </div>
