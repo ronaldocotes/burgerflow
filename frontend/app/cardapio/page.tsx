@@ -1,14 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { getToken, logout } from "@/lib/auth";
 import { Category, Page, Product, formatBRL } from "@/types/menu";
 import LoadingSpinner from "@/components/loading-spinner";
 
-export default function CardapioPage() {
+// ── Conteudo principal (usa useSearchParams — precisa de Suspense) ─────────────
+
+function CardapioContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tableParam = searchParams.get("table");
+  const tableLabel = tableParam ? decodeURIComponent(tableParam) : null;
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +31,7 @@ export default function CardapioPage() {
       setCategories(cats.content);
       setProducts(prods.content);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar o cardápio.");
+      setError(err instanceof Error ? err.message : "Erro ao carregar o cardapio.");
     } finally {
       setLoading(false);
     }
@@ -70,7 +76,7 @@ export default function CardapioPage() {
     );
   }
 
-  // Agrupa produtos por categoria; o que não casar com categoria conhecida vai em "Outros".
+  // Agrupa produtos por categoria; o que nao casar com categoria conhecida vai em "Outros".
   const byCategory = new Map<string, Product[]>();
   for (const p of products) {
     const list = byCategory.get(p.categoryId) ?? [];
@@ -102,19 +108,31 @@ export default function CardapioPage() {
     <main className="min-h-screen bg-bg-secondary">
       <header className="header sticky top-0 z-10">
         <h1 className="header-title">
-          <span aria-hidden="true">🍔</span> Cardápio
+          <span aria-hidden="true">🍔</span> Cardapio
         </h1>
         <button className="btn-outline" onClick={onLogout}>
           Sair
         </button>
       </header>
 
+      {/* Banner de mesa — exibido quando ?table= esta presente na URL */}
+      {tableLabel && (
+        <div
+          className="bg-primary-700 text-white px-4 py-2 text-sm font-semibold flex items-center gap-2"
+          role="status"
+          aria-label={`Pedindo para a mesa ${tableLabel}`}
+        >
+          <span aria-hidden="true">🍽</span>
+          Mesa {tableLabel}
+        </div>
+      )}
+
       <div className="max-w-5xl mx-auto p-4 md:p-6">
         {products.length === 0 ? (
           <div className="empty-state">
-            <p className="empty-state-title">Cardápio vazio</p>
+            <p className="empty-state-title">Cardapio vazio</p>
             <p className="empty-state-description">
-              Nenhum produto cadastrado ainda. Cadastre produtos para que apareçam
+              Nenhum produto cadastrado ainda. Cadastre produtos para que aparecam
               aqui.
             </p>
           </div>
@@ -134,6 +152,22 @@ export default function CardapioPage() {
         )}
       </div>
     </main>
+  );
+}
+
+// ── Pagina exportada — envolve em Suspense (exigido pelo Next.js 16 para useSearchParams) ──
+
+export default function CardapioPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-bg-secondary">
+          <LoadingSpinner size="lg" />
+        </div>
+      }
+    >
+      <CardapioContent />
+    </Suspense>
   );
 }
 
@@ -172,7 +206,7 @@ function ProductCard({ product }: { product: Product }) {
         )}
         {unavailable && (
           <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300">
-            INDISPONÍVEL
+            INDISPONIVEL
           </span>
         )}
       </div>

@@ -11,6 +11,7 @@ import com.menuflow.model.Payment
 import com.menuflow.model.Product
 import com.menuflow.model.ProductIngredient
 import com.menuflow.model.RefreshToken
+import com.menuflow.model.TenantConfig
 import com.menuflow.tenant.DynamicTenantRoutingDataSource
 import com.menuflow.tenant.TenantDataSourceProperties
 import com.menuflow.tenant.TenantFlywayMigrator
@@ -71,6 +72,7 @@ class TenantDataSourceConfig {
                 Payment::class.java,
                 DeliveryDriver::class.java,
                 RefreshToken::class.java,
+                TenantConfig::class.java,
             )
             .persistenceUnit("tenant")
             .properties(

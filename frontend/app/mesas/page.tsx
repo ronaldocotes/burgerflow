@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import QRCode from "react-qr-code";
+import { QrCode } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { useModalA11y } from "@/lib/use-modal-a11y";
@@ -28,6 +30,62 @@ function ConnectionBanner({ status }: { status: FeedStatus }) {
     >
       <span className="inline-block h-2 w-2 rounded-full bg-warning-dark" aria-hidden="true" />
       {msg}
+    </div>
+  );
+}
+
+// ── Modal de QR Code ──────────────────────────────────────────────────────────
+
+interface QrModalProps {
+  table: TableDto;
+  onClose: () => void;
+}
+
+function QrModal({ table, onClose }: QrModalProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  useModalA11y(ref as React.RefObject<HTMLElement>, onClose);
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const qrUrl = `${appUrl}/cardapio?table=${encodeURIComponent(table.label)}`;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      aria-modal="true"
+    >
+      <div
+        ref={ref}
+        role="dialog"
+        aria-labelledby="qr-modal-title"
+        className="w-full max-w-xs rounded-2xl bg-bg-primary p-6 shadow-dropdown"
+      >
+        <h2
+          id="qr-modal-title"
+          className="mb-4 text-center text-lg font-semibold text-text-primary"
+        >
+          Mesa {table.label}
+        </h2>
+
+        <div className="flex justify-center rounded-xl bg-white p-4">
+          <QRCode value={qrUrl} size={256} />
+        </div>
+
+        <p className="mt-4 text-center text-sm text-text-secondary">
+          Aponte a camera para acessar o cardapio
+        </p>
+
+        <div className="mt-6 flex gap-3">
+          <button
+            className="btn-outline flex-1"
+            onClick={() => window.print()}
+          >
+            Imprimir
+          </button>
+          <button className="btn-primary flex-1" onClick={onClose}>
+            Fechar
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -148,9 +206,10 @@ interface TableCardProps {
   table: TableDto;
   onAction: (table: TableDto, action: "open" | "bill" | "close") => Promise<void>;
   onRequestClose: (table: TableDto) => void;
+  onQrClick: (table: TableDto) => void;
 }
 
-function TableCard({ table, onAction, onRequestClose }: TableCardProps) {
+function TableCard({ table, onAction, onRequestClose, onQrClick }: TableCardProps) {
   const state = tableState(table);
   const [busy, setBusy] = useState(false);
 
@@ -163,6 +222,10 @@ function TableCard({ table, onAction, onRequestClose }: TableCardProps) {
 
   const labelClass = state === "open" ? "text-white" : "text-text-primary";
   const seatsClass = state === "open" ? "text-white/70" : "text-text-secondary";
+  const qrBtnClass =
+    state === "open"
+      ? "text-white/60 hover:text-white hover:bg-white/10 focus-visible:ring-white"
+      : "text-text-secondary hover:text-text-primary hover:bg-bg-secondary focus-visible:ring-primary-700";
   const seats = table.seats === 1 ? "lugar" : "lugares";
 
   async function handlePrimaryAction() {
@@ -178,9 +241,19 @@ function TableCard({ table, onAction, onRequestClose }: TableCardProps) {
 
   return (
     <div
-      className={`flex min-h-[140px] flex-col rounded-2xl shadow-card transition-shadow hover:shadow-dropdown ${cardBg}`}
+      className={`relative flex min-h-[140px] flex-col rounded-2xl shadow-card transition-shadow hover:shadow-dropdown ${cardBg}`}
     >
-      <div className="flex flex-1 flex-col p-5">
+      {/* Botao QR — canto superior direito */}
+      <button
+        className={`absolute right-2 top-2 rounded-lg p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${qrBtnClass}`}
+        onClick={() => onQrClick(table)}
+        aria-label={`QR Code da ${table.label}`}
+        title="Gerar QR Code"
+      >
+        <QrCode size={16} aria-hidden="true" />
+      </button>
+
+      <div className="flex flex-1 flex-col p-5 pt-4">
         <div className={`mb-1 text-xl font-bold ${labelClass}`}>{table.label}</div>
         <div className={`mb-3 text-sm ${seatsClass}`}>
           {table.seats} {seats}
@@ -238,6 +311,7 @@ export default function MesasPage() {
   const router = useRouter();
   const { tables, feedStatus, refresh } = useTablesFeed();
   const [closeTarget, setCloseTarget] = useState<TableDto | null>(null);
+  const [qrTarget, setQrTarget] = useState<TableDto | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [fetchError, setFetchError] = useState(false);
@@ -391,11 +465,20 @@ export default function MesasPage() {
                   table={table}
                   onAction={handleAction}
                   onRequestClose={setCloseTarget}
+                  onQrClick={setQrTarget}
                 />
               ))}
           </div>
         )}
       </main>
+
+      {/* Modal de QR Code com useModalA11y (ESC + focus-trap) */}
+      {qrTarget && (
+        <QrModal
+          table={qrTarget}
+          onClose={() => setQrTarget(null)}
+        />
+      )}
 
       {/* Modal de fechamento com useModalA11y (ESC + focus-trap) */}
       {closeTarget && (

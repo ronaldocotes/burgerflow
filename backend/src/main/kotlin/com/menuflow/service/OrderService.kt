@@ -27,6 +27,7 @@ import com.menuflow.repository.tenant.ProductOptionGroupRepository
 import com.menuflow.repository.tenant.ProductOptionRepository
 import com.menuflow.repository.tenant.ProductRepository
 import com.menuflow.repository.tenant.ProductSizeRepository
+import com.menuflow.repository.tenant.TenantConfigRepository
 import com.menuflow.tenant.TenantContext
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -51,6 +52,7 @@ class OrderService(
     private val productSizeRepository: ProductSizeRepository,
     private val productFlavorRepository: ProductFlavorRepository,
     private val productCrustPriceRepository: ProductCrustPriceRepository,
+    private val tenantConfigRepository: TenantConfigRepository,
     private val realtimePublisher: com.menuflow.service.RealtimePublisher,
 ) {
 
@@ -134,12 +136,18 @@ class OrderService(
         // 3. Compute totals (centavos) and persist the order. MESMO cálculo do quote.
         val (deliveryFee, total) = computeTotals(subtotal, req.orderType, req.discountCents, req.deliveryFeeCents)
 
+        // Aceite automático (config do tenant): com o flag ligado o pedido nasce
+        // em PREPARING e vai direto para a cozinha, sem ação manual no PENDING.
+        // Ausência de linha de config = default desligado (PENDING).
+        val autoAccept = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()?.autoAcceptOrders ?: false
+        val initialStatus = if (autoAccept) OrderStatus.PREPARING else OrderStatus.PENDING
+
         val order = Order(
             orderNumber = generateOrderNumber(),
             customerId = req.customerId,
             userId = userId,
             orderType = req.orderType,
-            status = OrderStatus.PENDING,
+            status = initialStatus,
             tableNumber = req.tableNumber,
             notes = req.notes,
             subtotalCents = subtotal,
