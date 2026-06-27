@@ -575,64 +575,62 @@ function ProductCard({
         )}
         {unavailable && (
           <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300">
-            INDISPONIVEL
+            INDISPONÍVEL
           </span>
         )}
       </div>
 
-      <div className="p-3">
+      <div className="p-3 flex flex-col gap-1">
         <h3 className="font-semibold text-text-primary leading-tight">{product.name}</h3>
         {product.description && (
-          <p className="text-sm text-text-secondary mt-1 line-clamp-2">{product.description}</p>
+          <p className="text-xs text-text-secondary line-clamp-2">{product.description}</p>
         )}
-        <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-lg font-bold text-primary-600">
-            {formatBRL(product.effectivePriceCents)}
-          </span>
-          {product.onPromo && (
-            <span className="text-sm text-text-muted line-through">
-              {formatBRL(product.priceCents)}
+
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <div className="flex items-baseline gap-1.5 min-w-0">
+            <span className="text-base font-bold text-text-primary">
+              {formatBRL(product.effectivePriceCents)}
             </span>
+            {product.onPromo && (
+              <span className="text-xs text-text-muted line-through">
+                {formatBRL(product.priceCents)}
+              </span>
+            )}
+          </div>
+
+          {unavailable ? (
+            <span className="text-xs text-text-muted font-medium shrink-0">Indisponível</span>
+          ) : cartQuantity > 0 ? (
+            <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={onDecrement}
+                className="w-8 h-8 min-h-[44px] min-w-[44px] rounded-full border border-border-medium flex items-center justify-center text-text-primary hover:bg-bg-tertiary transition-colors text-base leading-none"
+                aria-label={`Remover um ${product.name}`}
+              >
+                {'−'}
+              </button>
+              <span className="w-5 text-center font-semibold text-text-primary text-sm select-none">
+                {cartQuantity}
+              </span>
+              <button
+                onClick={onOpen}
+                className="w-8 h-8 min-h-[44px] min-w-[44px] rounded-full bg-primary-700 text-white flex items-center justify-center hover:bg-primary-800 transition-colors text-base leading-none"
+                aria-label={`Adicionar mais ${product.name} ao carrinho`}
+              >
+                +
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpen(); }}
+              className="shrink-0 flex items-center gap-1 px-3 min-h-[44px] rounded-lg bg-primary-700 text-white text-sm font-medium hover:bg-primary-800 active:bg-primary-900 transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+              aria-label={`Adicionar ${product.name} ao carrinho`}
+            >
+              <span aria-hidden="true" className="text-base font-bold leading-none">+</span>
+              <span>Adicionar</span>
+            </button>
           )}
         </div>
-
-        {unavailable ? (
-          <button
-            disabled
-            className="btn-primary w-full mt-2 py-2 text-sm min-h-[48px]"
-            aria-label={`${product.name} indisponivel`}
-          >
-            Indisponivel
-          </button>
-        ) : cartQuantity > 0 ? (
-          <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={onDecrement}
-              className="min-h-[48px] min-w-[48px] rounded-full bg-bg-tertiary text-text-primary flex items-center justify-center font-bold text-lg hover:bg-border-light flex-shrink-0"
-              aria-label={`Remover um ${product.name}`}
-            >
-              {'−'}
-            </button>
-            <span className="flex-1 text-center font-semibold text-text-primary text-sm select-none">
-              {cartQuantity}
-            </span>
-            <button
-              onClick={onOpen}
-              className="min-h-[48px] min-w-[48px] rounded-full bg-primary-700 text-white flex items-center justify-center font-bold text-lg hover:bg-primary-800 flex-shrink-0"
-              aria-label={`Adicionar mais ${product.name} ao carrinho`}
-            >
-              +
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={(e) => { e.stopPropagation(); onOpen(); }}
-            className="btn-primary w-full mt-2 py-2 text-sm min-h-[48px]"
-            aria-label={`Adicionar ${product.name} ao carrinho`}
-          >
-            Adicionar
-          </button>
-        )}
       </div>
     </article>
   );
