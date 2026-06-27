@@ -284,6 +284,61 @@ function CardapioView({
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [exitToast, setExitToast] = useState(false);
+
+  // Refs para leitura no closure do popstate sem re-registrar o listener
+  const showCartRef = useRef(showCart);
+  const showCheckoutRef = useRef(showCheckout);
+  const selectedProductRef = useRef(selectedProduct);
+  useEffect(() => { showCartRef.current = showCart; }, [showCart]);
+  useEffect(() => { showCheckoutRef.current = showCheckout; }, [showCheckout]);
+  useEffect(() => { selectedProductRef.current = selectedProduct; }, [selectedProduct]);
+
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Intercepta botão voltar do Android/browser: fecha modais em cascata,
+  // depois exige 2 cliques para sair (double-back-to-exit padrão Android)
+  useEffect(() => {
+    history.pushState({ mf: "cardapio" }, "");
+
+    function onPopState() {
+      if (showCheckoutRef.current) {
+        setShowCheckout(false);
+        history.pushState({ mf: "cardapio" }, "");
+        return;
+      }
+      if (showCartRef.current) {
+        setShowCart(false);
+        history.pushState({ mf: "cardapio" }, "");
+        return;
+      }
+      if (selectedProductRef.current) {
+        setSelectedProduct(null);
+        history.pushState({ mf: "cardapio" }, "");
+        return;
+      }
+      if (exitTimerRef.current) {
+        // Segundo clique dentro do prazo → sai de verdade
+        clearTimeout(exitTimerRef.current);
+        exitTimerRef.current = null;
+        setExitToast(false);
+        return;
+      }
+      // Primeiro clique: mostra aviso e re-intercepta
+      history.pushState({ mf: "cardapio" }, "");
+      setExitToast(true);
+      exitTimerRef.current = setTimeout(() => {
+        setExitToast(false);
+        exitTimerRef.current = null;
+      }, 2000);
+    }
+
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+    };
+  }, []);
 
   const activeId = useActiveSection(sectionIds);
 
@@ -313,7 +368,16 @@ function CardapioView({
 
   return (
     <main className="min-h-screen bg-bg-secondary pb-24">
-      <header className="header sticky top-0 z-10">
+      <header className="header sticky top-0 z-10 relative">
+        <button
+          onClick={() => window.history.back()}
+          className="absolute left-4 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full text-text-primary hover:bg-bg-tertiary active:bg-bg-tertiary transition-colors"
+          aria-label="Voltar"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M19 12H5M12 5l-7 7 7 7"/>
+          </svg>
+        </button>
         <h1 className="header-title">
           <span aria-hidden="true">🍔</span> Cardapio
         </h1>
@@ -417,11 +481,22 @@ function CardapioView({
         <ProductDetailModal
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
-          onAdd={(qty, notes) => {
-            dispatch({ type: "ADD_LINE", product: selectedProduct, quantity: qty, notes });
+          onAdd={(qty, notes, options) => {
+            dispatch({ type: "ADD_LINE", product: selectedProduct, quantity: qty, notes, options });
             setSelectedProduct(null);
           }}
         />
+      )}
+
+      {/* Toast double-back-to-exit */}
+      {exitToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[100] bg-gray-800/90 text-white text-sm px-5 py-2.5 rounded-full shadow-lg pointer-events-none whitespace-nowrap"
+        >
+          Pressione voltar novamente para sair
+        </div>
       )}
     </main>
   );

@@ -48,6 +48,8 @@ data class PublicOrderItemRequest(
     val productId: UUID,
     @field:Positive @field:Max(99) val quantity: Int = 1,
     val notes: String? = null,
+    /** Complementos escolhidos (ids de option groups); validados em OrderService.resolveOptions. */
+    val optionIds: List<UUID> = emptyList(),
 )
 
 data class PublicOrderRequest(
@@ -120,7 +122,14 @@ class PublicMenuController(
                 tableNumber = req.tableLabel,
                 notes = notes,
                 paymentMethod = paymentMethod,
-                items = req.items.map { OrderItemRequest(productId = it.productId, quantity = it.quantity, notes = it.notes) },
+                items = req.items.map {
+                    OrderItemRequest(
+                        productId = it.productId,
+                        quantity = it.quantity,
+                        notes = it.notes,
+                        optionIds = it.optionIds,
+                    )
+                },
             )
             val created = orderService.create(orderReq, null)
             ResponseEntity.ok(PublicOrderCreatedResponse(created.id, created.orderNumber, created.totalCents))

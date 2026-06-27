@@ -19,6 +19,21 @@ export interface Category {
   iconUrl: string | null;
 }
 
+export interface PublicOptionResponse {
+  id: string;
+  name: string;
+  priceCents: number;
+}
+
+export interface PublicOptionGroupResponse {
+  id: string;
+  name: string;
+  minSelect: number;
+  maxSelect: number;
+  required: boolean;
+  options: PublicOptionResponse[];
+}
+
 export interface Product {
   id: string;
   categoryId: string;
@@ -40,6 +55,7 @@ export interface Product {
   onPromo: boolean;
   createdAt: string;
   updatedAt: string;
+  optionGroups?: PublicOptionGroupResponse[];
 }
 
 // --- Variações de produto (pizza) e complementos ---

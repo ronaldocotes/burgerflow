@@ -13,7 +13,10 @@ interface Props {
 
 export function CartSheet({ cart, dispatch, onClose, onCheckout }: Props) {
   const total = cart.reduce(
-    (sum, l) => sum + l.product.effectivePriceCents * l.quantity,
+    (sum, l) => {
+      const linePrice = l.product.effectivePriceCents + (l.options?.reduce((s, o) => s + o.priceCents, 0) ?? 0);
+      return sum + linePrice * l.quantity;
+    },
     0,
   );
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -87,8 +90,17 @@ export function CartSheet({ cart, dispatch, onClose, onCheckout }: Props) {
                   {line.notes && (
                     <p className="text-xs text-text-muted mt-0.5 italic">{line.notes}</p>
                   )}
+                  {line.options && line.options.length > 0 && (
+                    <div className="mt-0.5">
+                      {line.options.map(o => (
+                        <span key={o.optionId} className="text-xs text-text-muted block">
+                          + {o.optionName}{o.priceCents > 0 ? ` (+${formatBRL(o.priceCents)})` : ""}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <p className="text-sm text-text-muted">
-                    {formatBRL(line.product.effectivePriceCents)} un.
+                    {formatBRL(line.product.effectivePriceCents + (line.options?.reduce((s, o) => s + o.priceCents, 0) ?? 0))} un.
                   </p>
                 </div>
 
@@ -120,7 +132,7 @@ export function CartSheet({ cart, dispatch, onClose, onCheckout }: Props) {
                 {/* Subtotal */}
                 <div className="w-20 text-right flex-shrink-0">
                   <p className="font-semibold text-text-primary">
-                    {formatBRL(line.product.effectivePriceCents * line.quantity)}
+                    {formatBRL((line.product.effectivePriceCents + (line.options?.reduce((s, o) => s + o.priceCents, 0) ?? 0)) * line.quantity)}
                   </p>
                 </div>
               </div>

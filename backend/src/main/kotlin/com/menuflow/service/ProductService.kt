@@ -1,12 +1,16 @@
 package com.menuflow.service
 
 import com.menuflow.dto.ProductCreateRequest
+import com.menuflow.dto.PublicOptionGroupResponse
+import com.menuflow.dto.PublicOptionResponse
 import com.menuflow.dto.PublicProductResponse
 import com.menuflow.dto.ProductResponse
 import com.menuflow.dto.ProductUpdateRequest
 import com.menuflow.exception.ConflictException
 import com.menuflow.exception.ResourceNotFoundException
 import com.menuflow.model.Product
+import com.menuflow.repository.tenant.ProductOptionGroupRepository
+import com.menuflow.repository.tenant.ProductOptionRepository
 import com.menuflow.repository.tenant.ProductRepository
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -15,16 +19,53 @@ import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
 @Service
-class ProductService(private val productRepository: ProductRepository) {
+class ProductService(
+    private val productRepository: ProductRepository,
+    private val productOptionGroupRepository: ProductOptionGroupRepository,
+    private val productOptionRepository: ProductOptionRepository,
+) {
 
     @Transactional("tenantTransactionManager", readOnly = true)
     fun list(pageable: Pageable): Page<ProductResponse> =
         productRepository.findByActiveTrue(pageable).map { ProductResponse.from(it) }
 
-    /** Lista para o cardapio PUBLICO: mesmo filtro (active=true), DTO sem campos sensiveis. */
+    /**
+     * Lista para o cardapio PUBLICO: mesmo filtro (active=true), DTO sem campos sensiveis.
+     * Carrega os grupos de complemento ativos em BATCH (sem N+1) e aninha no produto.
+     */
     @Transactional("tenantTransactionManager", readOnly = true)
-    fun listPublic(pageable: Pageable): Page<PublicProductResponse> =
-        productRepository.findByActiveTrue(pageable).map { PublicProductResponse.from(it) }
+    fun listPublic(pageable: Pageable): Page<PublicProductResponse> {
+        val products = productRepository.findByActiveTrue(pageable)
+        if (products.isEmpty) return products.map { PublicProductResponse.from(it) }
+
+        val productIds = products.content.mapNotNull { it.id }
+        val groups = productOptionGroupRepository.findByProductIdInAndActiveTrue(productIds)
+        if (groups.isEmpty()) return products.map { PublicProductResponse.from(it) }
+
+        val groupIds = groups.mapNotNull { it.id }
+        val optionsByGroup = productOptionRepository
+            .findByGroupIdInAndActiveTrue(groupIds)
+            .groupBy { it.groupId }
+        val groupsByProduct = groups
+            .sortedBy { it.displayOrder }
+            .groupBy { it.productId }
+            .mapValues { (_, gs) ->
+                gs.map { g ->
+                    PublicOptionGroupResponse(
+                        id = g.id!!,
+                        name = g.name,
+                        minSelect = g.minSelect,
+                        maxSelect = g.maxSelect,
+                        required = g.minSelect >= 1,
+                        options = (optionsByGroup[g.id].orEmpty())
+                            .sortedBy { it.displayOrder }
+                            .map { o -> PublicOptionResponse(o.id!!, o.name, o.priceCents) },
+                    )
+                }
+            }
+
+        return products.map { p -> PublicProductResponse.from(p, groupsByProduct[p.id].orEmpty()) }
+    }
 
     @Transactional("tenantTransactionManager", readOnly = true)
     fun get(id: UUID): ProductResponse =

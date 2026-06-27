@@ -3,16 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 import type { Product } from "@/types/menu";
 import { formatBRL } from "@/types/menu";
+import type { CartLineOption } from "./types";
 
 interface Props {
   product: Product;
   onClose: () => void;
-  onAdd: (quantity: number, notes?: string) => void;
+  onAdd: (quantity: number, notes?: string, options?: CartLineOption[]) => void;
 }
 
 export function ProductDetailModal({ product, onClose, onAdd }: Props) {
   const [qty, setQty] = useState(1);
   const [notes, setNotes] = useState("");
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
+  const [validationError, setValidationError] = useState<string | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -27,12 +30,45 @@ export function ProductDetailModal({ product, onClose, onAdd }: Props) {
 
   useEffect(() => { closeRef.current?.focus(); }, []);
 
+  function toggleOption(groupId: string, optionId: string, maxSelect: number) {
+    setValidationError(null);
+    setSelectedOptions(prev => {
+      const current = prev[groupId] ?? [];
+      if (current.includes(optionId)) {
+        return { ...prev, [groupId]: current.filter(id => id !== optionId) };
+      }
+      if (maxSelect === 1) {
+        return { ...prev, [groupId]: [optionId] };
+      }
+      if (current.length >= maxSelect) return prev;
+      return { ...prev, [groupId]: [...current, optionId] };
+    });
+  }
+
   function handleAdd() {
-    onAdd(qty, notes.trim() || undefined);
+    const missing = (product.optionGroups ?? []).filter(g =>
+      g.required && (selectedOptions[g.id]?.length ?? 0) === 0
+    );
+    if (missing.length > 0) {
+      setValidationError(`Selecione: ${missing.map(g => g.name).join(", ")}`);
+      return;
+    }
+    const options: CartLineOption[] = (product.optionGroups ?? []).flatMap(g =>
+      (selectedOptions[g.id] ?? []).map(optId => {
+        const opt = g.options.find(o => o.id === optId)!;
+        return { optionId: opt.id, groupName: g.name, optionName: opt.name, priceCents: opt.priceCents };
+      })
+    );
+    onAdd(qty, notes.trim() || undefined, options.length > 0 ? options : undefined);
     onClose();
   }
 
-  const subtotal = product.effectivePriceCents * qty;
+  const extrasCents = Object.entries(selectedOptions).flatMap(([groupId, optIds]) => {
+    const group = (product.optionGroups ?? []).find(g => g.id === groupId);
+    return optIds.map(optId => group?.options.find(o => o.id === optId)?.priceCents ?? 0);
+  }).reduce((s, v) => s + v, 0);
+
+  const subtotal = (product.effectivePriceCents + extrasCents) * qty;
 
   return (
     <>
@@ -83,6 +119,71 @@ export function ProductDetailModal({ product, onClose, onAdd }: Props) {
               )}
             </div>
 
+            {/* Grupos de complementos */}
+            {(product.optionGroups ?? []).filter(g => g.options.length > 0).map(group => (
+              <div key={group.id} className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-semibold text-text-primary">{group.name}</p>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    group.required
+                      ? "bg-red-100 text-red-700"
+                      : "bg-bg-tertiary text-text-muted"
+                  }`}>
+                    {group.required ? "Obrigatorio" : "Opcional"}
+                    {group.maxSelect > 1 ? ` (ate ${group.maxSelect})` : ""}
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {group.options.map(opt => {
+                    const checked = (selectedOptions[group.id] ?? []).includes(opt.id);
+                    const atLimit = !checked &&
+                      group.maxSelect > 1 &&
+                      (selectedOptions[group.id]?.length ?? 0) >= group.maxSelect;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        disabled={atLimit}
+                        onClick={() => toggleOption(group.id, opt.id, group.maxSelect)}
+                        className={[
+                          "w-full flex items-center justify-between px-3 py-2.5 rounded-lg border transition-colors text-left",
+                          checked
+                            ? "border-primary-700 bg-primary-50"
+                            : atLimit
+                            ? "border-border-light bg-bg-secondary opacity-50 cursor-not-allowed"
+                            : "border-border-light bg-bg-secondary hover:border-border-medium",
+                        ].join(" ")}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className={[
+                            "w-4 h-4 flex-shrink-0 flex items-center justify-center",
+                            group.maxSelect === 1
+                              ? "rounded-full border-2 " + (checked ? "border-primary-700 bg-primary-700" : "border-border-medium")
+                              : "rounded " + (checked ? "bg-primary-700 border-primary-700 border-2" : "border-2 border-border-medium"),
+                          ].join(" ")}>
+                            {checked && (
+                              <span className="text-white text-[10px] font-bold leading-none">
+                                {group.maxSelect === 1 ? "●" : "✓"}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-sm text-text-primary">{opt.name}</span>
+                        </div>
+                        {opt.priceCents > 0 && (
+                          <span className="text-sm text-text-secondary shrink-0">
+                            +{formatBRL(opt.priceCents)}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {group.required && (selectedOptions[group.id]?.length ?? 0) === 0 && validationError && (
+                  <p className="text-xs text-red-600 mt-1">Selecione ao menos uma opcao</p>
+                )}
+              </div>
+            ))}
+
             {/* Observacoes por item */}
             <div className="mt-4">
               <label htmlFor="pdm-notes" className="block text-sm font-medium text-text-primary mb-1">
@@ -125,6 +226,11 @@ export function ProductDetailModal({ product, onClose, onAdd }: Props) {
 
         {/* Footer fixo */}
         <div className="p-4 border-t border-border-light bg-bg-primary">
+          {validationError && (
+            <p className="text-xs text-red-600 mb-2 text-center" role="alert">
+              {validationError}
+            </p>
+          )}
           <button
             ref={closeRef}
             onClick={handleAdd}

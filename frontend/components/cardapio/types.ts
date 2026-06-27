@@ -1,14 +1,22 @@
 import type { Product } from "@/types/menu";
 
+export interface CartLineOption {
+  optionId: string;
+  groupName: string;
+  optionName: string;
+  priceCents: number;
+}
+
 export interface CartLine {
   lineId: string;
   product: Product;
   quantity: number;
   notes?: string;
+  options?: CartLineOption[];
 }
 
 export type CartAction =
-  | { type: "ADD_LINE"; product: Product; quantity: number; notes?: string }
+  | { type: "ADD_LINE"; product: Product; quantity: number; notes?: string; options?: CartLineOption[] }
   | { type: "INCREMENT_LINE"; lineId: string }
   | { type: "DECREMENT_LINE"; lineId: string }
   | { type: "CLEAR" };
@@ -23,6 +31,7 @@ export function cartReducer(state: CartLine[], action: CartAction): CartLine[] {
           product: action.product,
           quantity: action.quantity,
           notes: action.notes?.trim() || undefined,
+          options: action.options,
         },
       ];
     case "INCREMENT_LINE":

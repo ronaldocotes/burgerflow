@@ -91,6 +91,26 @@ data class ProductResponse(
 }
 
 
+/** Opcao de complemento exposta no cardapio publico: so id, nome e adicional. */
+data class PublicOptionResponse(
+    val id: UUID,
+    val name: String,
+    val priceCents: Long,
+)
+
+/**
+ * Grupo de complementos exposto no cardapio publico. `required` e derivado de
+ * minSelect>=1 (mesma regra do dominio); nao expomos active/displayOrder internos.
+ */
+data class PublicOptionGroupResponse(
+    val id: UUID,
+    val name: String,
+    val minSelect: Int,
+    val maxSelect: Int,
+    val required: Boolean,
+    val options: List<PublicOptionResponse>,
+)
+
 /** DTO publico do produto (cardapio /public): sem custo, SKU nem timestamps internos. */
 data class PublicProductResponse(
     val id: UUID,
@@ -104,9 +124,10 @@ data class PublicProductResponse(
     val onPromo: Boolean,
     val isFeatured: Boolean,
     val displayOrder: Int,
+    val optionGroups: List<PublicOptionGroupResponse> = emptyList(),
 ) {
     companion object {
-        fun from(p: Product) = PublicProductResponse(
+        fun from(p: Product, groups: List<PublicOptionGroupResponse> = emptyList()) = PublicProductResponse(
             id = p.id!!,
             name = p.name,
             description = p.description,
@@ -118,6 +139,7 @@ data class PublicProductResponse(
             onPromo = p.isOnPromo(),
             isFeatured = p.isFeatured,
             displayOrder = p.displayOrder,
+            optionGroups = groups,
         )
     }
 }

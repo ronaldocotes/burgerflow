@@ -56,7 +56,10 @@ export function CheckoutModal({
   }, []);
 
   const total = cart.reduce(
-    (sum, l) => sum + l.product.effectivePriceCents * l.quantity,
+    (sum, l) => {
+      const linePrice = l.product.effectivePriceCents + (l.options?.reduce((s, o) => s + o.priceCents, 0) ?? 0);
+      return sum + linePrice * l.quantity;
+    },
     0,
   );
 
@@ -75,7 +78,12 @@ export function CheckoutModal({
           paymentMethod: payment,
           tableLabel: tableLabel ?? undefined,
           observations: obs.trim() || undefined,
-          items: cart.map((l) => ({ productId: l.product.id, quantity: l.quantity, notes: l.notes })),
+          items: cart.map((l) => ({
+            productId: l.product.id,
+            quantity: l.quantity,
+            notes: l.notes,
+            optionIds: l.options?.map(o => o.optionId) ?? [],
+          })),
         }),
       });
 
