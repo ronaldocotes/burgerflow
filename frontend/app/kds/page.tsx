@@ -397,12 +397,7 @@ export default function KdsPage() {
           >
             Atualizar
           </button>
-          <button
-            onClick={() => router.push("/pdv")}
-            className="btn-outline text-sm"
-          >
-            PDV
-          </button>
+
         </nav>
       </header>
 

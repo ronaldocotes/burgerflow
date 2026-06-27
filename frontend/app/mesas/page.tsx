@@ -404,18 +404,7 @@ export default function MesasPage() {
           >
             Atualizar
           </button>
-          <button
-            onClick={() => router.push("/pdv")}
-            className="btn-outline text-sm"
-          >
-            PDV
-          </button>
-          <button
-            onClick={() => router.push("/configuracoes")}
-            className="btn-outline text-sm"
-          >
-            Config
-          </button>
+
         </nav>
       </header>
 

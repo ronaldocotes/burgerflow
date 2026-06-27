@@ -272,35 +272,6 @@ export default function PdvPage() {
         <h1 className="header-title">
           <span aria-hidden="true">🧾</span> PDV
         </h1>
-        <div className="flex items-center gap-2">
-          <button
-            className="btn-outline"
-            onClick={() => router.push("/cardapio")}
-          >
-            Cardápio
-          </button>
-          <button
-            className="btn-outline"
-            onClick={() => router.push("/kds")}
-          >
-            Cozinha
-          </button>
-          <button
-            className="btn-outline"
-            onClick={() => router.push("/mesas")}
-          >
-            Mesas
-          </button>
-          <button
-            className="btn-outline"
-            onClick={() => router.push("/configuracoes")}
-          >
-            Config
-          </button>
-          <button className="btn-outline" onClick={onLogout}>
-            Sair
-          </button>
-        </div>
       </header>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_22rem] gap-0">

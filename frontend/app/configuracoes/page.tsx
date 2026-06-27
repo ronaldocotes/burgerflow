@@ -182,20 +182,7 @@ export default function ConfiguracoesPage() {
           <span className="text-xl" aria-hidden="true">&#x2699;</span>
           <h1 className="text-lg font-bold text-text-primary">Configuracoes</h1>
         </div>
-        <nav className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/pdv")}
-            className="btn-outline text-sm"
-          >
-            PDV
-          </button>
-          <button
-            onClick={() => router.push("/mesas")}
-            className="btn-outline text-sm"
-          >
-            Mesas
-          </button>
-        </nav>
+
       </header>
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
