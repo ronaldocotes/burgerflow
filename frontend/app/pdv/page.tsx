@@ -279,6 +279,12 @@ export default function PdvPage() {
           >
             Cardápio
           </button>
+          <button
+            className="btn-outline"
+            onClick={() => router.push("/kds")}
+          >
+            Cozinha
+          </button>
           <button className="btn-outline" onClick={onLogout}>
             Sair
           </button>
@@ -537,6 +543,7 @@ function ItemModal({
   // Opções marcadas por grupo: groupId -> Set<optionId>
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [quantity, setQuantity] = useState(1);
+  const [notes, setNotes] = useState("");
 
   function toggleOption(group: ProductOptionGroup, optionId: string) {
     setSelected((prev) => {
@@ -583,6 +590,7 @@ function ItemModal({
       crustType: crustType ?? undefined,
       doughType: doughType ?? undefined,
       optionIds: optionIds.length > 0 ? optionIds : undefined,
+      notes: notes.trim() || undefined,
     };
 
     const parts: string[] = [];
@@ -603,6 +611,7 @@ function ItemModal({
       parts.push(...(names as string[]));
     }
 
+    if (notes.trim()) parts.push(`Obs: ${notes.trim()}`);
     return {
       lineId: crypto.randomUUID(),
       productId: product.id,
@@ -793,6 +802,22 @@ function ItemModal({
               </Section>
             );
           })}
+        </div>
+
+        {/* Observação por item */}
+        <div className="px-5 pb-3">
+          <label className="mb-1 block text-xs font-medium text-text-secondary" htmlFor="item-notes">
+            Observação (opcional)
+          </label>
+          <input
+            id="item-notes"
+            type="text"
+            className="input-field w-full text-sm"
+            placeholder="Ex.: sem cebola, bem passado…"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            maxLength={200}
+          />
         </div>
 
         {/* Rodapé: quantidade + adicionar */}

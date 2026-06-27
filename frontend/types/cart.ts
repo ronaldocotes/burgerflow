@@ -10,6 +10,7 @@ export interface OrderItemInput {
   flavor2Id?: string | null;
   crustType?: string | null;
   doughType?: string | null;
+  notes?: string | null;
 }
 
 export type OrderType = "DINE_IN" | "TAKEAWAY" | "DELIVERY";
