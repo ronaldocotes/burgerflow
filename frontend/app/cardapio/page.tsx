@@ -297,35 +297,28 @@ function CardapioView({
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Intercepta botão voltar do Android/browser: fecha modais em cascata,
-  // depois exige 2 cliques para sair (double-back-to-exit padrão Android)
+  // depois exige 2 cliques para sair (double-back-to-exit padrão Android).
+  // Usa location.href como URL no pushState para não conflitar com o router do Next.js.
   useEffect(() => {
-    history.pushState({ mf: "cardapio" }, "");
+    history.pushState(null, "", location.href);
+
+    function reintercept() {
+      history.pushState(null, "", location.href);
+    }
 
     function onPopState() {
-      if (showCheckoutRef.current) {
-        setShowCheckout(false);
-        history.pushState({ mf: "cardapio" }, "");
-        return;
-      }
-      if (showCartRef.current) {
-        setShowCart(false);
-        history.pushState({ mf: "cardapio" }, "");
-        return;
-      }
-      if (selectedProductRef.current) {
-        setSelectedProduct(null);
-        history.pushState({ mf: "cardapio" }, "");
-        return;
-      }
+      if (showCheckoutRef.current) { setShowCheckout(false); reintercept(); return; }
+      if (showCartRef.current)     { setShowCart(false);     reintercept(); return; }
+      if (selectedProductRef.current) { setSelectedProduct(null); reintercept(); return; }
+
       if (exitTimerRef.current) {
-        // Segundo clique dentro do prazo → sai de verdade
         clearTimeout(exitTimerRef.current);
         exitTimerRef.current = null;
         setExitToast(false);
-        return;
+        return; // segundo clique → sai de verdade (browser vai p/ página anterior ou fecha PWA)
       }
-      // Primeiro clique: mostra aviso e re-intercepta
-      history.pushState({ mf: "cardapio" }, "");
+
+      reintercept();
       setExitToast(true);
       exitTimerRef.current = setTimeout(() => {
         setExitToast(false);
@@ -368,19 +361,22 @@ function CardapioView({
 
   return (
     <main className="min-h-screen bg-bg-secondary pb-24">
-      <header className="header sticky top-0 z-10 relative">
+      <header className="header sticky top-0 z-10">
+        {/* Botão voltar — flex item, não absolute, para garantir visibilidade em todos os browsers */}
         <button
           onClick={() => window.history.back()}
-          className="absolute left-4 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full text-text-primary hover:bg-bg-tertiary active:bg-bg-tertiary transition-colors"
+          className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-text-primary hover:bg-bg-tertiary active:bg-bg-tertiary transition-colors"
           aria-label="Voltar"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M19 12H5M12 5l-7 7 7 7"/>
           </svg>
         </button>
-        <h1 className="header-title">
+        <h1 className="flex-1 text-center text-xl font-bold text-text-primary">
           <span aria-hidden="true">🍔</span> Cardapio
         </h1>
+        {/* Espaçador igual ao botão para manter o título centralizado */}
+        <div className="w-9 flex-shrink-0" aria-hidden="true" />
       </header>
 
       <RestaurantHero restaurantInfo={restaurantInfo} />
