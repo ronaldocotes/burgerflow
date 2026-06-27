@@ -1,3 +1,11 @@
+spring:
+  jpa:
+    # Schema is owned by Flyway; without an explicit ddl-auto, Spring Boot 3.5
+    # probes the routing datasource at EMF boot (isEmbedded) and fails with
+    # "No tenant bound". This test YAML shadows the main one on the test classpath.
+    hibernate:
+      ddl-auto: none
+
 # Test overrides. Login rate-limit is OFF by default for the suite because
 # MockMvc always reports 127.0.0.1 (one shared bucket would trip across classes).
 # LoginRateLimitTest re-enables it via @DynamicPropertySource (highest precedence).
