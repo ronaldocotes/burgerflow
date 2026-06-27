@@ -18,13 +18,17 @@ class ProductFlavorService(
 
     fun create(productId: UUID, req: ProductFlavorRequest): ProductFlavorResponse {
         productRepository.findById(productId).orElseThrow { IllegalArgumentException("Produto não encontrado") }
-        return repo.save(ProductFlavor(productId = productId, name = req.name, description = req.description)).toResponse()
+        require(req.priceCents >= 0) { "Preço não pode ser negativo" }
+        return repo.save(
+            ProductFlavor(productId = productId, name = req.name, description = req.description, priceCents = req.priceCents),
+        ).toResponse()
     }
 
     fun update(productId: UUID, flavorId: UUID, req: ProductFlavorRequest): ProductFlavorResponse {
         val flavor = repo.findById(flavorId).orElseThrow { IllegalArgumentException("Sabor não encontrado") }
         require(flavor.productId == productId) { "Sabor não pertence a este produto" }
-        flavor.name = req.name; flavor.description = req.description
+        require(req.priceCents >= 0) { "Preço não pode ser negativo" }
+        flavor.name = req.name; flavor.description = req.description; flavor.priceCents = req.priceCents
         return repo.save(flavor).toResponse()
     }
 
@@ -35,5 +39,5 @@ class ProductFlavorService(
         repo.save(flavor)
     }
 
-    private fun ProductFlavor.toResponse() = ProductFlavorResponse(id!!, name, description, active, displayOrder)
+    private fun ProductFlavor.toResponse() = ProductFlavorResponse(id!!, name, description, priceCents, active, displayOrder)
 }

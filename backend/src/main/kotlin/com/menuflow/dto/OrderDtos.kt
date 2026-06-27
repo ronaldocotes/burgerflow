@@ -59,6 +59,14 @@ data class OrderItemResponse(
     val totalPriceCents: Long,
     val notes: String?,
     val status: String,
+    val sizeId: UUID? = null,
+    val sizeName: String? = null,
+    val flavor1Id: UUID? = null,
+    val flavor1Name: String? = null,
+    val flavor2Id: UUID? = null,
+    val flavor2Name: String? = null,
+    val crustType: String? = null,
+    val doughType: String? = null,
     val options: List<OrderItemOptionView> = emptyList(),
 ) {
     companion object {
@@ -72,6 +80,14 @@ data class OrderItemResponse(
             totalPriceCents = i.totalPriceCents,
             notes = i.notes,
             status = i.status.name,
+            sizeId = i.sizeId,
+            sizeName = i.sizeName,
+            flavor1Id = i.flavor1Id,
+            flavor1Name = i.flavor1Name,
+            flavor2Id = i.flavor2Id,
+            flavor2Name = i.flavor2Name,
+            crustType = i.crustType?.name,
+            doughType = i.doughType?.name,
             options = i.options.map {
                 OrderItemOptionView(it.optionId, it.groupName, it.optionName, it.priceCents)
             },

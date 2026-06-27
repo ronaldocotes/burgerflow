@@ -11,6 +11,7 @@ data class ProductFlavor(
     @Column(name = "product_id", nullable = false) var productId: UUID,
     @Column(nullable = false) var name: String,
     @Column(nullable = false) var description: String = "",
+    @Column(name = "price_cents", nullable = false) var priceCents: Long = 0,
     @Column(nullable = false) var active: Boolean = true,
     @Column(name = "display_order", nullable = false) var displayOrder: Int = 0,
 )

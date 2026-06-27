@@ -6,17 +6,23 @@ import com.menuflow.dto.OrderStatusUpdateRequest
 import com.menuflow.exception.BusinessException
 import com.menuflow.exception.ResourceNotFoundException
 import com.menuflow.exception.UnprocessableEntityException
+import com.menuflow.model.CrustType
+import com.menuflow.model.DoughType
 import com.menuflow.model.Order
 import com.menuflow.model.OrderItem
 import com.menuflow.model.OrderItemOption
 import com.menuflow.model.OrderStatus
 import com.menuflow.model.OrderType
+import com.menuflow.model.Product
 import com.menuflow.repository.tenant.IngredientRepository
 import com.menuflow.repository.tenant.OrderRepository
+import com.menuflow.repository.tenant.ProductCrustPriceRepository
+import com.menuflow.repository.tenant.ProductFlavorRepository
 import com.menuflow.repository.tenant.ProductIngredientRepository
 import com.menuflow.repository.tenant.ProductOptionGroupRepository
 import com.menuflow.repository.tenant.ProductOptionRepository
 import com.menuflow.repository.tenant.ProductRepository
+import com.menuflow.repository.tenant.ProductSizeRepository
 import com.menuflow.tenant.TenantContext
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -38,6 +44,9 @@ class OrderService(
     private val ingredientRepository: IngredientRepository,
     private val productOptionGroupRepository: ProductOptionGroupRepository,
     private val productOptionRepository: ProductOptionRepository,
+    private val productSizeRepository: ProductSizeRepository,
+    private val productFlavorRepository: ProductFlavorRepository,
+    private val productCrustPriceRepository: ProductCrustPriceRepository,
     private val realtimePublisher: com.menuflow.service.RealtimePublisher,
 ) {
 
@@ -89,7 +98,10 @@ class OrderService(
             // Complementos: valida pertinência ao produto + regras min/max e faz o
             // snapshot (nome+preço); o adicional entra no preço unitário do item.
             val snapshots = resolveOptions(product.id!!, line.optionIds)
-            val unitPrice = product.priceCents + snapshots.sumOf { it.priceCents }
+            // Variação de pizza: base (tamanho ou produto) + média dos sabores + borda.
+            // Valida que tamanho/sabor pertencem ao produto (anti-IDOR) e gera o snapshot.
+            val variation = resolveVariation(product, line)
+            val unitPrice = variation.basePriceCents + snapshots.sumOf { it.priceCents }
             val lineTotal = unitPrice * line.quantity
             subtotal += lineTotal
             items.add(
@@ -103,6 +115,14 @@ class OrderService(
                     totalPriceCents = lineTotal,
                     notes = line.notes,
                     displayOrder = index,
+                    sizeId = variation.sizeId,
+                    sizeName = variation.sizeName,
+                    flavor1Id = variation.flavor1Id,
+                    flavor1Name = variation.flavor1Name,
+                    flavor2Id = variation.flavor2Id,
+                    flavor2Name = variation.flavor2Name,
+                    crustType = variation.crustType,
+                    doughType = variation.doughType,
                 ),
             )
             if (snapshots.isNotEmpty()) optionsByIndex[index] = snapshots
@@ -222,6 +242,99 @@ class OrderService(
             )
         }
     }
+
+    /**
+     * Snapshot de preço + variação de pizza de uma linha de pedido.
+     *
+     * Preço base = preço do TAMANHO (ProductSize) quando `sizeId` é informado,
+     * senão `product.priceCents`. Soma a MÉDIA dos preços dos sabores escolhidos
+     * (1 sabor = ele mesmo; 2 sabores meia/meia = média dos dois) e o preço da
+     * BORDA (CrustType) registrado para o produto (borda sem registro = 0). A
+     * MASSA (DoughType) é sem custo nesta fase. Tamanho e sabor são validados
+     * como pertencentes ao produto (anti-IDOR, como em resolveOptions).
+     */
+    private fun resolveVariation(product: Product, line: com.menuflow.dto.OrderItemRequest): Variation {
+        val productId = product.id!!
+
+        // Base: tamanho (se informado) ou preço do produto.
+        var sizeId: UUID? = null
+        var sizeName: String? = null
+        val base: Long = if (line.sizeId != null) {
+            val size = productSizeRepository.findById(line.sizeId)
+                .orElseThrow { BusinessException("Tamanho inválido") }
+            if (size.productId != productId) throw BusinessException("Tamanho não pertence a este produto")
+            if (!size.active) throw BusinessException("Tamanho indisponível")
+            sizeId = size.id; sizeName = size.name
+            size.priceCents
+        } else {
+            product.priceCents
+        }
+
+        // Sabores: resolve, valida pertencimento e coleta os preços para a média.
+        val flavorPrices = mutableListOf<Long>()
+        var flavor1Id: UUID? = null; var flavor1Name: String? = null
+        var flavor2Id: UUID? = null; var flavor2Name: String? = null
+        line.flavor1Id?.let {
+            val f = resolveFlavor(productId, it)
+            flavor1Id = f.id; flavor1Name = f.name; flavorPrices.add(f.priceCents)
+        }
+        line.flavor2Id?.let {
+            val f = resolveFlavor(productId, it)
+            flavor2Id = f.id; flavor2Name = f.name; flavorPrices.add(f.priceCents)
+        }
+        val flavorAvg = averageHalfUp(flavorPrices)
+
+        // Borda: preço do produto para a borda (ausente = 0). Massa: sem custo.
+        var crustType: CrustType? = null
+        var crustPrice = 0L
+        line.crustType?.let { raw ->
+            val crust = parseEnum<CrustType>(raw) ?: throw BusinessException("Borda inválida: $raw")
+            crustType = crust
+            crustPrice = productCrustPriceRepository.findByProductIdAndCrustType(productId, crust)?.priceCents ?: 0L
+        }
+        val doughType: DoughType? = line.doughType?.let {
+            parseEnum<DoughType>(it) ?: throw BusinessException("Massa inválida: $it")
+        }
+
+        return Variation(
+            basePriceCents = base + flavorAvg + crustPrice,
+            sizeId = sizeId, sizeName = sizeName,
+            flavor1Id = flavor1Id, flavor1Name = flavor1Name,
+            flavor2Id = flavor2Id, flavor2Name = flavor2Name,
+            crustType = crustType, doughType = doughType,
+        )
+    }
+
+    private fun resolveFlavor(productId: UUID, flavorId: UUID): com.menuflow.model.ProductFlavor {
+        val f = productFlavorRepository.findById(flavorId)
+            .orElseThrow { BusinessException("Sabor inválido") }
+        if (f.productId != productId) throw BusinessException("Sabor não pertence a este produto")
+        if (!f.active) throw BusinessException("Sabor indisponível")
+        return f
+    }
+
+    /**
+     * Média de preços em centavos com arredondamento HALF-UP (metade arredonda
+     * para cima), em aritmética inteira (sem float). Aplicado UMA vez, na borda
+     * do cálculo do preço unitário, de forma que o total feche de forma
+     * determinística. Lista vazia (sem sabor) = 0.
+     */
+    private fun averageHalfUp(values: List<Long>): Long {
+        if (values.isEmpty()) return 0L
+        val n = values.size.toLong()
+        return (values.sum() + n / 2) / n
+    }
+
+    private inline fun <reified E : Enum<E>> parseEnum(raw: String): E? =
+        enumValues<E>().firstOrNull { it.name == raw }
+
+    private data class Variation(
+        val basePriceCents: Long,
+        val sizeId: UUID?, val sizeName: String?,
+        val flavor1Id: UUID?, val flavor1Name: String?,
+        val flavor2Id: UUID?, val flavor2Name: String?,
+        val crustType: CrustType?, val doughType: DoughType?,
+    )
 
     @Transactional("tenantTransactionManager")
     fun updateStatus(id: UUID, req: OrderStatusUpdateRequest): OrderResponse {

@@ -19,12 +19,12 @@ class ProductFlavorController(private val service: ProductFlavorService) {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
-    fun create(@PathVariable productId: UUID, @RequestBody req: ProductFlavorRequest): ProductFlavorResponse =
+    fun create(@PathVariable productId: UUID, @jakarta.validation.Valid @RequestBody req: ProductFlavorRequest): ProductFlavorResponse =
         service.create(productId, req)
 
     @PutMapping("/{flavorId}")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
-    fun update(@PathVariable productId: UUID, @PathVariable flavorId: UUID, @RequestBody req: ProductFlavorRequest): ProductFlavorResponse =
+    fun update(@PathVariable productId: UUID, @PathVariable flavorId: UUID, @jakarta.validation.Valid @RequestBody req: ProductFlavorRequest): ProductFlavorResponse =
         service.update(productId, flavorId, req)
 
     @DeleteMapping("/{flavorId}")
