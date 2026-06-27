@@ -30,6 +30,23 @@ interface OrderRepository :
     ): List<Order>
 
     /**
+     * KDS board feed (3 columns: Novos/PENDING · Em preparo/PREPARING · Prontos/READY).
+     * PENDING + PREPARING are always shown regardless of age (a kitchen ticket must
+     * never silently vanish), while READY is limited to [readyFrom] (start of the
+     * business day in São Paulo) so the "Prontos" column is not polluted with
+     * previous days' finished orders. Oldest first.
+     */
+    @Query(
+        """
+        SELECT o FROM Order o
+        WHERE o.status IN (com.menuflow.model.OrderStatus.PENDING, com.menuflow.model.OrderStatus.PREPARING)
+           OR (o.status = com.menuflow.model.OrderStatus.READY AND o.createdAt >= :readyFrom)
+        ORDER BY o.createdAt ASC
+        """,
+    )
+    fun findKdsBoardOrders(@Param("readyFrom") readyFrom: Instant): List<Order>
+
+    /**
      * Active delivery orders of the day that already have a courier assigned:
      * deliveryStatus is set and not yet terminal (DELIVERED), within the window.
      */

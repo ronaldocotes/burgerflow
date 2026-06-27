@@ -18,7 +18,7 @@ class KdsController(
     private val orderService: OrderService,
 ) {
 
-    /** Active kitchen queue: PENDING + PREPARING, oldest first. */
+    /** KDS board: PENDING + PREPARING (any age) + READY of the current day, oldest first. */
     @GetMapping("/orders")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','KITCHEN','OPERATOR')")
     fun activeOrders(): List<KdsOrderView> = orderService.kdsActiveOrders()

@@ -431,14 +431,18 @@ class OrderService(
     }
 
     /**
-     * Active kitchen orders for the KDS screen: PENDING + PREPARING, oldest first.
-     * Items are eagerly touched so the response/event carry line details.
+     * Active kitchen orders for the KDS board (3 columns): PENDING + PREPARING shown
+     * regardless of age, plus READY only from the start of "today" in São Paulo so the
+     * "Prontos" column is not polluted with previous days' orders. Oldest first.
+     * Items are eagerly touched so the response carries line details.
      */
     @Transactional("tenantTransactionManager", readOnly = true)
-    fun kdsActiveOrders(): List<com.menuflow.dto.KdsOrderView> =
-        orderRepository
-            .findByStatusInOrderByCreatedAtAsc(listOf(OrderStatus.PENDING, OrderStatus.PREPARING))
+    fun kdsActiveOrders(): List<com.menuflow.dto.KdsOrderView> {
+        val readyFrom = LocalDate.now(saoPaulo).atStartOfDay(saoPaulo).toInstant()
+        return orderRepository
+            .findKdsBoardOrders(readyFrom)
             .map { it.items.size; com.menuflow.dto.KdsOrderView.from(it) }
+    }
 
     /**
      * Active PDV orders of the day: PENDING + PREPARING + READY since the start of
