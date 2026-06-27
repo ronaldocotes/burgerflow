@@ -10,6 +10,7 @@ import type { CartItem } from "@/components/cardapio/types";
 import { CartButton } from "@/components/cardapio/CartButton";
 import { CartSheet } from "@/components/cardapio/CartSheet";
 import { CheckoutModal } from "@/components/cardapio/CheckoutModal";
+import { RestaurantHero } from "@/components/cardapio/RestaurantHero";
 
 const PUBLIC_TENANT = process.env.NEXT_PUBLIC_TENANT_SLUG ?? "demo";
 const CART_KEY = "mf_cart";
@@ -32,10 +33,28 @@ function saveCart(cart: CartItem[]): void {
   }
 }
 
+interface RestaurantInfo {
+  name: string | null;
+  logoUrl: string | null;
+  coverUrl: string | null;
+  address: string | null;
+  openingHours: string | null;
+}
+
+const EMPTY_RESTAURANT_INFO: RestaurantInfo = {
+  name: null,
+  logoUrl: null,
+  coverUrl: null,
+  address: null,
+  openingHours: null,
+};
+
 interface PublicMenuResponse {
   categories: Category[];
   products: Product[];
   pixKey: string | null;
+  restaurantInfo: RestaurantInfo;
+  bestsellerIds: string[];
 }
 
 // ── Barra de categorias sticky estilo iFood ─────────────────────────────────────────────
@@ -128,6 +147,8 @@ function CardapioContent() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [pixKey, setPixKey] = useState<string | null>(null);
+  const [restaurantInfo, setRestaurantInfo] = useState<RestaurantInfo>(EMPTY_RESTAURANT_INFO);
+  const [bestsellerIds, setBestsellerIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -155,6 +176,8 @@ function CardapioContent() {
         setCategories(data.categories);
         setProducts(data.products);
         setPixKey(data.pixKey ?? null);
+        setRestaurantInfo(data.restaurantInfo ?? EMPTY_RESTAURANT_INFO);
+        setBestsellerIds(data.bestsellerIds ?? []);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar o cardapio.");
@@ -215,6 +238,9 @@ function CardapioContent() {
       sectionIds={sectionIds}
       tableLabel={tableLabel}
       pixKey={pixKey}
+      products={products}
+      restaurantInfo={restaurantInfo}
+      bestsellerIds={bestsellerIds}
     />
   );
 }
@@ -225,11 +251,17 @@ function CardapioView({
   sectionIds,
   tableLabel,
   pixKey,
+  products,
+  restaurantInfo,
+  bestsellerIds,
 }: {
   sections: { key: string; title: string; items: Product[] }[];
   sectionIds: string[];
   tableLabel: string | null;
   pixKey: string | null;
+  products: Product[];
+  restaurantInfo: RestaurantInfo;
+  bestsellerIds: string[];
 }) {
   // Carrinho: inicia vazio, carrega do sessionStorage após hidratação
   const [cart, dispatch] = useReducer(cartReducer, [] as CartItem[]);
@@ -266,6 +298,11 @@ function CardapioView({
     setShowCart(false);
   }
 
+  const productMap = new Map(products.map((p) => [p.id, p]));
+  const bestsellerProducts = bestsellerIds
+    .map((id) => productMap.get(id))
+    .filter((p): p is Product => p !== undefined);
+
   return (
     <main className="min-h-screen bg-bg-secondary pb-24">
       <header className="header sticky top-0 z-10">
@@ -273,6 +310,8 @@ function CardapioView({
           <span aria-hidden="true">🍔</span> Cardapio
         </h1>
       </header>
+
+      <RestaurantHero restaurantInfo={restaurantInfo} />
 
       <CategoryBar
         sections={sections.map((s) => ({ key: s.key, title: s.title }))}
@@ -292,6 +331,28 @@ function CardapioView({
       )}
 
       <div className="max-w-5xl mx-auto p-4 md:p-6">
+        {bestsellerProducts.length > 0 && (
+          <div className="mb-10">
+            <h2 className="text-lg font-bold text-text-primary mb-3 pb-2 border-b border-border-light">
+              <span aria-hidden="true">🔥</span> Mais Pedidos
+            </h2>
+            <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
+              {bestsellerProducts.map((p) => {
+                const qty = cart.find((i) => i.product.id === p.id)?.quantity ?? 0;
+                return (
+                  <BestsellerCard
+                    key={p.id}
+                    product={p}
+                    cartQuantity={qty}
+                    onAdd={() => dispatch({ type: "ADD", product: p })}
+                    onIncrement={() => dispatch({ type: "INCREMENT", productId: p.id })}
+                    onDecrement={() => dispatch({ type: "DECREMENT", productId: p.id })}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
         {sections.length === 0 ? (
           <div className="empty-state">
             <p className="empty-state-title">Cardapio vazio</p>
@@ -363,6 +424,93 @@ export default function CardapioPage() {
     >
       <CardapioContent />
     </Suspense>
+  );
+}
+
+function BestsellerCard({
+  product,
+  cartQuantity,
+  onAdd,
+  onIncrement,
+  onDecrement,
+}: {
+  product: Product;
+  cartQuantity: number;
+  onAdd: () => void;
+  onIncrement: () => void;
+  onDecrement: () => void;
+}) {
+  const unavailable = !product.isAvailable;
+  return (
+    <article
+      className={`flex gap-3 w-56 flex-shrink-0 bg-bg-primary rounded-xl p-3 shadow-sm border border-border-light ${unavailable ? "opacity-60" : ""}`}
+    >
+      {/* Imagem com badge de destaque */}
+      <div className="relative flex-shrink-0">
+        {product.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            className="w-16 h-16 rounded-lg object-cover"
+          />
+        ) : (
+          <div
+            className="w-16 h-16 rounded-lg bg-bg-tertiary flex items-center justify-center text-2xl"
+            aria-hidden="true"
+          >
+            🍽️
+          </div>
+        )}
+        <span className="absolute top-1 left-1 text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full font-medium leading-none">
+          🔥 Mais Pedido
+        </span>
+      </div>
+
+      {/* Informacoes e controles */}
+      <div className="flex flex-col flex-1 min-w-0">
+        <h3 className="text-sm font-semibold text-text-primary leading-tight line-clamp-2">
+          {product.name}
+        </h3>
+        <p className="text-sm font-bold text-primary-600 mt-1">
+          {formatBRL(product.effectivePriceCents)}
+        </p>
+
+        <div className="mt-auto pt-1">
+          {unavailable ? (
+            <span className="text-xs text-text-muted">Indisponivel</span>
+          ) : cartQuantity > 0 ? (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={onDecrement}
+                className="w-7 h-7 rounded-full border border-border-medium flex items-center justify-center text-text-primary hover:bg-bg-tertiary transition-colors text-sm leading-none"
+                aria-label={`Remover ${product.name} do carrinho`}
+              >
+                −
+              </button>
+              <span className="text-xs font-semibold text-text-primary w-4 text-center">
+                {cartQuantity}
+              </span>
+              <button
+                onClick={onIncrement}
+                className="w-7 h-7 rounded-full bg-primary-700 text-white flex items-center justify-center hover:bg-primary-800 transition-colors text-sm leading-none"
+                aria-label={`Adicionar mais ${product.name} ao carrinho`}
+              >
+                +
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onAdd}
+              className="text-xs bg-primary-700 text-white px-2 py-1 rounded-lg hover:bg-primary-800 transition-colors"
+              aria-label={`Adicionar ${product.name} ao carrinho`}
+            >
+              Adicionar
+            </button>
+          )}
+        </div>
+      </div>
+    </article>
   );
 }
 

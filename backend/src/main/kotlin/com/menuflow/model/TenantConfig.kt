@@ -27,6 +27,31 @@ data class TenantConfig(
     @Column(name = "pix_key", nullable = true, length = 140)
     var pixKey: String? = null,
 
+    // --- Marca/vitrine do restaurante (cardapio publico). Todos nullable. ---
+    /** Nome de exibicao do restaurante no cardapio publico. */
+    @Column(name = "restaurant_name", length = 100)
+    var restaurantName: String? = null,
+
+    /** URL do logo do restaurante. */
+    @Column(name = "logo_url", length = 500)
+    var logoUrl: String? = null,
+
+    /** URL da imagem de capa/banner. */
+    @Column(name = "cover_url", length = 500)
+    var coverUrl: String? = null,
+
+    /** Endereco do restaurante (texto livre). */
+    @Column(name = "address", length = 200)
+    var address: String? = null,
+
+    /** Horario de funcionamento (texto livre). */
+    @Column(name = "opening_hours", length = 200)
+    var openingHours: String? = null,
+
+    /** Cidade do estabelecimento (usada pelo PIX/exibicao). */
+    @Column(name = "merchant_city", length = 50)
+    var merchantCity: String? = null,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 

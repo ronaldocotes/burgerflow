@@ -7,6 +7,7 @@ import com.menuflow.dto.PublicProductResponse
 import com.menuflow.model.OrderType
 import com.menuflow.model.PaymentMethod
 import com.menuflow.repository.control.TenantRepository
+import com.menuflow.repository.tenant.OrderItemRepository
 import com.menuflow.repository.tenant.TenantConfigRepository
 import com.menuflow.service.CategoryService
 import com.menuflow.service.OrderService
@@ -23,11 +24,24 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.util.UUID
 
+/** Dados de marca/vitrine do restaurante para o cabecalho do cardapio publico. */
+data class RestaurantInfo(
+    val name: String?,
+    val logoUrl: String?,
+    val coverUrl: String?,
+    val address: String?,
+    val openingHours: String?,
+)
+
 data class PublicMenuResponse(
     val categories: List<CategoryResponse>,
     val products: List<PublicProductResponse>,
     /** Chave PIX estatica do restaurante; null quando nao configurada. */
     val pixKey: String?,
+    /** Marca/vitrine do restaurante (nome, logo, capa, endereco, horario). */
+    val restaurantInfo: RestaurantInfo,
+    /** Ids dos produtos mais vendidos (so UUIDs; sem contagem nem receita). */
+    val bestsellerIds: List<UUID>,
 )
 
 data class PublicOrderItemRequest(
@@ -58,6 +72,7 @@ class PublicMenuController(
     private val productService: ProductService,
     private val orderService: OrderService,
     private val tenantConfigRepository: TenantConfigRepository,
+    private val orderItemRepository: OrderItemRepository,
 ) {
     @GetMapping("/{tenantSlug}/menu")
     fun getMenu(@PathVariable tenantSlug: String): ResponseEntity<PublicMenuResponse> {
@@ -66,9 +81,21 @@ class PublicMenuController(
         return try {
             val categories = categoryService.list(Pageable.ofSize(100)).content
             val products = productService.listPublic(Pageable.ofSize(500)).content
-            // Dentro do TenantContext: a query roteia para o banco do tenant.
-            val pixKey = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()?.pixKey
-            ResponseEntity.ok(PublicMenuResponse(categories, products, pixKey))
+            // Dentro do TenantContext: as queries roteiam para o banco do tenant.
+            val config = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()
+            val pixKey = config?.pixKey
+            val restaurantInfo = RestaurantInfo(
+                name = config?.restaurantName,
+                logoUrl = config?.logoUrl,
+                coverUrl = config?.coverUrl,
+                address = config?.address,
+                openingHours = config?.openingHours,
+            )
+            // So os 5 mais vendidos, apenas ids (nunca contagem/receita no publico).
+            val bestsellerIds = orderItemRepository.findTopProductIds(Pageable.ofSize(5))
+            ResponseEntity.ok(
+                PublicMenuResponse(categories, products, pixKey, restaurantInfo, bestsellerIds),
+            )
         } finally {
             TenantContext.clear()
         }
