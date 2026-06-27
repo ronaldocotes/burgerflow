@@ -46,3 +46,16 @@ export interface OrderCreateInput {
   deliveryFeeCents?: number;
   tableNumber?: string | null;
 }
+
+// Linha do carrinho no PDV. Tem id próprio porque o mesmo produto com escolhas
+// diferentes (tamanho/sabor/borda/complementos) vira linhas distintas. `item`
+// carrega as escolhas; `label` é o resumo legível; o preço unitário NÃO mora aqui —
+// vem do quote, casado por índice (ordem do request preservada pelo backend).
+export interface CartLine {
+  lineId: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  item: OrderItemInput;
+  label: string;
+}
