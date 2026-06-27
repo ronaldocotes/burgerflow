@@ -94,6 +94,7 @@ services:
         NEXT_PUBLIC_API_URL: https://menuflow.duckdns.org/api/v1
         NEXT_PUBLIC_WS_URL: wss://menuflow.duckdns.org
         NEXT_PUBLIC_ENVIRONMENT: production
+        NEXT_PUBLIC_TENANT_SLUG: demo
     image: menuflow-frontend:latest
     container_name: menuflow-frontend
     restart: unless-stopped
