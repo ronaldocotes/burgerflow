@@ -285,6 +285,12 @@ export default function PdvPage() {
           >
             Cozinha
           </button>
+          <button
+            className="btn-outline"
+            onClick={() => router.push("/mesas")}
+          >
+            Mesas
+          </button>
           <button className="btn-outline" onClick={onLogout}>
             Sair
           </button>
