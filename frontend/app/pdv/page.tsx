@@ -1,11 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { getToken, logout } from "@/lib/auth";
-import { Page, Product, formatBRL } from "@/types/menu";
+import { useModalA11y } from "@/lib/use-modal-a11y";
 import {
+  CRUST_LABELS,
+  DOUGH_TYPES,
+  Page,
+  Product,
+  ProductCrustPrice,
+  ProductFlavor,
+  ProductOptionGroup,
+  ProductSize,
+  formatBRL,
+} from "@/types/menu";
+import {
+  CartLine,
   OrderCreateInput,
   OrderItemInput,
   OrderType,
@@ -15,15 +34,10 @@ import {
 } from "@/types/cart";
 import LoadingSpinner from "@/components/loading-spinner";
 
-// PDV base: grade de produtos -> carrinho (estado local) -> total vem do servidor
-// (POST /orders/quote, mesma lógica do create) -> finalizar (POST /orders com
-// Idempotency-Key). Produtos com complementos/variação (pizza) ficam para a fatia 2
-// (modal); aqui o quote sinaliza se algum item exigir escolha.
-
-interface CartLine {
-  product: Product;
-  quantity: number;
-}
+// PDV: grade de produtos -> carrinho (linhas com variação) -> total do servidor
+// (POST /orders/quote, casado por índice) -> finalizar (POST /orders + Idempotency-Key).
+// Produto com tamanho/sabor/borda/complemento abre o modal de personalização;
+// produto simples entra direto no carrinho.
 
 const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   CASH: "Dinheiro",
@@ -33,6 +47,24 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   OTHER: "Outro",
 };
 
+interface Variations {
+  groups: ProductOptionGroup[];
+  sizes: ProductSize[];
+  flavors: ProductFlavor[];
+  crusts: ProductCrustPrice[];
+}
+
+function isSimpleLine(item: OrderItemInput): boolean {
+  return (
+    !item.sizeId &&
+    !item.flavor1Id &&
+    !item.flavor2Id &&
+    !item.crustType &&
+    !item.doughType &&
+    (item.optionIds?.length ?? 0) === 0
+  );
+}
+
 export default function PdvPage() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
@@ -40,14 +72,18 @@ export default function PdvPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
-  // Carrinho: chave = productId (PDV base só lida com produtos simples).
-  const [cart, setCart] = useState<Map<string, CartLine>>(new Map());
+  const [cart, setCart] = useState<CartLine[]>([]);
   const [orderType, setOrderType] = useState<OrderType>("DINE_IN");
 
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [quoting, setQuoting] = useState(false);
 
+  const [loadingProductId, setLoadingProductId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{
+    product: Product;
+    variations: Variations;
+  } | null>(null);
   const [showPayment, setShowPayment] = useState(false);
 
   const load = useCallback(async () => {
@@ -76,17 +112,13 @@ export default function PdvPage() {
     router.push("/login");
   }
 
-  // Itens do carrinho como entrada de pedido (ordem estável por inserção).
+  // Itens do pedido na ordem das linhas (o backend preserva a ordem → quote casa por índice).
   const items: OrderItemInput[] = useMemo(
-    () =>
-      [...cart.values()].map((line) => ({
-        productId: line.product.id,
-        quantity: line.quantity,
-      })),
+    () => cart.map((l) => ({ ...l.item, quantity: l.quantity })),
     [cart],
   );
 
-  // Recota no servidor sempre que o carrinho muda. O total NUNCA é somado no front.
+  // Recota no servidor a cada mudança. O total NUNCA é somado no front.
   const quoteSeq = useRef(0);
   useEffect(() => {
     if (items.length === 0) {
@@ -102,7 +134,7 @@ export default function PdvPage() {
     api
       .post<QuoteResponse>("/orders/quote", body)
       .then((res) => {
-        if (seq !== quoteSeq.current) return; // resposta obsoleta
+        if (seq !== quoteSeq.current) return;
         setQuote(res);
       })
       .catch((err) => {
@@ -119,33 +151,80 @@ export default function PdvPage() {
       });
   }, [items, orderType]);
 
-  function addProduct(p: Product) {
+  // Clicar num produto: descobre variações; se houver, abre o modal; senão entra direto.
+  async function onPickProduct(p: Product) {
+    if (loadingProductId) return;
+    setLoadingProductId(p.id);
+    try {
+      const [groups, sizes, flavors, crusts] = await Promise.all([
+        api.get<ProductOptionGroup[]>(`/products/${p.id}/option-groups`),
+        api.get<ProductSize[]>(`/products/${p.id}/sizes`),
+        api.get<ProductFlavor[]>(`/products/${p.id}/flavors`),
+        api.get<ProductCrustPrice[]>(`/products/${p.id}/crust-prices`),
+      ]);
+      const variations: Variations = {
+        groups: groups.filter((g) => g.active),
+        sizes: sizes.filter((s) => s.active),
+        flavors: flavors.filter((f) => f.active),
+        crusts,
+      };
+      const hasVariation =
+        variations.groups.length > 0 ||
+        variations.sizes.length > 0 ||
+        variations.flavors.length > 0 ||
+        variations.crusts.length > 0;
+      if (hasVariation) {
+        setEditing({ product: p, variations });
+      } else {
+        addSimple(p);
+      }
+    } catch {
+      // Se as variações não puderem ser lidas, cai no caminho simples (o quote ainda valida).
+      addSimple(p);
+    } finally {
+      setLoadingProductId(null);
+    }
+  }
+
+  // Produto simples: se já há uma linha simples do mesmo produto, incrementa.
+  function addSimple(p: Product) {
     setCart((prev) => {
-      const next = new Map(prev);
-      const line = next.get(p.id);
-      next.set(p.id, {
-        product: p,
-        quantity: (line?.quantity ?? 0) + 1,
-      });
-      return next;
+      const idx = prev.findIndex(
+        (l) => l.productId === p.id && isSimpleLine(l.item),
+      );
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 };
+        return next;
+      }
+      return [
+        ...prev,
+        {
+          lineId: crypto.randomUUID(),
+          productId: p.id,
+          productName: p.name,
+          quantity: 1,
+          item: { productId: p.id, quantity: 1 },
+          label: "",
+        },
+      ];
     });
   }
 
-  function setQuantity(productId: string, quantity: number) {
-    setCart((prev) => {
-      const next = new Map(prev);
-      if (quantity <= 0) {
-        next.delete(productId);
-      } else {
-        const line = next.get(productId);
-        if (line) next.set(productId, { ...line, quantity });
-      }
-      return next;
-    });
+  function addCustom(line: CartLine) {
+    setCart((prev) => [...prev, line]);
+  }
+
+  function setQuantity(lineId: string, quantity: number) {
+    setCart((prev) =>
+      quantity <= 0
+        ? prev.filter((l) => l.lineId !== lineId)
+        : prev.map((l) => (l.lineId === lineId ? { ...l, quantity } : l)),
+    );
   }
 
   function clearCart() {
-    setCart(new Map());
+    setCart([]);
     setQuote(null);
     setQuoteError(null);
   }
@@ -186,8 +265,6 @@ export default function PdvPage() {
       </div>
     );
   }
-
-  const cartLines = [...cart.values()];
 
   return (
     <main className="min-h-screen bg-bg-secondary flex flex-col">
@@ -232,12 +309,14 @@ export default function PdvPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
               {filtered.map((p) => {
                 const unavailable = !p.isAvailable;
+                const loadingThis = loadingProductId === p.id;
                 return (
                   <button
                     key={p.id}
                     type="button"
-                    disabled={unavailable}
-                    onClick={() => addProduct(p)}
+                    disabled={unavailable || loadingThis}
+                    aria-busy={loadingThis}
+                    onClick={() => void onPickProduct(p)}
                     className="pos-product-card text-left disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                   >
                     <div className="p-3">
@@ -254,6 +333,11 @@ export default function PdvPage() {
                           </span>
                         )}
                       </div>
+                      {loadingThis && (
+                        <span className="mt-2 inline-block text-xs text-text-muted">
+                          Carregando…
+                        </span>
+                      )}
                       {unavailable && (
                         <span className="mt-2 inline-block text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300">
                           INDISPONÍVEL
@@ -268,10 +352,10 @@ export default function PdvPage() {
         </section>
 
         {/* Carrinho */}
-        <aside className="bg-bg-primary border-t lg:border-t-0 lg:border-l border-border-light flex flex-col lg:sticky lg:top-[var(--header-h,4rem)] lg:h-[calc(100vh-4rem)]">
+        <aside className="bg-bg-primary border-t lg:border-t-0 lg:border-l border-border-light flex flex-col lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)]">
           <div className="p-4 border-b border-border-light flex items-center justify-between">
             <h2 className="font-bold text-text-primary">Carrinho</h2>
-            {cartLines.length > 0 && (
+            {cart.length > 0 && (
               <button
                 className="text-sm text-error hover:underline"
                 onClick={clearCart}
@@ -302,7 +386,7 @@ export default function PdvPage() {
                   aria-pressed={orderType === value}
                   className={`text-sm py-2 rounded-md border transition-colors ${
                     orderType === value
-                      ? "bg-primary-600 text-white border-primary-600"
+                      ? "bg-primary-700 text-white border-primary-700"
                       : "bg-bg-secondary text-text-secondary border-border-light hover:bg-bg-tertiary"
                   }`}
                 >
@@ -314,54 +398,58 @@ export default function PdvPage() {
 
           {/* Linhas */}
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {cartLines.length === 0 ? (
+            {cart.length === 0 ? (
               <p className="text-sm text-text-muted text-center py-8">
                 Toque num produto para adicionar.
               </p>
             ) : (
-              cartLines.map((line) => (
-                <div
-                  key={line.product.id}
-                  className="flex items-center gap-2 bg-bg-secondary rounded-md p-2"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-text-primary truncate">
-                      {line.product.name}
-                    </p>
-                    <p className="text-xs text-text-muted">
-                      {formatBRL(line.product.effectivePriceCents)}
-                    </p>
+              cart.map((line, idx) => {
+                const q = quote?.items[idx];
+                return (
+                  <div
+                    key={line.lineId}
+                    className="flex items-start gap-2 bg-bg-secondary rounded-md p-2"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-text-primary truncate">
+                        {line.productName}
+                      </p>
+                      {line.label && (
+                        <p className="text-xs text-text-muted line-clamp-2">
+                          {line.label}
+                        </p>
+                      )}
+                      <p className="text-xs text-text-muted mt-0.5">
+                        {q ? formatBRL(q.unitPriceCents) : quoting ? "…" : "—"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        aria-label={`Diminuir ${line.productName}`}
+                        onClick={() => setQuantity(line.lineId, line.quantity - 1)}
+                        className="w-7 h-7 rounded-md bg-bg-tertiary text-text-primary font-bold leading-none hover:bg-border-light"
+                      >
+                        −
+                      </button>
+                      <span
+                        className="w-6 text-center text-sm font-semibold"
+                        aria-label={`Quantidade ${line.quantity}`}
+                      >
+                        {line.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Aumentar ${line.productName}`}
+                        onClick={() => setQuantity(line.lineId, line.quantity + 1)}
+                        className="w-7 h-7 rounded-md bg-bg-tertiary text-text-primary font-bold leading-none hover:bg-border-light"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      aria-label={`Diminuir ${line.product.name}`}
-                      onClick={() =>
-                        setQuantity(line.product.id, line.quantity - 1)
-                      }
-                      className="w-7 h-7 rounded-md bg-bg-tertiary text-text-primary font-bold leading-none hover:bg-border-light"
-                    >
-                      −
-                    </button>
-                    <span
-                      className="w-6 text-center text-sm font-semibold"
-                      aria-label={`Quantidade ${line.quantity}`}
-                    >
-                      {line.quantity}
-                    </span>
-                    <button
-                      type="button"
-                      aria-label={`Aumentar ${line.product.name}`}
-                      onClick={() =>
-                        setQuantity(line.product.id, line.quantity + 1)
-                      }
-                      className="w-7 h-7 rounded-md bg-bg-tertiary text-text-primary font-bold leading-none hover:bg-border-light"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
@@ -385,9 +473,7 @@ export default function PdvPage() {
             <button
               type="button"
               className="btn-primary w-full"
-              disabled={
-                cartLines.length === 0 || quoting || !quote || !!quoteError
-              }
+              disabled={cart.length === 0 || quoting || !quote || !!quoteError}
               onClick={() => setShowPayment(true)}
             >
               Finalizar
@@ -395,6 +481,18 @@ export default function PdvPage() {
           </div>
         </aside>
       </div>
+
+      {editing && (
+        <ItemModal
+          product={editing.product}
+          variations={editing.variations}
+          onClose={() => setEditing(null)}
+          onAdd={(line) => {
+            addCustom(line);
+            setEditing(null);
+          }}
+        />
+      )}
 
       {showPayment && quote && (
         <PaymentModal
@@ -411,6 +509,408 @@ export default function PdvPage() {
     </main>
   );
 }
+
+// --- Modal de personalização (tamanho + meia-a-meia + borda + massa + complementos) ---
+
+function ItemModal({
+  product,
+  variations,
+  onClose,
+  onAdd,
+}: {
+  product: Product;
+  variations: Variations;
+  onClose: () => void;
+  onAdd: (line: CartLine) => void;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y(dialogRef, onClose);
+
+  const { groups, sizes, flavors, crusts } = variations;
+  const isPizza = sizes.length > 0 || flavors.length > 0 || crusts.length > 0;
+
+  const [sizeId, setSizeId] = useState<string | null>(null);
+  const [flavor1Id, setFlavor1Id] = useState<string | null>(null);
+  const [flavor2Id, setFlavor2Id] = useState<string | null>(null);
+  const [crustType, setCrustType] = useState<string | null>(null); // null = sem borda
+  const [doughType, setDoughType] = useState<string | null>(null);
+  // Opções marcadas por grupo: groupId -> Set<optionId>
+  const [selected, setSelected] = useState<Record<string, string[]>>({});
+  const [quantity, setQuantity] = useState(1);
+
+  function toggleOption(group: ProductOptionGroup, optionId: string) {
+    setSelected((prev) => {
+      const current = prev[group.id] ?? [];
+      const has = current.includes(optionId);
+      let next: string[];
+      if (has) {
+        next = current.filter((id) => id !== optionId);
+      } else if (group.maxSelect === 1) {
+        next = [optionId]; // single-select: substitui
+      } else if (current.length >= group.maxSelect) {
+        return prev; // atingiu o máximo
+      } else {
+        next = [...current, optionId];
+      }
+      return { ...prev, [group.id]: next };
+    });
+  }
+
+  // Validação (espelha o servidor, que é a fonte da verdade).
+  const errors: string[] = [];
+  if (sizes.length > 0 && !sizeId) errors.push("Escolha o tamanho.");
+  if (flavors.length > 0 && !flavor1Id) errors.push("Escolha o sabor.");
+  if (flavor2Id && flavor2Id === flavor1Id)
+    errors.push("O 2º sabor deve ser diferente do 1º.");
+  for (const g of groups) {
+    const count = (selected[g.id] ?? []).length;
+    const min = g.required ? Math.max(1, g.minSelect) : g.minSelect;
+    if (count < min)
+      errors.push(
+        `“${g.name}”: escolha ${min === g.maxSelect ? min : `pelo menos ${min}`}.`,
+      );
+  }
+  const valid = errors.length === 0;
+
+  function buildLine(): CartLine {
+    const optionIds = groups.flatMap((g) => selected[g.id] ?? []);
+    const item: OrderItemInput = {
+      productId: product.id,
+      quantity,
+      sizeId: sizeId ?? undefined,
+      flavor1Id: flavor1Id ?? undefined,
+      flavor2Id: flavor2Id ?? undefined,
+      crustType: crustType ?? undefined,
+      doughType: doughType ?? undefined,
+      optionIds: optionIds.length > 0 ? optionIds : undefined,
+    };
+
+    const parts: string[] = [];
+    const size = sizes.find((s) => s.id === sizeId);
+    if (size) parts.push(size.name);
+    const f1 = flavors.find((f) => f.id === flavor1Id);
+    const f2 = flavors.find((f) => f.id === flavor2Id);
+    if (f1) parts.push(f2 ? `${f1.name} / ${f2.name}` : f1.name);
+    if (crustType) parts.push(`Borda ${CRUST_LABELS[crustType] ?? crustType}`);
+    if (doughType)
+      parts.push(
+        `Massa ${DOUGH_TYPES.find((d) => d.value === doughType)?.label ?? doughType}`,
+      );
+    for (const g of groups) {
+      const names = (selected[g.id] ?? [])
+        .map((id) => g.options.find((o) => o.id === id)?.name)
+        .filter(Boolean);
+      parts.push(...(names as string[]));
+    }
+
+    return {
+      lineId: crypto.randomUUID(),
+      productId: product.id,
+      productName: product.name,
+      quantity,
+      item,
+      label: parts.join(" · "),
+    };
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Personalizar ${product.name}`}
+        className="bg-bg-primary w-full sm:max-w-lg max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-5 border-b border-border-light flex items-center justify-between">
+          <h2 className="text-lg font-bold text-text-primary">{product.name}</h2>
+          <button
+            type="button"
+            aria-label="Fechar"
+            onClick={onClose}
+            className="text-text-muted hover:text-text-primary text-xl leading-none"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {/* Tamanho */}
+          {sizes.length > 0 && (
+            <Section title="Tamanho" required>
+              <div className="grid grid-cols-2 gap-2">
+                {sizes.map((s) => (
+                  <ChoiceButton
+                    key={s.id}
+                    selected={sizeId === s.id}
+                    onClick={() => setSizeId(s.id)}
+                    label={s.name}
+                    priceCents={s.promoPriceCents ?? s.priceCents}
+                  />
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* Sabores (meia a meia) */}
+          {flavors.length > 0 && (
+            <>
+              <Section title="Sabor" required>
+                <select
+                  className="input-field w-full"
+                  value={flavor1Id ?? ""}
+                  onChange={(e) => setFlavor1Id(e.target.value || null)}
+                  aria-label="Sabor 1"
+                >
+                  <option value="">Selecione…</option>
+                  {flavors.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </Section>
+              <Section title="2º sabor (meia a meia)">
+                <select
+                  className="input-field w-full"
+                  value={flavor2Id ?? ""}
+                  onChange={(e) => setFlavor2Id(e.target.value || null)}
+                  aria-label="Segundo sabor"
+                >
+                  <option value="">Apenas 1 sabor</option>
+                  {flavors.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </Section>
+            </>
+          )}
+
+          {/* Borda */}
+          {crusts.length > 0 && (
+            <Section title="Borda">
+              <div className="grid grid-cols-2 gap-2">
+                <ChoiceButton
+                  selected={crustType === null}
+                  onClick={() => setCrustType(null)}
+                  label="Sem borda"
+                />
+                {crusts.map((c) => (
+                  <ChoiceButton
+                    key={c.id}
+                    selected={crustType === c.crustType}
+                    onClick={() => setCrustType(c.crustType)}
+                    label={CRUST_LABELS[c.crustType] ?? c.crustType}
+                    priceCents={c.priceCents}
+                  />
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* Massa */}
+          {isPizza && (
+            <Section title="Massa">
+              <div className="grid grid-cols-2 gap-2">
+                <ChoiceButton
+                  selected={doughType === null}
+                  onClick={() => setDoughType(null)}
+                  label="Padrão"
+                />
+                {DOUGH_TYPES.map((d) => (
+                  <ChoiceButton
+                    key={d.value}
+                    selected={doughType === d.value}
+                    onClick={() => setDoughType(d.value)}
+                    label={d.label}
+                  />
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* Complementos */}
+          {groups.map((g) => {
+            const count = (selected[g.id] ?? []).length;
+            const atMax = count >= g.maxSelect;
+            return (
+              <Section
+                key={g.id}
+                title={g.name}
+                required={g.required}
+                hint={
+                  g.maxSelect > 1
+                    ? `${count}/${g.maxSelect}${
+                        atMax
+                          ? " — máximo"
+                          : g.minSelect > 0
+                            ? ` (mín. ${g.minSelect})`
+                            : ""
+                      }`
+                    : undefined
+                }
+              >
+                <div className="space-y-1">
+                  {g.options
+                    .filter((o) => o.active)
+                    .map((o) => {
+                      const checked = (selected[g.id] ?? []).includes(o.id);
+                      const disabled = !checked && atMax && g.maxSelect > 1;
+                      return (
+                        <label
+                          key={o.id}
+                          className={`flex items-center justify-between gap-2 p-2 rounded-md border cursor-pointer ${
+                            checked
+                              ? "border-primary-600 bg-primary-50"
+                              : "border-border-light"
+                          } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                        >
+                          <span className="flex items-center gap-2 text-sm text-text-primary">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={disabled}
+                              onChange={() => toggleOption(g, o.id)}
+                              className="accent-primary-600"
+                            />
+                            {o.name}
+                          </span>
+                          {o.priceCents > 0 && (
+                            <span className="text-xs text-text-muted">
+                              + {formatBRL(o.priceCents)}
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })}
+                </div>
+              </Section>
+            );
+          })}
+        </div>
+
+        {/* Rodapé: quantidade + adicionar */}
+        <div className="p-5 border-t border-border-light space-y-3">
+          {!valid && (
+            <p className="text-xs text-error" role="alert">
+              {errors[0]}
+            </p>
+          )}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Diminuir quantidade"
+                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                className="w-9 h-9 rounded-md bg-bg-tertiary text-text-primary font-bold hover:bg-border-light"
+              >
+                −
+              </button>
+              <span
+                className="w-8 text-center font-semibold"
+                aria-label={`Quantidade ${quantity}`}
+              >
+                {quantity}
+              </span>
+              <button
+                type="button"
+                aria-label="Aumentar quantidade"
+                onClick={() => setQuantity((q) => Math.min(999, q + 1))}
+                className="w-9 h-9 rounded-md bg-bg-tertiary text-text-primary font-bold hover:bg-border-light"
+              >
+                +
+              </button>
+            </div>
+            <button
+              type="button"
+              className="btn-primary flex-1"
+              disabled={!valid}
+              onClick={() => onAdd(buildLine())}
+            >
+              Adicionar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Section({
+  title,
+  required,
+  hint,
+  children,
+}: {
+  title: string;
+  required?: boolean;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  const titleId = useId();
+  return (
+    <div role="group" aria-labelledby={titleId}>
+      <div className="flex items-baseline justify-between mb-2">
+        <h3
+          id={titleId}
+          className="text-sm font-semibold text-text-primary"
+        >
+          {title}
+          {required && (
+            <span className="text-error ml-1" aria-hidden="true">
+              *
+            </span>
+          )}
+          {required && <span className="sr-only">(obrigatório)</span>}
+        </h3>
+        {hint && <span className="text-xs text-text-muted">{hint}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function ChoiceButton({
+  selected,
+  onClick,
+  label,
+  priceCents,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  label: string;
+  priceCents?: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={`text-sm py-2 px-3 rounded-md border text-left transition-colors ${
+        selected
+          ? "bg-primary-700 text-white border-primary-700"
+          : "bg-bg-secondary text-text-secondary border-border-light hover:bg-bg-tertiary"
+      }`}
+    >
+      <span className="font-medium">{label}</span>
+      {priceCents != null && priceCents > 0 && (
+        <span
+          className={`block text-xs ${selected ? "text-white" : "text-text-muted"}`}
+        >
+          {formatBRL(priceCents)}
+        </span>
+      )}
+    </button>
+  );
+}
+
+// --- Modal de pagamento ---
 
 function PaymentModal({
   quote,
@@ -431,54 +931,7 @@ function PaymentModal({
   const [err, setErr] = useState<string | null>(null);
 
   const dialogRef = useRef<HTMLDivElement>(null);
-
-  // A11y do dialog (WAI-ARIA): trava o scroll do fundo, move o foco para dentro,
-  // fecha no ESC e prende o Tab dentro do modal (focus trap).
-  useEffect(() => {
-    const node = dialogRef.current;
-    const prevOverflow = document.body.style.overflow;
-    const prevFocus = document.activeElement as HTMLElement | null;
-    document.body.style.overflow = "hidden";
-
-    const focusable = () =>
-      node
-        ? Array.from(
-            node.querySelectorAll<HTMLElement>(
-              'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-            ),
-          ).filter((el) => !el.hasAttribute("disabled"))
-        : [];
-
-    focusable()[0]?.focus();
-
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const els = focusable();
-      if (els.length === 0) return;
-      const first = els[0];
-      const last = els[els.length - 1];
-      const active = document.activeElement;
-      if (e.shiftKey && active === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && active === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = prevOverflow;
-      prevFocus?.focus();
-    };
-  }, [onClose]);
+  useModalA11y(dialogRef, onClose);
 
   const receivedCents = useMemo(() => {
     const normalized = received.replace(/\./g, "").replace(",", ".");
@@ -509,9 +962,7 @@ function PaymentModal({
       });
       onConfirmed();
     } catch (e) {
-      setErr(
-        e instanceof ApiError ? e.message : "Falha ao registrar o pedido.",
-      );
+      setErr(e instanceof ApiError ? e.message : "Falha ao registrar o pedido.");
       setSubmitting(false);
     }
   }
@@ -519,13 +970,13 @@ function PaymentModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Pagamento"
       onClick={onClose}
     >
       <div
         ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Pagamento"
         className="bg-bg-primary w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
@@ -549,7 +1000,7 @@ function PaymentModal({
               aria-pressed={method === m}
               className={`text-sm py-2 rounded-md border transition-colors ${
                 method === m
-                  ? "bg-brand text-brand-text border-brand"
+                  ? "bg-primary-700 text-white border-primary-700"
                   : "bg-bg-secondary text-text-secondary border-border-light hover:bg-bg-tertiary"
               }`}
             >
