@@ -1,12 +1,94 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { API_BASE, api, TOKEN_KEY } from "@/lib/api";
 import { Category, Page, Product, formatBRL } from "@/types/menu";
 import LoadingSpinner from "@/components/loading-spinner";
 
 const PUBLIC_TENANT = process.env.NEXT_PUBLIC_TENANT_SLUG ?? "demo";
+
+// ── Barra de categorias sticky estilo iFood ────────────────────────────────────
+
+function CategoryBar({
+  sections,
+  activeId,
+  onSelect,
+}: {
+  sections: { key: string; title: string }[];
+  activeId: string;
+  onSelect: (id: string) => void;
+}) {
+  const barRef = useRef<HTMLDivElement>(null);
+
+  // Mantém o botão ativo visível dentro da barra horizontal
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar || !activeId) return;
+    const btn = bar.querySelector<HTMLElement>(`[data-cat="${activeId}"]`);
+    if (btn) btn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [activeId]);
+
+  if (!sections.length) return null;
+
+  return (
+    <div
+      className="sticky top-16 z-[9] bg-bg-primary border-b border-border-light shadow-sm"
+      role="navigation"
+      aria-label="Categorias do cardapio"
+    >
+      <div ref={barRef} className="flex gap-1.5 px-4 py-2 overflow-x-auto no-scrollbar">
+        {sections.map((s) => {
+          const id = `section-${s.key}`;
+          const isActive = activeId === id;
+          return (
+            <button
+              key={s.key}
+              data-cat={id}
+              onClick={() => onSelect(id)}
+              aria-current={isActive ? "true" : undefined}
+              className={[
+                "whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-150 flex-shrink-0",
+                isActive
+                  ? "bg-primary-700 text-white"
+                  : "bg-bg-tertiary text-text-secondary hover:text-text-primary",
+              ].join(" ")}
+            >
+              {s.title}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Rastreia qual seção está visível (IntersectionObserver) ───────────────────
+
+function useActiveSection(ids: string[]) {
+  const [activeId, setActiveId] = useState("");
+
+  useEffect(() => {
+    if (!ids.length) return;
+    // rootMargin desconta header (64px) + barra de categorias (~48px) no topo
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible.length) setActiveId(visible[0].target.id);
+      },
+      { rootMargin: "-112px 0px -60% 0px", threshold: 0 },
+    );
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [ids]);
+
+  return activeId;
+}
 
 function CardapioContent() {
   const searchParams = useSearchParams();
@@ -95,6 +177,28 @@ function CardapioContent() {
     ...(orphans.length > 0 ? [{ key: "__orphans__", title: "Outros", items: orphans }] : []),
   ];
 
+  const sectionIds = sections.map((s) => `section-${s.key}`);
+
+  return <CardapioView sections={sections} sectionIds={sectionIds} tableLabel={tableLabel} />;
+}
+
+// Componente separado para poder usar hooks após os dados estarem prontos
+function CardapioView({
+  sections,
+  sectionIds,
+  tableLabel,
+}: {
+  sections: { key: string; title: string; items: Product[] }[];
+  sectionIds: string[];
+  tableLabel: string | null;
+}) {
+  const activeId = useActiveSection(sectionIds);
+
+  function scrollTo(id: string) {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   return (
     <main className="min-h-screen bg-bg-secondary">
       <header className="header sticky top-0 z-10">
@@ -102,6 +206,12 @@ function CardapioContent() {
           <span aria-hidden="true">🍔</span> Cardapio
         </h1>
       </header>
+
+      <CategoryBar
+        sections={sections.map((s) => ({ key: s.key, title: s.title }))}
+        activeId={activeId}
+        onSelect={scrollTo}
+      />
 
       {tableLabel && (
         <div
@@ -115,14 +225,18 @@ function CardapioContent() {
       )}
 
       <div className="max-w-5xl mx-auto p-4 md:p-6">
-        {products.length === 0 ? (
+        {sections.length === 0 ? (
           <div className="empty-state">
             <p className="empty-state-title">Cardapio vazio</p>
             <p className="empty-state-description">Nenhum produto cadastrado ainda.</p>
           </div>
         ) : (
           sections.map((section) => (
-            <section key={section.key} className="mb-8">
+            <section
+              key={section.key}
+              id={`section-${section.key}`}
+              className="mb-10 scroll-mt-28"
+            >
               <h2 className="text-lg font-bold text-text-primary mb-3 pb-2 border-b border-border-light">
                 {section.title}
               </h2>

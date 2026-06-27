@@ -80,6 +80,10 @@ body {
   @apply bg-border-light;
 }
 
+/* Ocultar scrollbar mantendo scroll funcional (usado na barra de categorias) */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
 /* Focus styles */
 *:focus {
   @apply outline-none;
