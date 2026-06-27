@@ -13,3 +13,5 @@ menuflow:
   rate-limit:
     login:
       enabled: false
+    public-orders:
+      enabled: false

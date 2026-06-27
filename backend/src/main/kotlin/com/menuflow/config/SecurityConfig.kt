@@ -1,8 +1,11 @@
 package com.menuflow.config
 
 import com.menuflow.security.JwtAuthFilter
+import org.springframework.beans.factory.annotation.Qualifier
 import com.menuflow.security.ratelimit.LoginRateLimitFilter
 import com.menuflow.security.ratelimit.LoginRateLimiter
+import com.menuflow.security.ratelimit.PublicOrderRateLimitFilter
+import com.menuflow.security.ratelimit.PublicOrderRateLimitProperties
 import com.menuflow.security.ratelimit.RateLimitProperties
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.context.annotation.Bean
@@ -30,8 +33,10 @@ import org.springframework.security.web.util.matcher.OrRequestMatcher
 @EnableMethodSecurity
 class SecurityConfig(
     private val jwtAuthFilter: JwtAuthFilter,
-    private val loginRateLimiter: LoginRateLimiter,
+    @Qualifier("loginRateLimiter") private val loginRateLimiter: LoginRateLimiter,
     private val rateLimitProperties: RateLimitProperties,
+    @Qualifier("publicOrderRateLimiter") private val publicOrderRateLimiter: LoginRateLimiter,
+    private val publicOrderRateLimitProperties: PublicOrderRateLimitProperties,
 ) {
 
     /**
@@ -67,6 +72,7 @@ class SecurityConfig(
     @Order(2)
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         val loginRateLimitFilter = LoginRateLimitFilter(loginRateLimiter, rateLimitProperties)
+        val publicOrderRateLimitFilter = PublicOrderRateLimitFilter(publicOrderRateLimiter, publicOrderRateLimitProperties)
         http
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
@@ -85,6 +91,8 @@ class SecurityConfig(
             // Rate-limit login BEFORE auth runs, so throttling precedes any
             // password verification (brute-force defense).
             .addFilterBefore(loginRateLimitFilter, JwtAuthFilter::class.java)
+            // Throttle do endpoint publico de pedidos (20/IP/min), antes do banco.
+            .addFilterBefore(publicOrderRateLimitFilter, JwtAuthFilter::class.java)
         return http.build()
     }
 

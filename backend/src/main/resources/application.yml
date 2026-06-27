@@ -91,4 +91,10 @@ menuflow:
       enabled: ${MF_RATELIMIT_LOGIN_ENABLED:true}
       backend: ${MF_RATELIMIT_LOGIN_BACKEND:memory}
       capacity: ${MF_RATELIMIT_LOGIN_CAPACITY:5}
+      refill-period-seconds: 
+    # Public order placement limit: 20 / 60s per client IP (only unauthenticated write).
+    public-orders:
+      enabled: 
+      backend: 
+      capacity: 
       refill-period-seconds: ${MF_RATELIMIT_LOGIN_PERIOD:60}

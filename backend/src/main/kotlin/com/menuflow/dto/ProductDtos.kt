@@ -89,3 +89,35 @@ data class ProductResponse(
         )
     }
 }
+
+
+/** DTO publico do produto (cardapio /public): sem custo, SKU nem timestamps internos. */
+data class PublicProductResponse(
+    val id: UUID,
+    val name: String,
+    val description: String,
+    val categoryId: UUID,
+    val priceCents: Long,
+    val effectivePriceCents: Long,
+    val imageUrl: String?,
+    val isAvailable: Boolean,
+    val onPromo: Boolean,
+    val isFeatured: Boolean,
+    val displayOrder: Int,
+) {
+    companion object {
+        fun from(p: Product) = PublicProductResponse(
+            id = p.id!!,
+            name = p.name,
+            description = p.description,
+            categoryId = p.categoryId,
+            priceCents = p.priceCents,
+            effectivePriceCents = p.effectivePriceCents(),
+            imageUrl = p.imageUrl,
+            isAvailable = p.isAvailable,
+            onPromo = p.isOnPromo(),
+            isFeatured = p.isFeatured,
+            displayOrder = p.displayOrder,
+        )
+    }
+}

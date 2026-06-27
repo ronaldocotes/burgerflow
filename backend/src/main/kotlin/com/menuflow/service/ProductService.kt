@@ -1,6 +1,7 @@
 package com.menuflow.service
 
 import com.menuflow.dto.ProductCreateRequest
+import com.menuflow.dto.PublicProductResponse
 import com.menuflow.dto.ProductResponse
 import com.menuflow.dto.ProductUpdateRequest
 import com.menuflow.exception.ConflictException
@@ -19,6 +20,11 @@ class ProductService(private val productRepository: ProductRepository) {
     @Transactional("tenantTransactionManager", readOnly = true)
     fun list(pageable: Pageable): Page<ProductResponse> =
         productRepository.findByActiveTrue(pageable).map { ProductResponse.from(it) }
+
+    /** Lista para o cardapio PUBLICO: mesmo filtro (active=true), DTO sem campos sensiveis. */
+    @Transactional("tenantTransactionManager", readOnly = true)
+    fun listPublic(pageable: Pageable): Page<PublicProductResponse> =
+        productRepository.findByActiveTrue(pageable).map { PublicProductResponse.from(it) }
 
     @Transactional("tenantTransactionManager", readOnly = true)
     fun get(id: UUID): ProductResponse =

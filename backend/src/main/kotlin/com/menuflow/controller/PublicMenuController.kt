@@ -3,7 +3,7 @@ package com.menuflow.controller
 import com.menuflow.dto.CategoryResponse
 import com.menuflow.dto.OrderCreateRequest
 import com.menuflow.dto.OrderItemRequest
-import com.menuflow.dto.ProductResponse
+import com.menuflow.dto.PublicProductResponse
 import com.menuflow.model.OrderType
 import com.menuflow.model.PaymentMethod
 import com.menuflow.repository.control.TenantRepository
@@ -13,9 +13,11 @@ import com.menuflow.service.OrderService
 import com.menuflow.service.ProductService
 import com.menuflow.tenant.TenantContext
 import jakarta.validation.Valid
+import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotEmpty
 import jakarta.validation.constraints.Positive
+import jakarta.validation.constraints.Size
 import org.springframework.data.domain.Pageable
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -23,14 +25,14 @@ import java.util.UUID
 
 data class PublicMenuResponse(
     val categories: List<CategoryResponse>,
-    val products: List<ProductResponse>,
+    val products: List<PublicProductResponse>,
     /** Chave PIX estatica do restaurante; null quando nao configurada. */
     val pixKey: String?,
 )
 
 data class PublicOrderItemRequest(
     val productId: UUID,
-    @field:Positive val quantity: Int = 1,
+    @field:Positive @field:Max(99) val quantity: Int = 1,
     val notes: String? = null,
 )
 
@@ -38,7 +40,7 @@ data class PublicOrderRequest(
     @field:NotBlank val customerName: String,
     @field:NotBlank val paymentMethod: String,
     val tableLabel: String? = null,
-    @field:NotEmpty val items: List<PublicOrderItemRequest>,
+    @field:NotEmpty @field:Size(max = 20) val items: List<PublicOrderItemRequest>,
     val observations: String? = null,
 )
 
@@ -63,7 +65,7 @@ class PublicMenuController(
         TenantContext.set(tenantSlug)
         return try {
             val categories = categoryService.list(Pageable.ofSize(100)).content
-            val products = productService.list(Pageable.ofSize(500)).content
+            val products = productService.listPublic(Pageable.ofSize(500)).content
             // Dentro do TenantContext: a query roteia para o banco do tenant.
             val pixKey = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()?.pixKey
             ResponseEntity.ok(PublicMenuResponse(categories, products, pixKey))

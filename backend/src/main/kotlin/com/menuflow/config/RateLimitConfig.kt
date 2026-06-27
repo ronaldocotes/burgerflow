@@ -2,6 +2,7 @@ package com.menuflow.config
 
 import com.menuflow.security.ratelimit.InMemoryLoginRateLimiter
 import com.menuflow.security.ratelimit.LoginRateLimiter
+import com.menuflow.security.ratelimit.PublicOrderRateLimitProperties
 import com.menuflow.security.ratelimit.RateLimitProperties
 import com.menuflow.security.ratelimit.RedisLoginRateLimiter
 import io.github.bucket4j.distributed.ExpirationAfterWriteStrategy
@@ -46,6 +47,31 @@ class RateLimitConfig {
                 }
         }
         log.info("Login rate limiter: in-memory ({}/{}s per IP)", props.capacity, props.refillPeriodSeconds)
+        return InMemoryLoginRateLimiter(props)
+    }
+
+    /**
+     * Limiter dedicado para o endpoint publico de pedidos (capacidade propria, 20/min).
+     * Reusa a mesma abstracao keyed-by-IP do login; backend memory/redis configuravel.
+     */
+    @Bean
+    fun publicOrderRateLimiter(
+        publicOrderProps: PublicOrderRateLimitProperties,
+        redisProps: RedisProperties,
+    ): LoginRateLimiter {
+        val props = RateLimitProperties(
+            enabled = publicOrderProps.enabled,
+            capacity = publicOrderProps.capacity,
+            refillPeriodSeconds = publicOrderProps.refillPeriodSeconds,
+        )
+        if (publicOrderProps.backend.equals("redis", ignoreCase = true)) {
+            return runCatching { redisLimiter(props, redisProps) }
+                .getOrElse {
+                    log.warn("Redis public-order limiter unavailable ({}), falling back to in-memory", it.message)
+                    InMemoryLoginRateLimiter(props)
+                }
+        }
+        log.info("Public-order rate limiter: in-memory ({}/{}s per IP)", props.capacity, props.refillPeriodSeconds)
         return InMemoryLoginRateLimiter(props)
     }
 
