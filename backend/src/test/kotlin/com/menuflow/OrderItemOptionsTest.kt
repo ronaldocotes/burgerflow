@@ -77,4 +77,19 @@ class OrderItemOptionsTest @Autowired constructor(
             )
         }
     }
+
+    @Test
+    fun `discount greater than subtotal is rejected`() {
+        TenantContext.set("optorder3")
+        val productId = newProduct(1000)
+        assertThrows<BusinessException> {
+            orderService.create(
+                OrderCreateRequest(
+                    items = listOf(OrderItemRequest(productId = productId, quantity = 1)),
+                    discountCents = 5000,
+                ),
+                null,
+            )
+        }
+    }
 }

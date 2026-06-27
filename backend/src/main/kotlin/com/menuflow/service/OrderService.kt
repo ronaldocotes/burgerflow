@@ -143,6 +143,12 @@ class OrderService(
             }
         }
 
+        // Valores monetários vindos do cliente: barra sinal negativo e desconto
+        // acima do subtotal (senão um operador poderia zerar/reduzir o total via API).
+        if (req.discountCents < 0) throw BusinessException("Desconto não pode ser negativo")
+        if (req.deliveryFeeCents < 0) throw BusinessException("Taxa de entrega não pode ser negativa")
+        if (req.discountCents > subtotal) throw BusinessException("Desconto não pode exceder o subtotal")
+
         // 3. Compute totals (centavos) and persist the order.
         val deliveryFee = if (req.orderType == OrderType.DELIVERY) req.deliveryFeeCents else 0L
         val total = (subtotal - req.discountCents + deliveryFee).coerceAtLeast(0)

@@ -5,6 +5,7 @@ import com.menuflow.dto.ProductOptionGroupResponse
 import com.menuflow.dto.ProductOptionRequest
 import com.menuflow.dto.ProductOptionResponse
 import com.menuflow.service.ProductOptionGroupService
+import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
@@ -25,7 +26,7 @@ class ProductOptionGroupController(private val service: ProductOptionGroupServic
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
-    fun createGroup(@PathVariable productId: UUID, @RequestBody req: ProductOptionGroupRequest): ProductOptionGroupResponse =
+    fun createGroup(@PathVariable productId: UUID, @Valid @RequestBody req: ProductOptionGroupRequest): ProductOptionGroupResponse =
         service.createGroup(productId, req)
 
     @PutMapping("/{groupId}")
@@ -33,7 +34,7 @@ class ProductOptionGroupController(private val service: ProductOptionGroupServic
     fun updateGroup(
         @PathVariable productId: UUID,
         @PathVariable groupId: UUID,
-        @RequestBody req: ProductOptionGroupRequest,
+        @Valid @RequestBody req: ProductOptionGroupRequest,
     ): ProductOptionGroupResponse = service.updateGroup(productId, groupId, req)
 
     @DeleteMapping("/{groupId}")
@@ -48,7 +49,7 @@ class ProductOptionGroupController(private val service: ProductOptionGroupServic
     fun addOption(
         @PathVariable productId: UUID,
         @PathVariable groupId: UUID,
-        @RequestBody req: ProductOptionRequest,
+        @Valid @RequestBody req: ProductOptionRequest,
     ): ProductOptionResponse = service.addOption(productId, groupId, req)
 
     @PutMapping("/{groupId}/options/{optionId}")
@@ -57,7 +58,7 @@ class ProductOptionGroupController(private val service: ProductOptionGroupServic
         @PathVariable productId: UUID,
         @PathVariable groupId: UUID,
         @PathVariable optionId: UUID,
-        @RequestBody req: ProductOptionRequest,
+        @Valid @RequestBody req: ProductOptionRequest,
     ): ProductOptionResponse = service.updateOption(productId, groupId, optionId, req)
 
     @DeleteMapping("/{groupId}/options/{optionId}")

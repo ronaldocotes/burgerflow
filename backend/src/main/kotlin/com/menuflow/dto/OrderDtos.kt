@@ -7,6 +7,7 @@ import com.menuflow.model.OrderType
 import com.menuflow.model.PaymentMethod
 import com.menuflow.model.PaymentStatus
 import jakarta.validation.Valid
+import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.NotEmpty
 import jakarta.validation.constraints.Positive
 import java.time.Instant
@@ -14,7 +15,7 @@ import java.util.UUID
 
 data class OrderItemRequest(
     val productId: UUID,
-    @field:Positive val quantity: Int = 1,
+    @field:Positive @field:Max(999) val quantity: Int = 1,
     val notes: String? = null,
     val sizeId: UUID? = null,
     val flavor1Id: UUID? = null,
