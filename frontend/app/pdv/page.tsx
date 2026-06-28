@@ -318,10 +318,10 @@ export default function PdvPage() {
   }
 
   return (
-    <main className="min-h-screen bg-bg-secondary flex flex-col">
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_22rem] gap-0">
+    <main className="flex h-full min-h-0 flex-col bg-bg-secondary">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
         {/* Grade de produtos */}
-        <section className="p-4 md:p-6">
+        <section className="min-w-0 overflow-y-auto p-4 md:p-5">
           <input
             type="search"
             value={search}
@@ -373,7 +373,7 @@ export default function PdvPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] gap-2.5">
               {filtered.map((p) => {
                 const unavailable = !p.isAvailable;
                 const loadingThis = loadingProductId === p.id;
@@ -384,14 +384,14 @@ export default function PdvPage() {
                     disabled={unavailable || loadingThis}
                     aria-busy={loadingThis}
                     onClick={() => void onPickProduct(p)}
-                    className="pos-product-card text-left disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                    className="pos-product-card min-h-[72px] text-left disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                   >
                     <div className="p-3">
-                      <h3 className="font-semibold text-text-primary leading-tight line-clamp-2">
+                      <h3 className="line-clamp-2 text-sm font-semibold leading-tight text-text-primary">
                         {p.name}
                       </h3>
                       <div className="mt-2 flex items-baseline gap-2">
-                        <span className="text-base font-bold text-primary-600">
+                        <span className="text-sm font-bold text-primary-700">
                           {formatBRL(p.effectivePriceCents)}
                         </span>
                         {p.onPromo && (
@@ -420,8 +420,8 @@ export default function PdvPage() {
 
         {/* Carrinho — desktop: coluna fixa; mobile: overlay quando showMobileCart */}
         <aside className={[
-          "bg-bg-primary border-border-light flex flex-col",
-          "lg:border-l lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)]",
+          "min-w-0 flex flex-col border-border-light bg-bg-primary",
+          "lg:h-full lg:min-h-0 lg:border-l",
           showMobileCart
             ? "fixed inset-0 z-40 lg:static lg:inset-auto"
             : "hidden lg:flex",
@@ -435,7 +435,7 @@ export default function PdvPage() {
             />
           )}
           <div className={[
-            "relative flex flex-col bg-bg-primary h-full",
+            "relative flex h-full min-h-0 flex-col bg-bg-primary",
             showMobileCart ? "ml-auto w-full max-w-sm shadow-xl lg:shadow-none lg:ml-0 lg:max-w-none" : "",
           ].join(" ")}>
           <div className="p-4 border-b border-border-light flex items-center justify-between">
