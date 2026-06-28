@@ -10,7 +10,13 @@ import { useRestaurantInfo } from "@/lib/use-restaurant-info";
 
 // ── Painel esquerdo decorativo ─────────────────────────────────────────────────
 
-function LeftPanel() {
+function LeftPanel({
+  restaurantName,
+  logoUrl,
+}: {
+  restaurantName: string | null;
+  logoUrl: string | null;
+}) {
   return (
     <div className="relative hidden lg:flex lg:w-5/12 flex-col overflow-hidden bg-primary-800">
       {/* Círculos decorativos */}
@@ -23,13 +29,22 @@ function LeftPanel() {
       </div>
 
       <div className="relative flex flex-1 flex-col items-center justify-center px-12 text-center">
-        {/* Ícone */}
-        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border-4 border-white/20 bg-white/10">
-          <UtensilsCrossed className="h-10 w-10 text-white" aria-hidden="true" />
-        </div>
+        {logoUrl ? (
+          <Image
+            src={logoUrl}
+            alt={restaurantName ?? "MenuFlow"}
+            width={96}
+            height={96}
+            className="mb-6 rounded-3xl border-4 border-white/20 bg-white object-contain shadow-lg"
+          />
+        ) : (
+          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border-4 border-white/20 bg-white/10">
+            <UtensilsCrossed className="h-10 w-10 text-white" aria-hidden="true" />
+          </div>
+        )}
 
         <h1 className="mb-2 text-4xl font-extrabold tracking-tight text-white">
-          MenuFlow
+          {restaurantName ?? "MenuFlow"}
         </h1>
         <p className="mb-1 text-base font-medium text-primary-200">
           Sistema de Gestão para
@@ -91,7 +106,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen">
-      <LeftPanel />
+      <LeftPanel restaurantName={restaurantName} logoUrl={logoUrl} />
 
       {/* Painel direito — formulário */}
       <div className="flex flex-1 flex-col items-center justify-center bg-bg-secondary px-6 py-12">

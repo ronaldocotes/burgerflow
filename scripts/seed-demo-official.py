@@ -127,6 +127,22 @@ def page(path: str, token: str) -> list[dict[str, Any]]:
 def main() -> int:
     token = request("POST", "/auth/login", body={"tenantSlug": TENANT, "email": EMAIL, "password": PASSWORD})["token"]
 
+    request(
+        "PATCH",
+        "/config",
+        token,
+        {
+            "autoAcceptOrders": True,
+            "pixKey": "pix@menuflow.demo",
+            "restaurantName": "MenuFlow Demo",
+            "logoUrl": "/brand/menuflow-demo-logo.svg",
+            "coverUrl": "/brand/menuflow-demo-cover.svg",
+            "address": "Rua das Palmeiras, 120 - Centro",
+            "openingHours": "Aberto hoje ate 23h",
+            "merchantCity": "Macapa",
+        },
+    )
+
     existing_categories = {c["name"]: c for c in page("/categories", token)}
     category_ids: dict[str, str] = {}
     for name, description, order, color in CATEGORIES:
