@@ -167,6 +167,26 @@ class OrderAutoAcceptTest @Autowired constructor(
     }
 
     @Test
+    fun `GET config exposes restaurant identity`() {
+        val slug = seedTenantWithUsers()
+        val token = login(slug, "mgr@$slug.com")
+
+        TenantContext.set(slug)
+        tenantTx.run {
+            TenantContext.set(slug)
+            val config = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()!!
+            config.restaurantName = "Config Burger"
+            config.logoUrl = "https://cdn.example.com/config-burger.png"
+            tenantConfigRepository.save(config)
+        }
+
+        mockMvc.perform(get("/config").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.restaurantName").value("Config Burger"))
+            .andExpect(jsonPath("$.logoUrl").value("https://cdn.example.com/config-burger.png"))
+    }
+
+    @Test
     fun `PATCH config by MANAGER returns 200`() {
         val slug = seedTenantWithUsers()
         val token = login(slug, "mgr@$slug.com")

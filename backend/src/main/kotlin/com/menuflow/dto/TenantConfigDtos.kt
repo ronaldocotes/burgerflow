@@ -11,10 +11,19 @@ data class TenantConfigResponse(
     val autoAcceptOrders: Boolean,
     /** Chave PIX estatica do restaurante; null quando nao configurada. */
     val pixKey: String?,
+    /** Nome de exibicao do restaurante; null quando nao configurado. */
+    val restaurantName: String?,
+    /** URL do logo do restaurante; null quando nao configurado. */
+    val logoUrl: String?,
 ) {
     companion object {
         fun from(c: TenantConfig) =
-            TenantConfigResponse(autoAcceptOrders = c.autoAcceptOrders, pixKey = c.pixKey)
+            TenantConfigResponse(
+                autoAcceptOrders = c.autoAcceptOrders,
+                pixKey = c.pixKey,
+                restaurantName = c.restaurantName,
+                logoUrl = c.logoUrl,
+            )
     }
 }
 
