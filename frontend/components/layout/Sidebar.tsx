@@ -127,11 +127,13 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const { restaurantName, logoUrl } = useRestaurantInfo()
 
   useEffect(() => {
-    setMounted(true)
-    try {
-      const saved = localStorage.getItem(SIDEBAR_KEY)
-      if (saved === 'collapsed') setCollapsed(true)
-    } catch { /* ignore */ }
+    queueMicrotask(() => {
+      setMounted(true)
+      try {
+        const saved = localStorage.getItem(SIDEBAR_KEY)
+        if (saved === 'collapsed') setCollapsed(true)
+      } catch { /* ignore */ }
+    })
   }, [])
 
   const toggle = () => {

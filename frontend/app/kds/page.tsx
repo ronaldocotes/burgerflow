@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { getToken } from "@/lib/auth";
@@ -333,12 +333,7 @@ export default function KdsPage() {
   const { orders, feedStatus, now, refresh } = useKdsFeed();
   const [cancelTarget, setCancelTarget] = useState<KdsOrder | null>(null);
   const [advanceError, setAdvanceError] = useState<string | null>(null);
-
-  // Guard de autenticação
-  if (typeof window !== "undefined" && !getToken()) {
-    router.replace("/");
-    return null;
-  }
+  const isAuthenticated = typeof window === "undefined" || !!getToken();
 
   const handleAdvance = useCallback(
     async (order: KdsOrder) => {
@@ -369,6 +364,12 @@ export default function KdsPage() {
     },
     [cancelTarget],
   );
+
+  useEffect(() => {
+    if (!isAuthenticated) router.replace("/");
+  }, [isAuthenticated, router]);
+
+  if (!isAuthenticated) return null;
 
   const liveDot =
     feedStatus === "live" ? "bg-success" : "bg-warning animate-pulse";

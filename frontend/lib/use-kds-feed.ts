@@ -71,16 +71,23 @@ export function useKdsFeed(): KdsFeed {
 
   useEffect(() => {
     // snapshot inicial
-    fetchSnapshot();
+    queueMicrotask(() => {
+      void fetchSnapshot();
+    });
 
     // timer de aging (atualiza `now` para re-colorir cartões)
     agingRef.current = setInterval(() => setNow(Date.now()), AGING_TICK_MS);
 
     const tenant = getTenant();
     if (!tenant) {
-      setFeedStatus("polling");
+      queueMicrotask(() => {
+        setFeedStatus("polling");
+      });
       startPolling();
-      return;
+      return () => {
+        stopPolling();
+        if (agingRef.current) clearInterval(agingRef.current);
+      };
     }
 
     const handle = createKdsClient(
@@ -103,7 +110,9 @@ export function useKdsFeed(): KdsFeed {
       },
     );
 
-    setFeedStatus("connecting");
+    queueMicrotask(() => {
+      setFeedStatus("connecting");
+    });
     handle.activate();
 
     // polling de fallback enquanto WS não conecta (primeiros segundos)

@@ -127,10 +127,10 @@ export default function LoginPage() {
                 Restaurante
               </label>
               <div className="relative">
-                <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
+                <Building2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
                 <input
                   id="tenant"
-                  className="input-field pl-9"
+                  className="input-field input-with-leading-icon"
                   value={tenant}
                   onChange={(e) => setTenant(e.target.value)}
                   placeholder="minha-hamburgueria"
@@ -149,11 +149,11 @@ export default function LoginPage() {
                 E-mail
               </label>
               <div className="relative">
-                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
+                <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
                 <input
                   id="email"
                   type="email"
-                  className="input-field pl-9"
+                  className="input-field input-with-leading-icon"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="voce@restaurante.com"
@@ -171,11 +171,11 @@ export default function LoginPage() {
                 Senha
               </label>
               <div className="relative">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
+                <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
                 <input
                   id="password"
                   type={showPwd ? "text" : "password"}
-                  className="input-field pl-9 pr-10"
+                  className="input-field input-with-leading-icon input-with-trailing-action"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
@@ -188,7 +188,7 @@ export default function LoginPage() {
                   onClick={() => setShowPwd((v) => !v)}
                   disabled={loading}
                   aria-label={showPwd ? "Ocultar senha" : "Mostrar senha"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-text-muted hover:text-text-secondary"
+                  className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded text-text-muted hover:text-text-secondary"
                 >
                   {showPwd ? (
                     <EyeOff className="h-4 w-4" aria-hidden="true" />

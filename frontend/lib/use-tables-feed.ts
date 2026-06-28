@@ -56,13 +56,19 @@ export function useTablesFeed(): TablesFeed {
 
   useEffect(() => {
     // snapshot inicial
-    fetchSnapshot();
+    queueMicrotask(() => {
+      void fetchSnapshot();
+    });
 
     const tenant = getTenant();
     if (!tenant) {
-      setFeedStatus("polling");
+      queueMicrotask(() => {
+        setFeedStatus("polling");
+      });
       startPolling();
-      return;
+      return () => {
+        stopPolling();
+      };
     }
 
     const handle = createKdsClient(
@@ -85,7 +91,9 @@ export function useTablesFeed(): TablesFeed {
       },
     );
 
-    setFeedStatus("connecting");
+    queueMicrotask(() => {
+      setFeedStatus("connecting");
+    });
     handle.activate();
 
     // polling de fallback enquanto WS nao conecta (primeiros segundos)

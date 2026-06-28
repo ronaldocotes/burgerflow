@@ -133,14 +133,8 @@ export default function ConfiguracoesPage() {
     "loading",
   );
   const [saving, setSaving] = useState(false);
+  const isAuthenticated = typeof window === "undefined" || !!getToken();
 
-  // Guard de autenticacao client-side
-  if (typeof window !== "undefined" && !getToken()) {
-    router.replace("/login");
-    return null;
-  }
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const load = useCallback(async () => {
     setLoadState("loading");
     try {
@@ -152,10 +146,17 @@ export default function ConfiguracoesPage() {
     }
   }, []);
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!isAuthenticated) {
+      router.replace("/login");
+      return;
+    }
+    queueMicrotask(() => {
+      void load();
+    });
+  }, [isAuthenticated, load, router]);
+
+  if (!isAuthenticated) return null;
 
   async function handleToggle(next: boolean) {
     if (saving || !config) return;

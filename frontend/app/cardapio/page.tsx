@@ -188,7 +188,9 @@ function CardapioContent() {
   }, []);
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, [load]);
 
   if (loading) {
@@ -274,7 +276,9 @@ function CardapioView({
     saved.forEach((item) => {
       dispatch({ type: "ADD_LINE", product: item.product, quantity: item.quantity, notes: item.notes });
     });
-    setCartHydrated(true);
+    queueMicrotask(() => {
+      setCartHydrated(true);
+    });
   }, [cartHydrated]);
 
   useEffect(() => {

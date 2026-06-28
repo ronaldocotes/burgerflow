@@ -155,6 +155,14 @@ body {
            focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20
            focus:outline-none transition-all duration-200;
   }
+
+  .input-with-leading-icon {
+    padding-left: 2.75rem;
+  }
+
+  .input-with-trailing-action {
+    padding-right: 3rem;
+  }
   
   .kds-pending {
     @apply bg-kds-pending/20 text-kds-pending border border-kds-pending/30;

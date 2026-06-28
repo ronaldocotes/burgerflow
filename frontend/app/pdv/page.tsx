@@ -104,7 +104,9 @@ export default function PdvPage() {
       router.push("/login");
       return;
     }
-    void load();
+    queueMicrotask(() => {
+      void load();
+    });
   }, [router, load]);
 
   function onLogout() {
@@ -121,24 +123,36 @@ export default function PdvPage() {
   // Recota no servidor a cada mudança. O total NUNCA é somado no front.
   const quoteSeq = useRef(0);
   useEffect(() => {
+    let cancelled = false;
+
     if (items.length === 0) {
-      setQuote(null);
-      setQuoteError(null);
-      setQuoting(false);
-      return;
+      quoteSeq.current += 1;
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setQuote(null);
+        setQuoteError(null);
+        setQuoting(false);
+      });
+      return () => {
+        cancelled = true;
+      };
     }
+
     const seq = ++quoteSeq.current;
-    setQuoting(true);
-    setQuoteError(null);
+    queueMicrotask(() => {
+      if (cancelled || seq !== quoteSeq.current) return;
+      setQuoting(true);
+      setQuoteError(null);
+    });
     const body: QuoteRequest = { orderType, items };
     api
       .post<QuoteResponse>("/orders/quote", body)
       .then((res) => {
-        if (seq !== quoteSeq.current) return;
+        if (cancelled || seq !== quoteSeq.current) return;
         setQuote(res);
       })
       .catch((err) => {
-        if (seq !== quoteSeq.current) return;
+        if (cancelled || seq !== quoteSeq.current) return;
         setQuote(null);
         setQuoteError(
           err instanceof ApiError
@@ -147,8 +161,12 @@ export default function PdvPage() {
         );
       })
       .finally(() => {
-        if (seq === quoteSeq.current) setQuoting(false);
+        if (!cancelled && seq === quoteSeq.current) setQuoting(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [items, orderType]);
 
   // Clicar num produto: descobre variações; se houver, abre o modal; senão entra direto.
