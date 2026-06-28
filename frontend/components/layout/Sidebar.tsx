@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   UtensilsCrossed,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 import { useRestaurantInfo } from '@/lib/use-restaurant-info'
@@ -63,10 +64,64 @@ function BrandBadge({ collapsed }: { collapsed: boolean }) {
   )
 }
 
+// ── Nav compartilhado (desktop + drawer mobile) ───────────────────────────────
+
+function NavContent({
+  collapsed,
+  onNavClick,
+}: {
+  collapsed: boolean
+  onNavClick?: () => void
+}) {
+  const pathname = usePathname()
+  return (
+    <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Menu principal">
+      {NAV_GROUPS.map(({ group, items }) => (
+        <div key={group} className="mb-3">
+          {!collapsed && (
+            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-text-muted select-none">
+              {group}
+            </p>
+          )}
+          <ul role="list" className="flex flex-col gap-0.5">
+            {items.map(({ href, label, icon: Icon }) => {
+              const isActive = pathname === href || pathname.startsWith(href + '/')
+              return (
+                <li key={href}>
+                  <Link
+                    href={href}
+                    title={collapsed ? label : undefined}
+                    aria-current={isActive ? 'page' : undefined}
+                    onClick={onNavClick}
+                    className={[
+                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150',
+                      collapsed ? 'justify-center' : '',
+                      isActive
+                        ? 'bg-primary-700 text-white'
+                        : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
+                    ].join(' ')}
+                  >
+                    <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    {!collapsed && <span>{label}</span>}
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ))}
+    </nav>
+  )
+}
+
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
-export function Sidebar() {
-  const pathname  = usePathname()
+interface SidebarProps {
+  mobileOpen?: boolean
+  onClose?: () => void
+}
+
+export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [mounted,   setMounted]   = useState(false)
   const { restaurantName, logoUrl } = useRestaurantInfo()
@@ -76,118 +131,73 @@ export function Sidebar() {
     try {
       const saved = localStorage.getItem(SIDEBAR_KEY)
       if (saved === 'collapsed') setCollapsed(true)
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }, [])
 
   const toggle = () => {
     const next = !collapsed
     setCollapsed(next)
-    try {
-      localStorage.setItem(SIDEBAR_KEY, next ? 'collapsed' : 'expanded')
-    } catch {
-      // ignore
-    }
+    try { localStorage.setItem(SIDEBAR_KEY, next ? 'collapsed' : 'expanded') }
+    catch { /* ignore */ }
   }
 
   const isCollapsed = !mounted || collapsed
 
+  const brandBlock = (collapsed: boolean) => (
+    <div className={['flex h-16 shrink-0 items-center border-b border-border-light px-3', collapsed ? 'justify-center' : 'gap-3'].join(' ')}>
+      {logoUrl ? (
+        <Image src={logoUrl} alt={restaurantName ?? 'Logo'} width={36} height={36} className="shrink-0 rounded-xl object-contain" />
+      ) : (
+        <BrandBadge collapsed={collapsed} />
+      )}
+      {!collapsed && <span className="truncate text-sm font-semibold text-text-primary">{restaurantName ?? 'MenuFlow'}</span>}
+    </div>
+  )
+
   return (
-    <aside
-      className={[
-        'flex shrink-0 flex-col transition-all duration-200 overflow-hidden',
-        isCollapsed ? 'w-16' : 'w-64',
-      ].join(' ')}
-      aria-label="Navegacao principal"
-    >
-      <div className="flex min-h-0 flex-1 flex-col border-r border-border-light bg-bg-primary">
-
-        {/* Brand */}
-        <div
-          className={[
-            'flex h-16 shrink-0 items-center border-b border-border-light px-3',
-            isCollapsed ? 'justify-center' : 'gap-3',
-          ].join(' ')}
-        >
-          {logoUrl ? (
-            <Image
-              src={logoUrl}
-              alt={restaurantName ?? 'Logo'}
-              width={36}
-              height={36}
-              className="shrink-0 rounded-xl object-contain"
-            />
-          ) : (
-            <BrandBadge collapsed={isCollapsed} />
-          )}
-          {!isCollapsed && (
-            <span className="truncate text-sm font-semibold text-text-primary">
-              {restaurantName ?? 'MenuFlow'}
-            </span>
-          )}
-        </div>
-
-        {/* Navegacao agrupada */}
-        <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Menu principal">
-          {NAV_GROUPS.map(({ group, items }) => (
-            <div key={group} className="mb-3">
-              {!isCollapsed && (
-                <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-text-muted select-none">
-                  {group}
-                </p>
+    <>
+      {/* ── Drawer mobile (lg:hidden) ─────────────────────────────────────── */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu de navegacao">
+          {/* Scrim */}
+          <div className="absolute inset-0 bg-black/50" aria-hidden="true" onClick={onClose} />
+          {/* Painel */}
+          <aside className="absolute inset-y-0 left-0 flex w-72 flex-col bg-bg-primary shadow-xl">
+            <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border-light px-3">
+              {logoUrl ? (
+                <Image src={logoUrl} alt={restaurantName ?? 'Logo'} width={36} height={36} className="shrink-0 rounded-xl object-contain" />
+              ) : (
+                <BrandBadge collapsed={false} />
               )}
-              <ul role="list" className="flex flex-col gap-0.5">
-                {items.map(({ href, label, icon: Icon }) => {
-                  const isActive =
-                    pathname === href || pathname.startsWith(href + '/')
-                  return (
-                    <li key={href}>
-                      <Link
-                        href={href}
-                        title={isCollapsed ? label : undefined}
-                        aria-current={isActive ? 'page' : undefined}
-                        className={[
-                          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150',
-                          isCollapsed ? 'justify-center' : '',
-                          isActive
-                            ? 'bg-primary-700 text-white'
-                            : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
-                        ].join(' ')}
-                      >
-                        <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                        {!isCollapsed && <span>{label}</span>}
-                      </Link>
-                    </li>
-                  )
-                })}
-              </ul>
+              <span className="flex-1 truncate text-sm font-semibold text-text-primary">{restaurantName ?? 'MenuFlow'}</span>
+              <button onClick={onClose} aria-label="Fechar menu" className="rounded-lg p-1 text-text-muted hover:bg-bg-tertiary">
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
             </div>
-          ))}
-        </nav>
-
-        {/* Toggle */}
-        <div className="border-t border-border-light p-3">
-          <button
-            onClick={toggle}
-            aria-label={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
-            className={[
-              'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary',
-              isCollapsed ? 'justify-center' : '',
-            ].join(' ')}
-          >
-            {isCollapsed ? (
-              <ChevronRight className="h-4 w-4" aria-hidden="true" />
-            ) : (
-              <>
-                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                <span>Recolher</span>
-              </>
-            )}
-          </button>
+            <NavContent collapsed={false} onNavClick={onClose} />
+          </aside>
         </div>
+      )}
 
-      </div>
-    </aside>
+      {/* ── Sidebar desktop (hidden em mobile) ───────────────────────────── */}
+      <aside
+        className={['hidden lg:flex shrink-0 flex-col transition-all duration-200 overflow-hidden', isCollapsed ? 'lg:w-16' : 'lg:w-64'].join(' ')}
+        aria-label="Navegacao principal"
+      >
+        <div className="flex min-h-0 flex-1 flex-col border-r border-border-light bg-bg-primary">
+          {brandBlock(isCollapsed)}
+          <NavContent collapsed={isCollapsed} />
+          <div className="border-t border-border-light p-3">
+            <button
+              onClick={toggle}
+              aria-label={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+              className={['flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary', isCollapsed ? 'justify-center' : ''].join(' ')}
+            >
+              {isCollapsed ? <ChevronRight className="h-4 w-4" aria-hidden="true" /> : <><ChevronLeft className="h-4 w-4" aria-hidden="true" /><span>Recolher</span></>}
+            </button>
+          </div>
+        </div>
+      </aside>
+    </>
   )
 }

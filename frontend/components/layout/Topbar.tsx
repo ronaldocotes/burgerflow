@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { LogOut, ChevronDown } from 'lucide-react'
+import { LogOut, ChevronDown, Menu } from 'lucide-react'
 import { logout, getToken } from '@/lib/auth'
 import { useRestaurantInfo } from '@/lib/use-restaurant-info'
 
@@ -57,7 +57,11 @@ function getRoleLabel(payload: JwtPayload | null): string {
   return role ? (ROLE_LABELS[role] ?? role) : ''
 }
 
-export function Topbar() {
+interface TopbarProps {
+  onMenuClick?: () => void
+}
+
+export function Topbar({ onMenuClick }: TopbarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { restaurantName } = useRestaurantInfo()
@@ -81,6 +85,14 @@ export function Topbar() {
       className="sticky top-0 z-[9] flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border-light bg-bg-primary px-4"
     >
       <div className="flex min-w-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={onMenuClick}
+          aria-label="Abrir menu"
+          className="lg:hidden flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-tertiary"
+        >
+          <Menu className="h-5 w-5" aria-hidden="true" />
+        </button>
         {restaurantName && (
           <>
             <span className="hidden shrink-0 text-sm font-semibold text-text-primary sm:block">
