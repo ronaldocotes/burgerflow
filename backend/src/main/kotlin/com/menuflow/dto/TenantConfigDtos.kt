@@ -9,36 +9,48 @@ import jakarta.validation.constraints.Size
  */
 data class TenantConfigResponse(
     val autoAcceptOrders: Boolean,
-    /** Chave PIX estatica do restaurante; null quando nao configurada. */
     val pixKey: String?,
-    /** Nome de exibicao do restaurante; null quando nao configurado. */
     val restaurantName: String?,
-    /** URL do logo do restaurante; null quando nao configurado. */
     val logoUrl: String?,
+    val coverUrl: String?,
+    val address: String?,
+    val openingHours: String?,
+    val merchantCity: String?,
 ) {
     companion object {
         fun from(c: TenantConfig) =
             TenantConfigResponse(
                 autoAcceptOrders = c.autoAcceptOrders,
-                pixKey = c.pixKey,
-                restaurantName = c.restaurantName,
-                logoUrl = c.logoUrl,
+                pixKey           = c.pixKey,
+                restaurantName   = c.restaurantName,
+                logoUrl          = c.logoUrl,
+                coverUrl         = c.coverUrl,
+                address          = c.address,
+                openingHours     = c.openingHours,
+                merchantCity     = c.merchantCity,
             )
     }
 }
 
 /**
- * Atualização parcial das configurações (PATCH). Hoje só o aceite automático.
- * Boolean não-nulo: ausência do campo no corpo vira 400 (Jackson/Kotlin).
+ * Atualização parcial das configurações (PATCH).
+ * Semantica: campo omitido (null) = preservar valor atual; campo enviado = sobrescrever.
+ * autoAcceptOrders nao-nulo garante que ausencia vira 400 (Jackson/Kotlin).
  */
 data class TenantConfigUpdateRequest(
     val autoAcceptOrders: Boolean,
-    /**
-     * Chave PIX estatica. Nullable e nao obrigatorio no corpo. Por seguranca de
-     * PATCH parcial, o service so sobrescreve quando vier NAO-nulo (cliente que
-     * omite o campo nao apaga a chave ja salva). @Size limita ao tamanho da
-     * coluna (VARCHAR(140)) — evita overflow virar 500.
-     */
     @field:Size(max = 140)
     val pixKey: String? = null,
+    @field:Size(max = 100)
+    val restaurantName: String? = null,
+    @field:Size(max = 500)
+    val logoUrl: String? = null,
+    @field:Size(max = 500)
+    val coverUrl: String? = null,
+    @field:Size(max = 200)
+    val address: String? = null,
+    @field:Size(max = 200)
+    val openingHours: String? = null,
+    @field:Size(max = 50)
+    val merchantCity: String? = null,
 )
