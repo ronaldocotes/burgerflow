@@ -74,6 +74,11 @@ class GlobalExceptionHandler {
         ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
             .body(body(HttpStatus.UNPROCESSABLE_ENTITY, "UNPROCESSABLE", ex.message, req, details = ex.details))
 
+    @ExceptionHandler(ServiceUnavailableException::class)
+    fun serviceUnavailable(ex: ServiceUnavailableException, req: WebRequest) =
+        ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+            .body(body(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE", ex.message, req))
+
     @ExceptionHandler(IllegalArgumentException::class)
     fun illegalArg(ex: IllegalArgumentException, req: WebRequest) =
         ResponseEntity.status(HttpStatus.BAD_REQUEST)

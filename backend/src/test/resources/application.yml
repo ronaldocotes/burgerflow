@@ -15,3 +15,8 @@ menuflow:
       enabled: false
     public-orders:
       enabled: false
+  # Job de reconciliacao PIX desligado nos testes: o @Scheduled nao deve disparar
+  # contra o Postgres compartilhado da suite (varreria os tenants de outros casos).
+  asaas:
+    reconcile:
+      enabled: false

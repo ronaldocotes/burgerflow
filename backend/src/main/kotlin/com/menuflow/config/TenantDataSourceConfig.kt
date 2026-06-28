@@ -11,10 +11,12 @@ import com.menuflow.model.Ingredient
 import com.menuflow.model.Order
 import com.menuflow.model.OrderItem
 import com.menuflow.model.Payment
+import com.menuflow.model.PaymentIntent
 import com.menuflow.model.Product
 import com.menuflow.model.ProductIngredient
 import com.menuflow.model.RefreshToken
 import com.menuflow.model.TenantConfig
+import com.menuflow.model.WebhookEvent
 import com.menuflow.tenant.DynamicTenantRoutingDataSource
 import com.menuflow.tenant.TenantDataSourceProperties
 import com.menuflow.tenant.TenantFlywayMigrator
@@ -79,6 +81,8 @@ class TenantDataSourceConfig {
                 CashSession::class.java,
                 CashSessionEntry::class.java,
                 AuditLog::class.java,
+                PaymentIntent::class.java,
+                WebhookEvent::class.java,
             )
             .persistenceUnit("tenant")
             .properties(

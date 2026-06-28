@@ -98,3 +98,31 @@ menuflow:
       backend: ${MF_RATELIMIT_PUBLICORDERS_BACKEND:memory}
       capacity: ${MF_RATELIMIT_PUBLICORDERS_CAPACITY:20}
       refill-period-seconds: ${MF_RATELIMIT_LOGIN_PERIOD:60}
+  # Asaas (Fase 2.3): integracao PIX. A api-key NUNCA tem default em prod (env).
+  # Reconciliacao periodica das cobrancas pendentes vencidas (desligavel).
+  asaas:
+    reconcile:
+      enabled: ${MF_ASAAS_RECONCILE_ENABLED:true}
+
+# Integracao Asaas (PIX). Auth por header access_token (NAO Bearer). Sandbox por
+# default; em producao defina ASAAS_BASE_URL=https://api.asaas.com/api/v3 e a chave.
+asaas:
+  base-url: ${ASAAS_BASE_URL:https://sandbox.asaas.com/api/v3}
+  api-key: ${ASAAS_API_KEY:}
+
+# Resilience4j: circuit breaker + retry das chamadas ao Asaas.
+resilience4j:
+  circuitbreaker:
+    instances:
+      asaas:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+  retry:
+    instances:
+      asaas:
+        max-attempts: 3
+        wait-duration: 500ms
+        retry-exceptions:
+          - org.springframework.web.client.ResourceAccessException

@@ -25,6 +25,13 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-cache")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    // AOP: necessario para os aspectos do Resilience4j (@CircuitBreaker/@Retry).
+    implementation("org.springframework.boot:spring-boot-starter-aop")
+
+    // Resilience4j (Fase 2.3): protege as chamadas ao Asaas com circuit breaker +
+    // retry. spring-boot3 traz os aspectos auto-configurados; -kotlin nao e usado
+    // aqui (anotamos os metodos, sem a DSL de coroutines).
+    implementation("io.github.resilience4j:resilience4j-spring-boot3:2.2.0")
 
     // Database
     implementation("org.postgresql:postgresql")

@@ -20,3 +20,10 @@ class UnprocessableEntityException(
     message: String,
     val details: List<Map<String, Any?>> = emptyList(),
 ) : RuntimeException(message)
+
+/**
+ * 503 — dependencia externa indisponivel (ex.: Asaas fora do ar / circuito aberto).
+ * Lancada pelos fallbacks do AsaasClient para o PDV receber um erro tratavel
+ * ("PIX indisponivel"), nunca um 500 cru.
+ */
+class ServiceUnavailableException(message: String) : RuntimeException(message)

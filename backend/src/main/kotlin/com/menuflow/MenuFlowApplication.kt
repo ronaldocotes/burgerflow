@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan
 import org.springframework.boot.runApplication
 import org.springframework.cache.annotation.EnableCaching
 import org.springframework.scheduling.annotation.EnableAsync
+import org.springframework.scheduling.annotation.EnableScheduling
 
 /**
  * Datasource auto-configuration is excluded: we define the CONTROL datasource and
@@ -16,6 +17,7 @@ import org.springframework.scheduling.annotation.EnableAsync
 @ConfigurationPropertiesScan
 @EnableCaching
 @EnableAsync
+@EnableScheduling
 class MenuFlowApplication
 
 fun main(args: Array<String>) {

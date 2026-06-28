@@ -81,6 +81,9 @@ class SecurityConfig(
                     .requestMatchers("/auth/**").permitAll()
                     .requestMatchers("/actuator/health").permitAll()
                     .requestMatchers("/public/**").permitAll()
+                    // Webhook do Asaas (PIX): publico, sem JWT. O tenant vem do path
+                    // {tenantSlug}; defesa em PixPaymentService (ver controller).
+                    .requestMatchers("/webhooks/**").permitAll()
                     .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                     .anyRequest().authenticated()
             }

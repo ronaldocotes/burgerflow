@@ -52,6 +52,14 @@ data class TenantConfig(
     @Column(name = "merchant_city", length = 50)
     var merchantCity: String? = null,
 
+    /**
+     * Id do customer "avulso" fixo do restaurante no Asaas (Fase 2.3). O PDV/balcao
+     * nao cadastra cliente por venda; usamos um unico customer por tenant, criado uma
+     * vez e reaproveitado. Interno (NAO exposto nos DTOs de config).
+     */
+    @Column(name = "asaas_customer_id", length = 64)
+    var asaasCustomerId: String? = null,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 
