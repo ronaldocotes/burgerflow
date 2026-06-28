@@ -13,6 +13,7 @@ import { api, ApiError } from "@/lib/api";
 import { getToken, logout } from "@/lib/auth";
 import { useModalA11y } from "@/lib/use-modal-a11y";
 import {
+  Category,
   CRUST_LABELS,
   DOUGH_TYPES,
   Page,
@@ -68,9 +69,13 @@ function isSimpleLine(item: OrderItemInput): boolean {
 export default function PdvPage() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [clearPending, setClearPending] = useState(false);
+  const [showMobileCart, setShowMobileCart] = useState(false);
 
   const [cart, setCart] = useState<CartLine[]>([]);
   const [orderType, setOrderType] = useState<OrderType>("DINE_IN");
@@ -90,8 +95,12 @@ export default function PdvPage() {
     setLoading(true);
     setError(null);
     try {
-      const prods = await api.get<Page<Product>>("/products?size=200");
+      const [prods, cats] = await Promise.all([
+        api.get<Page<Product>>("/products?size=200"),
+        api.get<Category[]>("/categories").catch(() => [] as Category[]),
+      ]);
       setProducts(prods.content);
+      setCategories(cats.filter((c) => c.active).sort((a, b) => a.displayOrder - b.displayOrder));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar produtos.");
     } finally {
@@ -249,14 +258,15 @@ export default function PdvPage() {
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    const visible = products.filter((p) => p.active);
+    let visible = products.filter((p) => p.active);
+    if (selectedCategoryId) visible = visible.filter((p) => p.categoryId === selectedCategoryId);
     if (!term) return visible;
     return visible.filter(
       (p) =>
         p.name.toLowerCase().includes(term) ||
         p.sku.toLowerCase().includes(term),
     );
-  }, [products, search]);
+  }, [products, search, selectedCategoryId]);
 
   if (loading) {
     return (
@@ -295,8 +305,41 @@ export default function PdvPage() {
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar produto por nome ou SKU…"
             aria-label="Buscar produto"
-            className="input-field mb-4 w-full"
+            className="input-field mb-3 w-full"
           />
+
+          {/* Abas de categorias */}
+          {categories.length > 0 && (
+            <div className="mb-4 flex gap-2 overflow-x-auto pb-1 scrollbar-none" role="group" aria-label="Filtrar por categoria">
+              <button
+                type="button"
+                onClick={() => setSelectedCategoryId(null)}
+                aria-pressed={selectedCategoryId === null}
+                className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                  selectedCategoryId === null
+                    ? "bg-primary-700 text-white"
+                    : "bg-bg-secondary text-text-secondary border border-border-light hover:bg-bg-tertiary"
+                }`}
+              >
+                Todos
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setSelectedCategoryId(cat.id)}
+                  aria-pressed={selectedCategoryId === cat.id}
+                  className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                    selectedCategoryId === cat.id
+                      ? "bg-primary-700 text-white"
+                      : "bg-bg-secondary text-text-secondary border border-border-light hover:bg-bg-tertiary"
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+          )}
           {filtered.length === 0 ? (
             <div className="empty-state">
               <p className="empty-state-title">Nenhum produto</p>
@@ -352,18 +395,64 @@ export default function PdvPage() {
           )}
         </section>
 
-        {/* Carrinho */}
-        <aside className="bg-bg-primary border-t lg:border-t-0 lg:border-l border-border-light flex flex-col lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)]">
+        {/* Carrinho — desktop: coluna fixa; mobile: overlay quando showMobileCart */}
+        <aside className={[
+          "bg-bg-primary border-border-light flex flex-col",
+          "lg:border-l lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)]",
+          showMobileCart
+            ? "fixed inset-0 z-40 lg:static lg:inset-auto"
+            : "hidden lg:flex",
+        ].join(" ")}>
+          {/* Scrim mobile */}
+          {showMobileCart && (
+            <div
+              className="absolute inset-0 bg-black/40 lg:hidden"
+              aria-hidden="true"
+              onClick={() => setShowMobileCart(false)}
+            />
+          )}
+          <div className={[
+            "relative flex flex-col bg-bg-primary h-full",
+            showMobileCart ? "ml-auto w-full max-w-sm shadow-xl lg:shadow-none lg:ml-0 lg:max-w-none" : "",
+          ].join(" ")}>
           <div className="p-4 border-b border-border-light flex items-center justify-between">
             <h2 className="font-bold text-text-primary">Carrinho</h2>
-            {cart.length > 0 && (
-              <button
-                className="text-sm text-error hover:underline"
-                onClick={clearCart}
-              >
-                Limpar
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {cart.length > 0 && !clearPending && (
+                <button
+                  className="text-sm text-error hover:underline"
+                  onClick={() => setClearPending(true)}
+                >
+                  Limpar
+                </button>
+              )}
+              {clearPending && (
+                <span className="flex items-center gap-2 text-sm">
+                  <span className="text-text-secondary">Limpar tudo?</span>
+                  <button
+                    className="font-semibold text-error hover:underline"
+                    onClick={() => { clearCart(); setClearPending(false); }}
+                  >
+                    Sim
+                  </button>
+                  <button
+                    className="text-text-muted hover:underline"
+                    onClick={() => setClearPending(false)}
+                  >
+                    Não
+                  </button>
+                </span>
+              )}
+              {showMobileCart && (
+                <button
+                  aria-label="Fechar carrinho"
+                  onClick={() => setShowMobileCart(false)}
+                  className="text-text-muted hover:text-text-primary text-xl leading-none lg:hidden"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Tipo de pedido */}
@@ -429,12 +518,12 @@ export default function PdvPage() {
                         type="button"
                         aria-label={`Diminuir ${line.productName}`}
                         onClick={() => setQuantity(line.lineId, line.quantity - 1)}
-                        className="w-7 h-7 rounded-md bg-bg-tertiary text-text-primary font-bold leading-none hover:bg-border-light"
+                        className="w-10 h-10 rounded-md bg-bg-tertiary text-text-primary font-bold leading-none hover:bg-border-light"
                       >
                         −
                       </button>
                       <span
-                        className="w-6 text-center text-sm font-semibold"
+                        className="w-7 text-center text-sm font-semibold"
                         aria-label={`Quantidade ${line.quantity}`}
                       >
                         {line.quantity}
@@ -443,7 +532,7 @@ export default function PdvPage() {
                         type="button"
                         aria-label={`Aumentar ${line.productName}`}
                         onClick={() => setQuantity(line.lineId, line.quantity + 1)}
-                        className="w-7 h-7 rounded-md bg-bg-tertiary text-text-primary font-bold leading-none hover:bg-border-light"
+                        className="w-10 h-10 rounded-md bg-bg-tertiary text-text-primary font-bold leading-none hover:bg-border-light"
                       >
                         +
                       </button>
@@ -480,8 +569,28 @@ export default function PdvPage() {
               Finalizar
             </button>
           </div>
+          </div>{/* fim div wrapper mobile */}
         </aside>
       </div>
+
+      {/* FAB carrinho — mobile only */}
+      {cart.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-30 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setShowMobileCart(true)}
+            className="flex items-center gap-3 rounded-full bg-primary-700 px-5 py-3 text-white shadow-lg hover:bg-primary-800 active:scale-95 transition-transform"
+            aria-label="Ver carrinho"
+          >
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-bold text-primary-700">
+              {cart.reduce((s, l) => s + l.quantity, 0)}
+            </span>
+            <span className="text-sm font-semibold">
+              {quoting ? "…" : quote ? formatBRL(quote.totalCents) : "Ver carrinho"}
+            </span>
+          </button>
+        </div>
+      )}
 
       {editing && (
         <ItemModal
@@ -500,6 +609,7 @@ export default function PdvPage() {
           quote={quote}
           orderType={orderType}
           items={items}
+          cart={cart}
           onClose={() => setShowPayment(false)}
           onConfirmed={() => {
             setShowPayment(false);
@@ -936,12 +1046,14 @@ function PaymentModal({
   quote,
   orderType,
   items,
+  cart,
   onClose,
   onConfirmed,
 }: {
   quote: QuoteResponse;
   orderType: OrderType;
   items: OrderItemInput[];
+  cart: CartLine[];
   onClose: () => void;
   onConfirmed: () => void;
 }) {
@@ -1002,9 +1114,30 @@ function PaymentModal({
       >
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-text-primary">Pagamento</h2>
-          <span className="text-lg font-bold text-primary-600">
+          <span className="text-lg font-bold text-primary-700">
             {formatBRL(quote.totalCents)}
           </span>
+        </div>
+
+        {/* Resumo dos itens */}
+        <div className="rounded-lg border border-border-light bg-bg-secondary divide-y divide-border-light max-h-36 overflow-y-auto">
+          {cart.map((line, idx) => {
+            const q = quote.items[idx];
+            return (
+              <div key={line.lineId} className="flex items-center justify-between gap-2 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-text-primary truncate">
+                    {line.quantity > 1 && <span className="text-primary-700 font-bold mr-1">{line.quantity}×</span>}
+                    {line.productName}
+                  </p>
+                  {line.label && <p className="text-xs text-text-muted truncate">{line.label}</p>}
+                </div>
+                <span className="shrink-0 text-sm font-semibold text-text-primary">
+                  {q ? formatBRL(q.totalPriceCents) : "—"}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         <div
