@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   UtensilsCrossed,
+  Wallet,
   X,
   type LucideIcon,
 } from 'lucide-react'
@@ -38,6 +39,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/pdv',   label: 'PDV',     icon: ShoppingCart },
       { href: '/kds',   label: 'Cozinha', icon: ChefHat      },
       { href: '/mesas', label: 'Mesas',   icon: LayoutGrid   },
+      { href: '/caixa', label: 'Caixa',   icon: Wallet       },
     ],
   },
   {

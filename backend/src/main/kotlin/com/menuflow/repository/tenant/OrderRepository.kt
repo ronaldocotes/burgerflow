@@ -67,4 +67,20 @@ interface OrderRepository :
         """,
     )
     fun findActiveDeliveryOrders(@Param("from") from: Instant): List<Order>
+
+    /**
+     * Soma (centavos) das vendas em dinheiro EFETIVADAS de um turno de caixa:
+     * pedidos carimbados com o turno, pagos em dinheiro (CASH) e com pagamento
+     * confirmado (PAID). COALESCE garante 0 quando não há nenhuma venda. Entra no
+     * cálculo do esperado da gaveta no fechamento do caixa.
+     */
+    @Query(
+        """
+        SELECT COALESCE(SUM(o.totalCents), 0) FROM Order o
+        WHERE o.cashSessionId = :sessionId
+          AND o.paymentMethod = com.menuflow.model.PaymentMethod.CASH
+          AND o.paymentStatus = com.menuflow.model.PaymentStatus.PAID
+        """,
+    )
+    fun sumCashSalesForSession(@Param("sessionId") sessionId: UUID): Long
 }

@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { getToken, logout } from "@/lib/auth";
 import { useModalA11y } from "@/lib/use-modal-a11y";
@@ -91,6 +92,8 @@ export default function PdvPage() {
     variations: Variations;
   } | null>(null);
   const [showPayment, setShowPayment] = useState(false);
+  // true = caixa aberto, false = sem turno (verificado 1x ao montar)
+  const [hasCashSession, setHasCashSession] = useState<boolean>(false);
 
   const redirectToLogin = useCallback(() => {
     logout();
@@ -112,9 +115,11 @@ export default function PdvPage() {
     setLoading(true);
     setError(null);
     try {
-      const [prods, cats] = await Promise.all([
+      const [prods, cats, cashSession] = await Promise.all([
         api.get<Page<Product>>("/products?size=200"),
         api.get<Page<Category>>("/categories?size=200").catch(() => null),
+        // 204 → undefined (sem turno aberto); erro de rede → ignora silenciosamente
+        api.get<unknown>("/cash-sessions/current").catch(() => undefined),
       ]);
       setProducts(prods.content);
       setCategories(
@@ -122,6 +127,8 @@ export default function PdvPage() {
           .filter((c) => c.active)
           .sort((a, b) => a.displayOrder - b.displayOrder),
       );
+      // cashSession = undefined significa 204 (sem turno) ou falha na rede
+      setHasCashSession(cashSession !== undefined && cashSession !== null);
     } catch (err) {
       if (handleUnauthorized(err)) return;
       setError(err instanceof Error ? err.message : "Erro ao carregar produtos.");
@@ -634,6 +641,7 @@ export default function PdvPage() {
           orderType={orderType}
           items={items}
           cart={cart}
+          hasCashSession={hasCashSession}
           onClose={() => setShowPayment(false)}
           onUnauthorized={redirectToLogin}
           onConfirmed={() => {
@@ -1072,6 +1080,7 @@ function PaymentModal({
   orderType,
   items,
   cart,
+  hasCashSession,
   onClose,
   onUnauthorized,
   onConfirmed,
@@ -1080,6 +1089,7 @@ function PaymentModal({
   orderType: OrderType;
   items: OrderItemInput[];
   cart: CartLine[];
+  hasCashSession: boolean;
   onClose: () => void;
   onUnauthorized: () => void;
   onConfirmed: () => void;
@@ -1193,7 +1203,19 @@ function PaymentModal({
           ))}
         </div>
 
-        {method === "CASH" && (
+        {method === "CASH" && !hasCashSession && (
+          <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
+            <span className="mt-0.5 shrink-0 text-warning" aria-hidden="true">&#9888;</span>
+            <span className="text-text-primary">
+              Abra o caixa antes de registrar vendas em dinheiro.{" "}
+              <Link href="/caixa" className="font-semibold underline hover:text-primary-700">
+                Ir para Caixa
+              </Link>
+            </span>
+          </div>
+        )}
+
+        {method === "CASH" && hasCashSession && (
           <div className="space-y-2">
             <label
               htmlFor="received"
@@ -1246,7 +1268,7 @@ function PaymentModal({
             type="button"
             className="btn-primary flex-1"
             onClick={() => void confirm()}
-            disabled={submitting || insufficientCash}
+            disabled={submitting || insufficientCash || (method === "CASH" && !hasCashSession)}
           >
             {submitting ? "Registrando…" : "Confirmar pedido"}
           </button>

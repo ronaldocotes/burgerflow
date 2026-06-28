@@ -1,5 +1,7 @@
 package com.menuflow.config
 
+import com.menuflow.model.CashSession
+import com.menuflow.model.CashSessionEntry
 import com.menuflow.model.Category
 import com.menuflow.model.Customer
 import com.menuflow.model.DeliveryDriver
@@ -73,6 +75,8 @@ class TenantDataSourceConfig {
                 DeliveryDriver::class.java,
                 RefreshToken::class.java,
                 TenantConfig::class.java,
+                CashSession::class.java,
+                CashSessionEntry::class.java,
             )
             .persistenceUnit("tenant")
             .properties(

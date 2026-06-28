@@ -1,5 +1,6 @@
 package com.menuflow
 
+import com.menuflow.dto.OpenSessionRequest
 import com.menuflow.dto.OrderItemRequest
 import com.menuflow.dto.PdvChannel
 import com.menuflow.dto.PdvOrderCreateRequest
@@ -11,6 +12,7 @@ import com.menuflow.model.OrderStatus
 import com.menuflow.model.PaymentStatus
 import com.menuflow.model.PdvPaymentMethod
 import com.menuflow.repository.tenant.OrderRepository
+import com.menuflow.service.CashSessionService
 import com.menuflow.service.PdvService
 import com.menuflow.service.ProductService
 import com.menuflow.tenant.TenantContext
@@ -30,6 +32,7 @@ import java.util.UUID
 class PdvServiceTest @Autowired constructor(
     private val pdvService: PdvService,
     private val productService: ProductService,
+    private val cashSessionService: CashSessionService,
     private val orderRepository: OrderRepository,
     private val tenantTx: TenantTestTx,
 ) : IntegrationTestBase() {
@@ -66,6 +69,10 @@ class PdvServiceTest @Autowired constructor(
 
     @Test
     fun `cash payment closes order as DELIVERED and returns change`() {
+        // Venda em dinheiro exige caixa aberto: o pay(CASH) carimba o turno no pedido.
+        TenantContext.set(tenant)
+        cashSessionService.open(UUID.randomUUID(), OpenSessionRequest(openingAmountCents = 0))
+
         val orderId = newOrderId(priceCents = 2500, qty = 2) // total 5000
 
         val payment = pdvService.pay(

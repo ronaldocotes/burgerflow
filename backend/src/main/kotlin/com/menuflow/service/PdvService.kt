@@ -6,12 +6,15 @@ import com.menuflow.dto.PaymentResponse
 import com.menuflow.dto.PdvOrderCreateRequest
 import com.menuflow.dto.PdvPaymentRequest
 import com.menuflow.exception.BusinessException
+import com.menuflow.exception.ConflictException
 import com.menuflow.exception.ResourceNotFoundException
 import com.menuflow.exception.UnprocessableEntityException
+import com.menuflow.model.CashSessionStatus
 import com.menuflow.model.OrderStatus
 import com.menuflow.model.Payment
 import com.menuflow.model.PaymentStatus
 import com.menuflow.model.PdvPaymentMethod
+import com.menuflow.repository.tenant.CashSessionRepository
 import com.menuflow.repository.tenant.OrderRepository
 import com.menuflow.repository.tenant.PaymentRepository
 import org.springframework.stereotype.Service
@@ -29,6 +32,7 @@ class PdvService(
     private val orderService: OrderService,
     private val orderRepository: OrderRepository,
     private val paymentRepository: PaymentRepository,
+    private val cashSessionRepository: CashSessionRepository,
 ) {
 
     /** Creates a PDV order, delegating to the shared atomic order-creation logic. */
@@ -48,6 +52,13 @@ class PdvService(
      * - amountPaidCents < totalCents -> 422 (underpayment is not allowed).
      * - change (troco) = amountPaid - total for CASH; 0 for CARD/PIX.
      * - paying a CANCELLED order or an already-paid order -> 400.
+     * - CASH sem caixa aberto -> 409 (a venda em dinheiro precisa entrar num turno).
+     *
+     * Caixa: o PDV cria o pedido SEM paymentMethod e só define a forma de pagamento
+     * aqui, no pay(). Por isso o carimbo do turno (cashSessionId) acontece NESTE
+     * ponto — não no OrderService.create, que para o PDV vê paymentMethod=null. Sem
+     * o carimbo, a venda em dinheiro do balcão sumiria do esperado do caixa
+     * (sumCashSalesForSession exige cashSessionId + CASH + PAID).
      *
      * Atomic: payment row + order state change commit together.
      */
@@ -73,6 +84,14 @@ class PdvService(
                     ),
                 ),
             )
+        }
+
+        // Venda em dinheiro: precisa de um turno aberto e carimba o pedido com ele,
+        // para entrar no esperado da gaveta. Cartão/PIX não tocam o caixa.
+        if (req.method == PdvPaymentMethod.CASH) {
+            val session = cashSessionRepository.findFirstByStatus(CashSessionStatus.OPEN)
+                ?: throw ConflictException("Abra o caixa para registrar vendas em dinheiro")
+            order.cashSessionId = session.id
         }
 
         val change = if (req.method == PdvPaymentMethod.CASH) {

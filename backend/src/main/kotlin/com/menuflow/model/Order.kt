@@ -105,6 +105,16 @@ data class Order(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "table_session_id")
     var tableSession: TableSession? = null,
+
+    // --- Módulo Turno de Caixa (tenant DB) ---
+    /**
+     * Turno de caixa (CashSession) ao qual a venda em dinheiro pertence; null para
+     * pedidos sem caixa (cardápio público, cartão, pix). Carimbado em
+     * OrderService.create quando o operador autenticado vende em dinheiro, e somado
+     * no esperado do turno quando o pedido fica PAID.
+     */
+    @Column(name = "cash_session_id")
+    var cashSessionId: UUID? = null,
 ) {
     @PreUpdate
     fun preUpdate() {

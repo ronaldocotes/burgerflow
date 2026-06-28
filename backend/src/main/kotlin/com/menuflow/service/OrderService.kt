@@ -8,8 +8,10 @@ import com.menuflow.dto.QuoteItemResponse
 import com.menuflow.dto.QuoteRequest
 import com.menuflow.dto.QuoteResponse
 import com.menuflow.exception.BusinessException
+import com.menuflow.exception.ConflictException
 import com.menuflow.exception.ResourceNotFoundException
 import com.menuflow.exception.UnprocessableEntityException
+import com.menuflow.model.CashSessionStatus
 import com.menuflow.model.CrustType
 import com.menuflow.model.DoughType
 import com.menuflow.model.Order
@@ -17,7 +19,9 @@ import com.menuflow.model.OrderItem
 import com.menuflow.model.OrderItemOption
 import com.menuflow.model.OrderStatus
 import com.menuflow.model.OrderType
+import com.menuflow.model.PaymentMethod
 import com.menuflow.model.Product
+import com.menuflow.repository.tenant.CashSessionRepository
 import com.menuflow.repository.tenant.IngredientRepository
 import com.menuflow.repository.tenant.OrderRepository
 import com.menuflow.repository.tenant.ProductCrustPriceRepository
@@ -53,6 +57,7 @@ class OrderService(
     private val productFlavorRepository: ProductFlavorRepository,
     private val productCrustPriceRepository: ProductCrustPriceRepository,
     private val tenantConfigRepository: TenantConfigRepository,
+    private val cashSessionRepository: CashSessionRepository,
     private val realtimePublisher: com.menuflow.service.RealtimePublisher,
 ) {
 
@@ -142,6 +147,18 @@ class OrderService(
         val autoAccept = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()?.autoAcceptOrders ?: false
         val initialStatus = if (autoAccept) OrderStatus.PREPARING else OrderStatus.PENDING
 
+        // Caixa: venda em dinheiro de um operador autenticado (PDV/balcão) entra no
+        // turno de caixa aberto -> carimba o pedido. Sem caixa aberto, a venda em
+        // dinheiro é barrada (409). Pedidos do cardápio PÚBLICO (userId == null, o
+        // cliente fazendo o próprio pedido) NÃO tocam a gaveta do balcão, mesmo que
+        // escolham "dinheiro" — é pagamento na entrega, fora da reconciliação do PDV.
+        var cashSessionId: java.util.UUID? = null
+        if (userId != null && req.paymentMethod == PaymentMethod.CASH) {
+            val session = cashSessionRepository.findFirstByStatus(CashSessionStatus.OPEN)
+                ?: throw ConflictException("Abra o caixa para registrar vendas em dinheiro")
+            cashSessionId = session.id
+        }
+
         val order = Order(
             orderNumber = generateOrderNumber(),
             customerId = req.customerId,
@@ -155,6 +172,7 @@ class OrderService(
             deliveryFeeCents = deliveryFee,
             totalCents = total,
             paymentMethod = req.paymentMethod,
+            cashSessionId = cashSessionId,
             estimatedPrepTimeMinutes = (req.items.sumOf { it.quantity } * 5).coerceAtLeast(10),
         )
         val saved = orderRepository.save(order)
