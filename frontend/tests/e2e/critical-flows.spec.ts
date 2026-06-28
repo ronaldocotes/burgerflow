@@ -22,6 +22,7 @@ test.describe("MenuFlow fluxos críticos", () => {
 
   test("PDV carrega produtos e permite iniciar um pedido", async ({ page }) => {
     await login(page);
+    await page.goto("/pdv");
     await page.getByLabel("Buscar produto").fill("Combo Classic");
     await page.getByRole("button", { name: /Combo Classic/i }).first().click();
     await expect(page.getByRole("heading", { name: "Carrinho" })).toBeVisible();
@@ -31,6 +32,7 @@ test.describe("MenuFlow fluxos críticos", () => {
 
   test("pedido no PDV chega até confirmação de pagamento", async ({ page }) => {
     await login(page);
+    await page.goto("/pdv");
     await page.getByLabel("Buscar produto").fill("Smash Simples");
     await page.getByRole("button", { name: /Smash Simples/i }).first().click();
     await page.getByRole("button", { name: "Finalizar" }).click();
@@ -55,7 +57,7 @@ test.describe("MenuFlow fluxos críticos", () => {
   test("mesas abre o painel operacional", async ({ page }) => {
     await login(page);
     await page.goto("/mesas");
-    await expect(page.getByText(/Mesas|Mesa/i).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Mesas/i })).toBeVisible();
     await expect(page.getByText(/Livre|Ocupada|Fechar/i).first()).toBeVisible();
   });
 

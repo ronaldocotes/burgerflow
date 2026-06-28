@@ -17,6 +17,8 @@ import sys
 import urllib.error
 import urllib.request
 import uuid
+
+IDEMPOTENCY_NS = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")  # DNS namespace
 from typing import Any
 
 
@@ -104,7 +106,8 @@ def request(method: str, path: str, token: str | None = None, body: Any | None =
     if token:
         headers["Authorization"] = f"Bearer {token}"
     if method == "POST" and path == "/products":
-        headers["Idempotency-Key"] = str(uuid.uuid4())
+        sku = (body or {}).get("sku", "")
+        headers["Idempotency-Key"] = str(uuid.uuid5(IDEMPOTENCY_NS, f"menuflow.product.{sku}"))
     data = None if body is None else json.dumps(body).encode("utf-8")
     req = urllib.request.Request(f"{API_URL}{path}", data=data, headers=headers, method=method)
     try:

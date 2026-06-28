@@ -78,7 +78,7 @@ export default function LoginPage() {
       setError(
         err instanceof ApiError
           ? err.status === 401
-            ? "Restaurante, e-mail ou senha invalidos."
+            ? "Restaurante, e-mail ou senha inválidos."
             : err.message
           : "Não foi possível entrar. Tente novamente.",
       );

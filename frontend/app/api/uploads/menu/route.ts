@@ -12,7 +12,26 @@ function extensionFor(type: string): string {
   return "jpg";
 }
 
+function isTokenValid(token: string): boolean {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return false;
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(b64)) as Record<string, unknown>;
+    if (typeof payload.exp === "number" && payload.exp < Date.now() / 1000) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
+  const authHeader = request.headers.get("authorization") ?? "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  if (!token || !isTokenValid(token)) {
+    return NextResponse.json({ message: "Não autorizado." }, { status: 401 });
+  }
+
   const form = await request.formData();
   const file = form.get("file");
 

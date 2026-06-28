@@ -260,7 +260,12 @@ export default function AdminCardapioPage() {
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch("/api/uploads/menu", { method: "POST", body: form });
+      const token = getToken() ?? "";
+      const res = await fetch("/api/uploads/menu", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: form,
+      });
       const data = (await res.json()) as { url?: string; message?: string };
       if (!res.ok || !data.url) throw new Error(data.message ?? "Erro ao enviar imagem.");
       setProductForm((prev) => ({ ...prev, imageUrl: data.url ?? "" }));
@@ -291,7 +296,7 @@ export default function AdminCardapioPage() {
 
         {notice && (
           <div
-            role="status"
+            role={notice.type === "error" ? "alert" : "status"}
             className={[
               "rounded-lg px-4 py-3 text-sm font-medium",
               notice.type === "success" ? "bg-success/10 text-success" : "bg-error/10 text-error",
@@ -308,7 +313,7 @@ export default function AdminCardapioPage() {
           <Metric icon={ImagePlus} label="Com imagem" value={activeProducts.filter((p) => p.imageUrl).length} />
         </section>
 
-        <div className="flex gap-2 overflow-x-auto border-b border-border-light">
+        <div role="tablist" aria-label="Seções do cardápio" className="flex gap-2 overflow-x-auto border-b border-border-light">
           <TabButton active={tab === "products"} onClick={() => setTab("products")} icon={Package} label="Produtos" />
           <TabButton active={tab === "categories"} onClick={() => setTab("categories")} icon={Layers3} label="Categorias" />
           <TabButton active={tab === "ingredients"} onClick={() => setTab("ingredients")} icon={Wheat} label="Insumos" />
@@ -326,14 +331,21 @@ export default function AdminCardapioPage() {
                     <table className="min-w-full text-sm">
                       <thead className="bg-bg-secondary text-left text-xs uppercase text-text-muted">
                         <tr>
-                          <th className="px-4 py-3">Produto</th>
-                          <th className="px-4 py-3">Categoria</th>
-                          <th className="px-4 py-3">Preço</th>
-                          <th className="px-4 py-3">Status</th>
-                          <th className="px-4 py-3 text-right">Ações</th>
+                          <th scope="col" className="px-4 py-3">Produto</th>
+                          <th scope="col" className="px-4 py-3">Categoria</th>
+                          <th scope="col" className="px-4 py-3">Preço</th>
+                          <th scope="col" className="px-4 py-3">Status</th>
+                          <th scope="col" className="px-4 py-3 text-right">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border-light">
+                        {activeProducts.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="px-4 py-8 text-center text-sm text-text-muted">
+                              Nenhum produto cadastrado. Clique em &ldquo;Novo produto&rdquo; para começar.
+                            </td>
+                          </tr>
+                        )}
                         {activeProducts.map((product) => (
                           <tr key={product.id} className="hover:bg-bg-secondary/70">
                             <td className="px-4 py-3">
@@ -440,7 +452,7 @@ function Metric({ icon: Icon, label, value }: { icon: LucideIcon; label: string;
 
 function TabButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: LucideIcon; label: string }) {
   return (
-    <button onClick={onClick} className={["inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold", active ? "border-b-2 border-primary-700 text-primary-700" : "text-text-secondary"].join(" ")}>
+    <button role="tab" aria-selected={active} onClick={onClick} className={["inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold", active ? "border-b-2 border-primary-700 text-primary-700" : "text-text-secondary"].join(" ")}>
       <Icon className="h-4 w-4" aria-hidden="true" />
       {label}
     </button>
@@ -490,7 +502,7 @@ function ProductForm(props: {
           <MoneyInput label="Preço" cents={form.priceCents} onChange={(v) => setForm((p) => ({ ...p, priceCents: v }))} />
           <MoneyInput label="Custo" cents={form.costPriceCents} onChange={(v) => setForm((p) => ({ ...p, costPriceCents: v }))} />
           <MoneyInput label="Preço promocional" cents={form.promoPriceCents} onChange={(v) => setForm((p) => ({ ...p, promoPriceCents: v }))} />
-          <NumberInput label="Tempo de preparo" value={form.preparationTimeMinutes} onChange={(v) => setForm((p) => ({ ...p, preparationTimeMinutes: v }))} />
+          <NumberInput label="Tempo de preparo" value={form.preparationTimeMinutes} min={1} onChange={(v) => setForm((p) => ({ ...p, preparationTimeMinutes: v }))} />
           <NumberInput label="Ordem" value={form.displayOrder} onChange={(v) => setForm((p) => ({ ...p, displayOrder: v }))} />
         </div>
         <TextInput label="URL da imagem" value={form.imageUrl} onChange={(v) => setForm((p) => ({ ...p, imageUrl: v }))} />
@@ -540,11 +552,14 @@ function CrudPanel({ title, onNew, children }: { title: string; onNew: () => voi
   );
 }
 
-function ListItems<T>({ items, title, subtitle, onEdit, onDelete }: { items: T[]; title: (item: T) => string; subtitle: (item: T) => string; onEdit: (item: T) => void; onDelete: (item: T) => void }) {
+function ListItems<T extends { id: string }>({ items, title, subtitle, onEdit, onDelete }: { items: T[]; title: (item: T) => string; subtitle: (item: T) => string; onEdit: (item: T) => void; onDelete: (item: T) => void }) {
   return (
     <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-      {items.map((item, index) => (
-        <div key={`${title(item)}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-bg-primary p-4 shadow-card">
+      {items.length === 0 && (
+        <p className="text-sm text-text-muted col-span-full py-4 text-center">Nenhum item cadastrado.</p>
+      )}
+      {items.map((item) => (
+        <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg bg-bg-primary p-4 shadow-card">
           <button className="min-w-0 text-left" onClick={() => onEdit(item)}>
             <p className="truncate text-sm font-semibold text-text-primary">{title(item)}</p>
             <p className="truncate text-xs text-text-secondary">{subtitle(item)}</p>
@@ -585,11 +600,11 @@ function TextArea({ label, value, onChange }: { label: string; value: string; on
   );
 }
 
-function NumberInput({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+function NumberInput({ label, value, onChange, min = 0 }: { label: string; value: number; onChange: (value: number) => void; min?: number }) {
   return (
     <label className="grid gap-1 text-sm font-medium text-text-secondary">
       {label}
-      <input className="input" type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} />
+      <input className="input" type="number" min={min} value={value} onChange={(e) => onChange(Number(e.target.value))} />
     </label>
   );
 }
@@ -598,7 +613,7 @@ function DecimalInput({ label, value, onChange }: { label: string; value: number
   return (
     <label className="grid gap-1 text-sm font-medium text-text-secondary">
       {label}
-      <input className="input" type="number" step="0.001" value={value} onChange={(e) => onChange(Number(e.target.value))} />
+      <input className="input" type="number" step="0.001" min="0" value={value} onChange={(e) => onChange(Number(e.target.value))} />
     </label>
   );
 }
@@ -607,7 +622,7 @@ function MoneyInput({ label, cents, onChange }: { label: string; cents: number; 
   return (
     <label className="grid gap-1 text-sm font-medium text-text-secondary">
       {label}
-      <input className="input" inputMode="decimal" value={centsInput(cents)} onChange={(e) => onChange(parseCents(e.target.value))} />
+      <input className="input" inputMode="decimal" min="0" value={centsInput(cents)} onChange={(e) => onChange(parseCents(e.target.value))} />
     </label>
   );
 }
