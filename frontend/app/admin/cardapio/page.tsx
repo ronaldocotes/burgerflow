@@ -526,13 +526,15 @@ function ProductForm(props: {
           </select>
         </label>
         <TextArea label="Descrição" value={form.description} onChange={(v) => setForm((p) => ({ ...p, description: v }))} />
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3">
           <MoneyInput label="Preço" cents={form.priceCents} onChange={(v) => setForm((p) => ({ ...p, priceCents: v }))} />
           <MoneyInput label="Custo" cents={form.costPriceCents} onChange={(v) => setForm((p) => ({ ...p, costPriceCents: v }))} />
-          <MoneyInput label="Preço promocional" cents={form.promoPriceCents} onChange={(v) => setForm((p) => ({ ...p, promoPriceCents: v }))} />
-          <NumberInput label="Tempo de preparo" value={form.preparationTimeMinutes} min={1} onChange={(v) => setForm((p) => ({ ...p, preparationTimeMinutes: v }))} />
-          <NumberInput label="Ordem" value={form.displayOrder} onChange={(v) => setForm((p) => ({ ...p, displayOrder: v }))} />
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <MoneyInput label="Preço promo" cents={form.promoPriceCents} onChange={(v) => setForm((p) => ({ ...p, promoPriceCents: v }))} />
+          <NumberInput label="Tempo (min)" value={form.preparationTimeMinutes} min={1} onChange={(v) => setForm((p) => ({ ...p, preparationTimeMinutes: v }))} />
+        </div>
+        <NumberInput label="Ordem" value={form.displayOrder} onChange={(v) => setForm((p) => ({ ...p, displayOrder: v }))} />
         <TextInput label="URL da imagem" value={form.imageUrl} onChange={(v) => setForm((p) => ({ ...p, imageUrl: v }))} />
         <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border-medium px-3 py-2 text-sm text-text-secondary hover:bg-bg-secondary">
           <ImagePlus className="h-4 w-4" aria-hidden="true" />
