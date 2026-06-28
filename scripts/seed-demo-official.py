@@ -27,62 +27,64 @@ TENANT = os.getenv("MF_TENANT", "demo")
 EMAIL = os.getenv("MF_EMAIL", "admin@demo.com")
 PASSWORD = os.getenv("MF_PASSWORD", "Demo@1234")
 
+# (name, description, displayOrder, colorCode)
 CATEGORIES = [
-    ("Hambúrgueres Artesanais", "Clássicos da casa com blend bovino e pão brioche.", 10, "#047857"),
-    ("Smash Burgers", "Burgers prensados, queijo derretido e preparo rápido.", 20, "#0f766e"),
-    ("Frango e Vegetarianos", "Opções sem carne bovina e alternativas leves.", 30, "#16a34a"),
-    ("Pizzas", "Pizzas tradicionais e especiais para salão e delivery.", 40, "#b45309"),
-    ("Porções e Entradas", "Itens para compartilhar antes do prato principal.", 50, "#ca8a04"),
-    ("Batatas e Acompanhamentos", "Batatas, anéis e guarnições avulsas.", 60, "#d97706"),
-    ("Molhos Extras", "Molhos avulsos para venda adicional.", 70, "#be123c"),
-    ("Bebidas", "Refrigerantes, sucos, água e bebidas quentes.", 80, "#2563eb"),
-    ("Sobremesas", "Finalizações doces para balcão e delivery.", 90, "#c026d3"),
-    ("Combos da Casa", "Combinações com bebida e acompanhamento.", 100, "#7c3aed"),
-    ("Promoções", "Ofertas comerciais temporárias.", 110, "#dc2626"),
-    ("Lanches", "Itens rápidos e avulsos para balcão.", 120, "#0891b2"),
+    ("Lanches", "", 1, None),
+    ("Pizzas", "Pizzas artesanais com massa fresca e muito recheio", 6, None),
+    ("Combos da Casa", "Combos completos com burger, acompanhamento e bebida.", 10, "#047857"),
+    ("Hamburgueres Artesanais", "Burgers autorais com blend da casa e pao brioche.", 20, "#0f766e"),
+    ("Smash Burgers", "Smash prensado na chapa, crosta dourada e muito queijo.", 30, "#dc2626"),
+    ("Frango e Vegetarianos", "Opcoes de frango crocante e vegetarianas.", 40, "#16a34a"),
+    ("Porcoes e Entradas", "Entradas para compartilhar antes do burger.", 50, "#f59e0b"),
+    ("Batatas e Acompanhamentos", "Batatas, aneis de cebola e acompanhamentos.", 60, "#ca8a04"),
+    ("Molhos Extras", "Molhos da casa e adicionais avulsos.", 70, "#7c3aed"),
+    ("Bebidas", "Refrigerantes, agua, sucos e milkshakes.", 80, "#2563eb"),
+    ("Sobremesas", "Doces para fechar o pedido.", 90, "#db2777"),
+    ("Promocoes", "Ofertas com preco promocional e alta saida.", 100, "#059669"),
 ]
 
+# (category, sku, name, description, price, cost, order, featured, image_url, promo_price, promo_start, promo_end)
 PRODUCTS = [
-    ("Hambúrgueres Artesanais", "MF-CLASSIC", "MenuFlow Classic", "Blend 160 g, queijo, alface, tomate e molho da casa.", 2990, 1450, 12, True),
-    ("Hambúrgueres Artesanais", "MF-BACON", "Bacon Supreme", "Blend 180 g, bacon crocante, cheddar e cebola caramelizada.", 3890, 1890, 14, True),
-    ("Hambúrgueres Artesanais", "MF-BBQ", "Barbecue Onion", "Blend bovino, queijo prato, onion rings e barbecue.", 3690, 1750, 14, False),
-    ("Hambúrgueres Artesanais", "MF-CHEDDAR", "Cheddar Melt", "Blend 160 g, cheddar cremoso e picles.", 3290, 1520, 12, False),
-    ("Hambúrgueres Artesanais", "MF-SALAD", "Burger Salada", "Blend bovino, queijo, salada fresca e maionese verde.", 3190, 1500, 12, False),
-    ("Hambúrgueres Artesanais", "MF-KIDS", "Mini Burger Kids", "Burger menor com queijo e batata pequena.", 2490, 1200, 10, False),
-    ("Smash Burgers", "SMASH-SIMPLES", "Smash Simples", "Smash 90 g, queijo americano e molho especial.", 2190, 980, 8, True),
-    ("Smash Burgers", "SMASH-DUPLO", "Smash Duplo", "Dois smashs, dobro de queijo e picles.", 3190, 1450, 9, True),
-    ("Smash Burgers", "SMASH-TRIPLO", "Smash Triplo", "Três smashs, queijo americano e molho da casa.", 4190, 1980, 10, False),
-    ("Smash Burgers", "SMASH-PIMENTA", "Smash Pepper", "Smash duplo com jalapeño e maionese picante.", 3490, 1600, 9, False),
-    ("Frango e Vegetarianos", "FRANGO-CRISPY", "Chicken Crispy", "Frango empanado, queijo, salada e molho honey mustard.", 3290, 1500, 12, False),
-    ("Frango e Vegetarianos", "VEG-GRILL", "Veggie Grill", "Burger vegetal, queijo, rúcula e tomate.", 3490, 1750, 12, False),
-    ("Pizzas", "PIZZA-TRAD", "Pizza Tradicional", "Mussarela, tomate, orégano e massa artesanal.", 4990, 2400, 22, True),
-    ("Pizzas", "PIZZA-CALABRESA", "Pizza Calabresa", "Calabresa, cebola, mussarela e orégano.", 5490, 2600, 22, False),
-    ("Porções e Entradas", "ONION-RINGS", "Onion Rings", "Anéis de cebola crocantes com molho da casa.", 2490, 980, 8, False),
-    ("Porções e Entradas", "NUGGETS-12", "Nuggets 12 unidades", "Nuggets de frango com molho barbecue.", 2690, 1200, 8, False),
-    ("Batatas e Acompanhamentos", "FRIES-P", "Batata Pequena", "Batata frita crocante individual.", 1290, 520, 6, False),
-    ("Batatas e Acompanhamentos", "FRIES-G", "Batata Grande", "Porção grande de batata frita.", 2290, 850, 7, True),
-    ("Batatas e Acompanhamentos", "FRIES-CHEDDAR", "Batata Cheddar Bacon", "Batata com cheddar cremoso e bacon.", 2890, 1250, 8, False),
-    ("Batatas e Acompanhamentos", "MANDIOCA", "Mandioca Frita", "Mandioca crocante com sal da casa.", 2390, 900, 9, False),
-    ("Molhos Extras", "MOLHO-VERDE", "Maionese Verde", "Pote extra de maionese verde.", 390, 120, 1, False),
-    ("Molhos Extras", "MOLHO-BBQ", "Molho Barbecue", "Pote extra de barbecue.", 390, 130, 1, False),
-    ("Molhos Extras", "MOLHO-PICANTE", "Molho Picante", "Pote extra de molho picante.", 390, 130, 1, False),
-    ("Bebidas", "REFRI-LATA", "Refrigerante Lata", "Lata 350 ml sabores variados.", 690, 320, 1, False),
-    ("Bebidas", "REFRI-600", "Refrigerante 600 ml", "Garrafa 600 ml.", 990, 480, 1, False),
-    ("Bebidas", "REFRI-2L", "Refrigerante 2 L", "Garrafa 2 litros.", 1490, 760, 1, False),
-    ("Bebidas", "AGUA", "Água Mineral", "Garrafa 500 ml.", 490, 180, 1, False),
-    ("Bebidas", "SUCO-LARANJA", "Suco de Laranja", "Suco natural 300 ml.", 990, 420, 3, False),
-    ("Bebidas", "CHA-GELADO", "Chá Gelado", "Chá gelado 300 ml.", 890, 360, 2, False),
-    ("Bebidas", "CAFE", "Café Espresso", "Café espresso curto.", 590, 180, 2, False),
-    ("Sobremesas", "BROWNIE", "Brownie", "Brownie de chocolate com calda.", 1590, 620, 5, True),
-    ("Sobremesas", "MILKSHAKE", "Milkshake", "Milkshake 400 ml sabores variados.", 1890, 820, 5, False),
-    ("Sobremesas", "PUDIM", "Pudim", "Fatia de pudim tradicional.", 1290, 460, 3, False),
-    ("Combos da Casa", "COMBO-CLASSIC", "Combo Classic", "MenuFlow Classic, batata pequena e refrigerante lata.", 4290, 2150, 13, True),
-    ("Combos da Casa", "COMBO-DUPLO", "Combo Duplo Cheddar", "Dois Cheddar Melt, batata grande e refrigerante 2 L.", 7990, 3900, 15, True),
-    ("Combos da Casa", "COMBO-SMASH", "Combo Smash", "Smash Duplo, batata pequena e bebida.", 4390, 2100, 10, False),
-    ("Combos da Casa", "COMBO-FAMILIA", "Combo Família", "Quatro burgers, duas batatas grandes e refrigerante 2 L.", 14990, 7200, 18, False),
-    ("Combos da Casa", "COMBO-PIZZA-REFRI", "Combo Pizza + Refri", "Pizza tradicional e refrigerante 2 L.", 6490, 3200, 24, False),
-    ("Promoções", "SEGUNDA-SMASH", "Segunda do Smash", "Smash simples promocional para início da semana.", 1990, 980, 8, True),
-    ("Lanches", "HOTDOG", "Hot Dog", "Pão, salsicha, molho, milho, batata palha e queijo.", 1790, 760, 8, False),
+    ("Combos da Casa",          "COMBO-CLASSIC",       "Combo Classic",           "Burger Classic + batata P + refrigerante lata.",                                                        3690,  1780,  1,  True,  None,                                                                          3390, "2026-06-01T00:00:00Z", "2026-12-31T23:59:59Z"),
+    ("Pizzas",                  "PIZZA-TRAD",           "Pizza Tradicional",       "Inteira ou meia a meia. Escolha tamanho, sabor(es) e borda.",                                           2990,  None,  1,  True,  "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&q=80", None, None, None),
+    ("Sobremesas",              "PTG001",               "Petit Gateau",            "Bolinho de chocolate com centro derretido quente, servido com sorvete de baunilha e frutas vermelhas",  2800,  None,  2,  False, "https://images.unsplash.com/photo-1511133-48a1de7a5c44?w=600&q=80",       None, None, None),
+    ("Pizzas",                  "PIZZA-ESPEC",          "Pizza Especial",          "Ingredientes premium. Meia a meia disponivel. Bordas exclusivas.",                                      4990,  None,  2,  False, "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&q=80",  None, None, None),
+    ("Combos da Casa",          "COMBO-DUPLO",          "Combo Duplo Cheddar",     "Duplo cheddar + batata bacon cheddar + bebida.",                                                        4990,  2380,  2,  True,  None,                                                                          4590, "2026-06-01T00:00:00Z", "2026-12-31T23:59:59Z"),
+    ("Bebidas",                 "MSM001",               "Milk-Shake Morango",      "Milk-shake de morango fresco com sorvete de creme, calda de frutas vermelhas e chantilly",             2200,  None,  3,  False, "https://images.unsplash.com/photo-1579954115545-a95591f28bfc?w=600&q=80",  None, None, None),
+    ("Combos da Casa",          "COMBO-FAMILIA",        "Combo Familia MenuFlow",  "4 burgers, 2 batatas grandes, onion rings e 4 bebidas.",                                                14990, 6900,  3,  True,  None,                                                                          None, None, None),
+    ("Combos da Casa",          "COMBO-KIDS",           "Combo Kids",              "Mini burger, batata pequena e suco.",                                                                   2990,  1320,  4,  False, None,                                                                          None, None, None),
+    ("Combos da Casa",          "COMBO-PIZZA-REFRI",    "Combo Pizza + 2 Refris",  "Pizza Media Tradicional (sabor a escolha) + 2 Coca-Cola Lata. Economia garantida!",                    7990,  None,  5,  True,  "https://images.unsplash.com/photo-1593560708920-61dd98c46a4e?w=600&q=80",  None, None, None),
+    ("Lanches",                 "HDG001",               "Hot Dog Gourmet",         "Salsicha artesanal defumada, cebola crispy, queijo derretido, mostarda dijon e ketchup artesanal",     2800,  None,  6,  False, "https://images.unsplash.com/photo-1619538189873-3f511db5fec6?w=600&q=80",  None, None, None),
+    ("Bebidas",                 "CLN001",               "Cerveja Long Neck",       "Cerveja long neck 355ml gelada, perfeita para acompanhar o seu lanche favorito",                       1600,  None,  6,  False, "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80",  None, None, None),
+    ("Hamburgueres Artesanais", "BURGER-CLASSIC",       "MenuFlow Classic",        "Blend 160g, cheddar, alface, tomate, picles e molho especial no brioche.",                             2890,  1260,  10, True,  None,                                                                          None, None, None),
+    ("Hamburgueres Artesanais", "BURGER-BACON-BBQ",     "Bacon BBQ",               "Blend 160g, cheddar duplo, bacon crocante, cebola caramelizada e barbecue.",                           3490,  1580,  11, True,  None,                                                                          None, None, None),
+    ("Hamburgueres Artesanais", "BURGER-DUPLO-CHEDDAR", "Duplo Cheddar",           "Dois blends 160g, cheddar triplo, picles e molho especial.",                                           4290,  2150,  12, True,  None,                                                                          None, None, None),
+    ("Hamburgueres Artesanais", "BURGER-BLUE",          "Blue Cheese",             "Blend 160g, queijo azul, cebola caramelizada e rucula.",                                               3890,  1760,  13, False, None,                                                                          None, None, None),
+    ("Hamburgueres Artesanais", "BURGER-JALAPENO",      "Jalapeno Fire",           "Blend 160g, cheddar, jalapeno, maionese picante e cebola roxa.",                                       3690,  1650,  14, False, None,                                                                          None, None, None),
+    ("Hamburgueres Artesanais", "BURGER-COSTELA",       "Costela Desfiada",        "Blend 160g, costela desfiada, queijo prato e barbecue.",                                               4490,  2320,  15, True,  None,                                                                          None, None, None),
+    ("Smash Burgers",           "SMASH-SIMPLES",        "Smash Simples",           "Smash 90g, cheddar, picles e molho da casa.",                                                          1990,  880,   20, True,  None,                                                                          None, None, None),
+    ("Smash Burgers",           "SMASH-DUPLO",          "Smash Duplo",             "Dois smash 90g, cheddar duplo, cebola e molho.",                                                       2790,  1320,  21, True,  None,                                                                          2490, "2026-06-01T00:00:00Z", "2026-12-31T23:59:59Z"),
+    ("Smash Burgers",           "SMASH-TRIPLO",         "Smash Triplo",            "Tres smash 90g, cheddar triplo e bacon.",                                                              3690,  1890,  22, True,  None,                                                                          None, None, None),
+    ("Smash Burgers",           "SMASH-OKLAHOMA",       "Oklahoma Smash",          "Smash prensado com cebola na chapa, cheddar e picles.",                                                2990,  1390,  23, False, None,                                                                          None, None, None),
+    ("Frango e Vegetarianos",   "FRANGO-CRISPY",        "Chicken Crispy",          "Frango empanado crocante, queijo prato, alface e maionese verde.",                                     2990,  1390,  30, False, None,                                                                          None, None, None),
+    ("Frango e Vegetarianos",   "VEGGIE-GRAO",          "Veggie Grao-de-bico",     "Burger vegetariano, queijo prato, tomate, alface e molho especial.",                                   3190,  1420,  31, False, None,                                                                          None, None, None),
+    ("Porcoes e Entradas",      "PORCAO-DADINHO",       "Dadinho de Tapioca",      "Cubos de tapioca com queijo coalho e geleia agridoce.",                                                2490,  980,   40, False, None,                                                                          None, None, None),
+    ("Porcoes e Entradas",      "PORCAO-NUGGETS",       "Nuggets Artesanais",      "10 unidades de frango empanado com molho a escolha.",                                                  2690,  1180,  41, False, None,                                                                          None, None, None),
+    ("Batatas e Acompanhamentos","BATATA-P",             "Batata Frita Pequena",    "Porcao individual de batata crocante.",                                                                1490,  520,   50, False, None,                                                                          None, None, None),
+    ("Batatas e Acompanhamentos","BATATA-G",             "Batata Frita Grande",     "Porcao grande para compartilhar.",                                                                     2390,  920,   51, True,  None,                                                                          None, None, None),
+    ("Batatas e Acompanhamentos","BATATA-CHEDDAR-BACON", "Batata Cheddar e Bacon",  "Batata grande com cheddar cremoso e bacon crocante.",                                                  3190,  1380,  52, True,  None,                                                                          None, None, None),
+    ("Batatas e Acompanhamentos","ONION-RINGS",          "Onion Rings",             "Aneis de cebola empanados e sequinhos.",                                                               2290,  850,   53, False, None,                                                                          None, None, None),
+    ("Molhos Extras",           "MOLHO-AIOLI",          "Aioli da Casa",           "Pote 40ml de maionese aioli.",                                                                         390,   80,    60, False, None,                                                                          None, None, None),
+    ("Molhos Extras",           "MOLHO-BBQ",            "Barbecue Defumado",       "Pote 40ml de barbecue.",                                                                               390,   80,    61, False, None,                                                                          None, None, None),
+    ("Molhos Extras",           "MOLHO-CHEDDAR",        "Cheddar Cremoso",         "Pote 40ml de cheddar cremoso.",                                                                        590,   120,   62, False, None,                                                                          None, None, None),
+    ("Bebidas",                 "BEB-COCA",             "Coca-Cola Lata 350ml",    "Refrigerante lata gelado.",                                                                            690,   360,   70, False, None,                                                                          None, None, None),
+    ("Bebidas",                 "BEB-GUARANA",          "Guarana Lata 350ml",      "Refrigerante lata gelado.",                                                                            650,   330,   71, False, None,                                                                          None, None, None),
+    ("Bebidas",                 "BEB-AGUA",             "Agua Mineral 500ml",      "Agua mineral sem gas.",                                                                                490,   180,   72, False, None,                                                                          None, None, None),
+    ("Bebidas",                 "BEB-SUCO",             "Suco Natural de Laranja", "Suco feito na hora, 400ml.",                                                                           1190,  420,   73, False, None,                                                                          None, None, None),
+    ("Bebidas",                 "BEB-MILKSHAKE",        "Milkshake Chocolate",     "Milkshake cremoso 400ml com calda de chocolate.",                                                      1890,  710,   74, True,  None,                                                                          None, None, None),
+    ("Sobremesas",              "SOB-BROWNIE",          "Brownie com Sorvete",     "Brownie quente com sorvete de creme e calda.",                                                         2190,  890,   80, True,  None,                                                                          None, None, None),
+    ("Sobremesas",              "SOB-PUDIM",            "Pudim da Casa",           "Pudim cremoso com calda de caramelo.",                                                                 1290,  430,   81, False, None,                                                                          None, None, None),
+    ("Promocoes",               "PROMO-SEGUNDA",        "Segunda do Smash",        "Smash duplo com preco especial nas segundas.",                                                         2790,  1320,  90, True,  None,                                                                          2190, "2026-06-01T00:00:00Z", "2026-12-31T23:59:59Z"),
 ]
 
 INGREDIENTS = [
@@ -154,7 +156,7 @@ def main() -> int:
         category_ids[name] = saved["id"]
 
     existing_products = {p["sku"]: p for p in page("/products", token)}
-    for order, (category, sku, name, description, price, cost, prep, featured) in enumerate(PRODUCTS, start=1):
+    for (category, sku, name, description, price, cost, prep, featured, image_url, promo_price, promo_start, promo_end) in PRODUCTS:
         body = {
             "categoryId": category_ids[category],
             "sku": sku,
@@ -162,14 +164,14 @@ def main() -> int:
             "description": description,
             "priceCents": price,
             "costPriceCents": cost,
-            "imageUrl": None,
+            "imageUrl": image_url,
             "isAvailable": True,
-            "displayOrder": order,
-            "preparationTimeMinutes": prep,
+            "displayOrder": prep,
+            "preparationTimeMinutes": 10,
             "isFeatured": featured,
-            "promoPriceCents": None,
-            "promoStartsAt": None,
-            "promoEndsAt": None,
+            "promoPriceCents": promo_price,
+            "promoStartsAt": promo_start,
+            "promoEndsAt": promo_end,
         }
         if sku in existing_products:
             saved = request("PUT", f"/products/{existing_products[sku]['id']}", token, body)
@@ -193,7 +195,7 @@ def main() -> int:
         else:
             request("POST", "/ingredients", token, body)
 
-    print(f"Seed demo oficial concluído: {len(CATEGORIES)} categorias, {len(PRODUCTS)} produtos, {len(INGREDIENTS)} insumos.")
+    print(f"Seed demo oficial concluido: {len(CATEGORIES)} categorias, {len(PRODUCTS)} produtos, {len(INGREDIENTS)} insumos.")
     return 0
 
 
