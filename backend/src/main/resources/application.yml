@@ -110,6 +110,12 @@ asaas:
   base-url: ${ASAAS_BASE_URL:https://sandbox.asaas.com/api/v3}
   api-key: ${ASAAS_API_KEY:}
 
+# WAHA (WhatsApp HTTP API) — notificacao de status de pedido ao cliente (Fase 2.4).
+# Na A1 o WAHA Core roda na rede interna sem auth; em prod aponte para 127.0.0.1:3030.
+# Envio e fail-open: falha aqui nunca quebra o fluxo do pedido.
+waha:
+  base-url: ${WAHA_BASE_URL:http://127.0.0.1:3030}
+
 # Resilience4j: circuit breaker + retry das chamadas ao Asaas.
 resilience4j:
   circuitbreaker:

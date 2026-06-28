@@ -8,4 +8,6 @@ import java.util.UUID
 @Repository
 interface DeliveryDriverRepository : JpaRepository<DeliveryDriver, UUID> {
     fun findByActiveTrueOrderByNameAsc(): List<DeliveryDriver>
+
+    fun findAllByOrderByNameAsc(): List<DeliveryDriver>
 }

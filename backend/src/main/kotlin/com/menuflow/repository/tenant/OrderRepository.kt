@@ -83,4 +83,28 @@ interface OrderRepository :
         """,
     )
     fun sumCashSalesForSession(@Param("sessionId") sessionId: UUID): Long
+
+    /**
+     * Conta as entregas REALIZADAS de um entregador num periodo, para o acerto
+     * financeiro (Fase 2.5): pedidos carimbados com o entregador (driver_id),
+     * concluidos (status DELIVERED) e completados dentro da janela [from, to).
+     * O Order nao tem coluna deliveredAt — completedAt e setado na transicao para
+     * DELIVERED (OrderService.updateStatus / PdvService.pay), entao serve de
+     * carimbo temporal da entrega. Os limites instantaneos vem do servico (dia em
+     * America/Sao_Paulo), evitando timezone dentro do SQL.
+     */
+    @Query(
+        """
+        SELECT COUNT(o) FROM Order o
+        WHERE o.driverId = :driverId
+          AND o.status = com.menuflow.model.OrderStatus.DELIVERED
+          AND o.completedAt >= :from
+          AND o.completedAt < :to
+        """,
+    )
+    fun countDeliveriesByDriverAndPeriod(
+        @Param("driverId") driverId: UUID,
+        @Param("from") from: Instant,
+        @Param("to") to: Instant,
+    ): Long
 }

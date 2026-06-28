@@ -58,6 +58,8 @@ data class PublicOrderRequest(
     val tableLabel: String? = null,
     @field:NotEmpty @field:Size(max = 20) val items: List<PublicOrderItemRequest>,
     val observations: String? = null,
+    /** Telefone p/ receber avisos do pedido por WhatsApp (Fase 2.4); opt-in, opcional. */
+    @field:Size(max = 20) val customerPhone: String? = null,
 )
 
 data class PublicOrderCreatedResponse(
@@ -120,6 +122,7 @@ class PublicMenuController(
             val orderReq = OrderCreateRequest(
                 orderType = OrderType.DINE_IN,
                 tableNumber = req.tableLabel,
+                customerPhone = req.customerPhone,
                 notes = notes,
                 paymentMethod = paymentMethod,
                 items = req.items.map {

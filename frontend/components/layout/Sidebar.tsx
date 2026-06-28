@@ -15,6 +15,7 @@ import {
   UtensilsCrossed,
   Wallet,
   Users,
+  Truck,
   X,
   type LucideIcon,
 } from 'lucide-react'
@@ -49,9 +50,10 @@ const NAV_GROUPS: NavGroup[] = [
   {
     group: 'SISTEMA',
     items: [
-      { href: '/admin/cardapio',  label: 'Cardápio admin', icon: Package },
-      { href: '/admin/usuarios',  label: 'Usuários',       icon: Users,   roles: ['ADMIN', 'MANAGER'] },
-      { href: '/configuracoes',   label: 'Configurações',  icon: Settings },
+      { href: '/admin/cardapio',      label: 'Cardápio admin', icon: Package },
+      { href: '/admin/usuarios',      label: 'Usuários',       icon: Users,  roles: ['ADMIN', 'MANAGER'] },
+      { href: '/admin/entregadores',  label: 'Entregadores',   icon: Truck,  roles: ['ADMIN', 'MANAGER'] },
+      { href: '/configuracoes',       label: 'Configurações',  icon: Settings },
     ],
   },
 ]

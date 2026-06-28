@@ -29,6 +29,8 @@ class DeliveryService(
     private val driverRepository: DeliveryDriverRepository,
     private val orderRepository: OrderRepository,
     private val realtimePublisher: RealtimePublisher,
+    private val tenantConfigRepository: com.menuflow.repository.tenant.TenantConfigRepository,
+    private val eventPublisher: org.springframework.context.ApplicationEventPublisher,
 ) {
     private val saoPaulo = ZoneId.of("America/Sao_Paulo")
 
@@ -94,6 +96,21 @@ class DeliveryService(
 
         val payload = DeliveryOrderResponse.from(saved)
         realtimePublisher.publishDelivery(currentTenantSlug(), payload)
+        // Notificacao WhatsApp (Fase 2.4): so o despacho "saiu para entrega" avisa
+        // por aqui — a entrega final (DELIVERED) e notificada pela mudanca de status
+        // de cozinha (OrderService), evitando aviso duplicado de "entregue". Publica
+        // um fato de dominio consumido APOS o commit pelo WhatsAppService.
+        if (req.deliveryStatus == DeliveryStatus.OUT_FOR_DELIVERY) {
+            val restaurantName = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()
+                ?.restaurantName ?: "o restaurante"
+            eventPublisher.publishEvent(
+                OrderStatusNotification(
+                    saved.customerPhone,
+                    OrderNotificationKind.OUT_FOR_DELIVERY,
+                    restaurantName,
+                ),
+            )
+        }
         return payload
     }
 

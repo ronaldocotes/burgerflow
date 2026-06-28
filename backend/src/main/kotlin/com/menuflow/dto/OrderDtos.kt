@@ -11,6 +11,7 @@ import jakarta.validation.Valid
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.NotEmpty
 import jakarta.validation.constraints.Positive
+import jakarta.validation.constraints.Size
 import java.time.Instant
 import java.util.UUID
 
@@ -29,6 +30,8 @@ data class OrderItemRequest(
 
 data class OrderCreateRequest(
     val customerId: UUID? = null,
+    /** Telefone do cliente p/ notificacao WhatsApp (Fase 2.4); opt-in, opcional. */
+    @field:Size(max = 20) val customerPhone: String? = null,
     val orderType: OrderType = OrderType.DINE_IN,
     val tableNumber: String? = null,
     @field:NotEmpty @field:Valid val items: List<OrderItemRequest>,

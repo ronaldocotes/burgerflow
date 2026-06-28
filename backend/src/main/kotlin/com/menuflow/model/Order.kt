@@ -20,6 +20,13 @@ data class Order(
     @Column(name = "customer_id")
     var customerId: UUID? = null,
 
+    /**
+     * Telefone do cliente para notificacao por WhatsApp (Fase 2.4). Opt-in por
+     * pedido: quando preenchido, os marcos de status disparam um aviso via WAHA.
+     */
+    @Column(name = "customer_phone", length = 20)
+    var customerPhone: String? = null,
+
     @Column(name = "user_id")
     var userId: UUID? = null,
 

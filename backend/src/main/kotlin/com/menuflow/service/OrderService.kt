@@ -60,6 +60,7 @@ class OrderService(
     private val cashSessionRepository: CashSessionRepository,
     private val realtimePublisher: com.menuflow.service.RealtimePublisher,
     private val auditLogService: AuditLogService,
+    private val eventPublisher: org.springframework.context.ApplicationEventPublisher,
 ) {
 
     private val dateFmt = DateTimeFormatter.ofPattern("yyMMdd")
@@ -163,6 +164,7 @@ class OrderService(
         val order = Order(
             orderNumber = generateOrderNumber(),
             customerId = req.customerId,
+            customerPhone = req.customerPhone?.trim()?.takeIf { it.isNotEmpty() },
             userId = userId,
             orderType = req.orderType,
             status = initialStatus,
@@ -476,6 +478,17 @@ class OrderService(
         // here while still inside the tx so the LAZY collection is initialized.
         saved.items.size
         realtimePublisher.publishKds(TenantContext.getOrThrow(), saved)
+        // Notificacao WhatsApp ao cliente (Fase 2.4): publica um fato de dominio que
+        // o WhatsAppService consome APOS o commit (AFTER_COMMIT) — fora desta tx, sem
+        // segurar a conexao do banco e sem disparar se houver rollback. So os marcos
+        // PREPARING/READY/DELIVERED notificam (kindFor); demais sao silenciosos.
+        WhatsAppService.kindFor(saved.status)?.let { kind ->
+            val restaurantName = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()
+                ?.restaurantName ?: "o restaurante"
+            eventPublisher.publishEvent(
+                OrderStatusNotification(saved.customerPhone, kind, restaurantName),
+            )
+        }
         return OrderResponse.from(saved)
     }
 

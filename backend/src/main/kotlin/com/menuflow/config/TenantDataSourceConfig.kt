@@ -6,6 +6,8 @@ import com.menuflow.model.CashSessionEntry
 import com.menuflow.model.Category
 import com.menuflow.model.Customer
 import com.menuflow.model.DeliveryDriver
+import com.menuflow.model.DriverConfig
+import com.menuflow.model.DriverSettlement
 import com.menuflow.model.IdempotencyKey
 import com.menuflow.model.Ingredient
 import com.menuflow.model.Order
@@ -83,6 +85,8 @@ class TenantDataSourceConfig {
                 AuditLog::class.java,
                 PaymentIntent::class.java,
                 WebhookEvent::class.java,
+                DriverConfig::class.java,
+                DriverSettlement::class.java,
             )
             .persistenceUnit("tenant")
             .properties(
