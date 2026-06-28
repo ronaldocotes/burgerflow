@@ -40,6 +40,7 @@ class CashSessionService(
     private val cashSessionRepository: CashSessionRepository,
     private val entryRepository: CashSessionEntryRepository,
     private val orderRepository: OrderRepository,
+    private val auditLogService: AuditLogService,
 ) {
 
     /** Turno aberto atual, ou null se não houver (controller -> 204). */
@@ -70,6 +71,13 @@ class CashSessionService(
             // Dois opens concorrentes: o índice parcial barra o segundo.
             throw ConflictException("Já existe um caixa aberto")
         }
+        auditLogService.log(
+            action = "cash_session.open",
+            entity = "cash_session",
+            entityId = saved.id,
+            after = mapOf("openingAmountCents" to req.openingAmountCents),
+            actorUserId = actorId,
+        )
         return toResponse(saved)
     }
 
@@ -85,6 +93,15 @@ class CashSessionService(
                 createdByUserId = actorId,
             ),
         )
+        // Sangria (WITHDRAWAL) ou reforço (DEPOSIT) — movimento manual sensível do caixa.
+        val action = if (req.type == CashEntryType.WITHDRAWAL) "cash_session.withdrawal" else "cash_session.deposit"
+        auditLogService.log(
+            action = action,
+            entity = "cash_session",
+            entityId = session.id,
+            after = mapOf("amountCents" to req.amountCents, "reason" to req.reason),
+            actorUserId = actorId,
+        )
         return toResponse(session)
     }
 
@@ -99,6 +116,17 @@ class CashSessionService(
         session.status = CashSessionStatus.CLOSED
         req.notes?.let { session.notes = it }
         val saved = cashSessionRepository.save(session)
+        auditLogService.log(
+            action = "cash_session.close",
+            entity = "cash_session",
+            entityId = saved.id,
+            after = mapOf(
+                "countedCents" to req.countedAmountCents,
+                "expectedCents" to breakdown.expected,
+                "differenceCents" to (req.countedAmountCents - breakdown.expected),
+            ),
+            actorUserId = actorId,
+        )
         return toResponse(saved, breakdown)
     }
 

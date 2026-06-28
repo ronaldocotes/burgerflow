@@ -7,11 +7,13 @@ import { logout, getToken } from '@/lib/auth'
 import { useRestaurantInfo } from '@/lib/use-restaurant-info'
 
 const ROUTE_TITLES: { prefix: string; title: string }[] = [
-  { prefix: '/pdv',           title: 'PDV'           },
-  { prefix: '/kds',           title: 'Cozinha — KDS' },
-  { prefix: '/mesas',         title: 'Mesas'         },
-  { prefix: '/admin/cardapio', title: 'Cardápio admin' },
-  { prefix: '/configuracoes', title: 'Configurações' },
+  { prefix: '/pdv',              title: 'PDV'           },
+  { prefix: '/kds',              title: 'Cozinha — KDS' },
+  { prefix: '/mesas',            title: 'Mesas'         },
+  { prefix: '/admin/cardapio',   title: 'Cardápio admin' },
+  { prefix: '/admin/usuarios',   title: 'Usuários'      },
+  { prefix: '/configuracoes',    title: 'Configurações' },
+  { prefix: '/caixa',            title: 'Caixa'         },
 ]
 
 function routeTitle(pathname: string): string {

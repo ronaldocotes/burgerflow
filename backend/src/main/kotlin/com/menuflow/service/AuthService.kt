@@ -111,6 +111,14 @@ class AuthService(
         }
     }
 
+    /**
+     * Emite e persiste tokens para um usuário já autenticado por OUTRO meio (ex.:
+     * aceite de convite, onde a posse de um token de convite válido prova a
+     * identidade). Reusa o mesmo caminho do login (refresh persistido no tenant).
+     */
+    @Transactional("controlTransactionManager")
+    fun issueSession(user: User, tenant: Tenant): TokenResponse = issueAndStoreTokens(user, tenant)
+
     private fun issueAndStoreTokens(user: User, tenant: Tenant): TokenResponse {
         val roles = listOf(user.role.name)
         val access = jwtService.issueAccessToken(user.id!!, tenant.slug, tenant.id!!, roles)

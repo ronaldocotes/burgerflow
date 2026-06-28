@@ -59,6 +59,7 @@ class OrderService(
     private val tenantConfigRepository: TenantConfigRepository,
     private val cashSessionRepository: CashSessionRepository,
     private val realtimePublisher: com.menuflow.service.RealtimePublisher,
+    private val auditLogService: AuditLogService,
 ) {
 
     private val dateFmt = DateTimeFormatter.ofPattern("yyMMdd")
@@ -179,6 +180,17 @@ class OrderService(
         items.forEach { it.orderId = saved.id!! }
         saved.items.addAll(items)
         val persisted = orderRepository.save(saved)
+        // Desconto aplicado por um operador autenticado é um ato sensível (afeta o
+        // total cobrado) -> auditar. Pedido público (sem principal) não registra:
+        // o AuditLogService pula quando não há ator resolvível.
+        if (req.discountCents > 0) {
+            auditLogService.log(
+                action = "order.discount",
+                entity = "order",
+                entityId = persisted.id,
+                after = mapOf("discountCents" to req.discountCents),
+            )
+        }
         // Com os itens já persistidos (cada um com id), anexa os complementos
         // (snapshot) e salva em cascata — orderItemId só pode ser preenchido aqui.
         if (optionsByIndex.isNotEmpty()) {
@@ -438,6 +450,7 @@ class OrderService(
         val order = orderRepository.findById(id)
             .orElseThrow { ResourceNotFoundException("Order not found: $id") }
         validateTransition(order.status, req.status)
+        val previousStatus = order.status
         order.status = req.status
         when (req.status) {
             OrderStatus.DELIVERED -> order.completedAt = Instant.now()
@@ -448,6 +461,16 @@ class OrderService(
             else -> {}
         }
         val saved = orderRepository.save(order)
+        // Cancelamento é ato sensível: auditar com o status anterior e o motivo.
+        if (req.status == OrderStatus.CANCELLED) {
+            auditLogService.log(
+                action = "order.cancel",
+                entity = "order",
+                entityId = saved.id,
+                before = mapOf("status" to previousStatus.name),
+                reason = order.cancelledReason,
+            )
+        }
         // Broadcast to the KDS for THIS tenant (slug from the signed token via
         // TenantContext — authoritative, not a client header). Items are touched
         // here while still inside the tx so the LAZY collection is initialized.

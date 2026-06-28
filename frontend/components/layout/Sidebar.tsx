@@ -14,10 +14,12 @@ import {
   ChevronRight,
   UtensilsCrossed,
   Wallet,
+  Users,
   X,
   type LucideIcon,
 } from 'lucide-react'
 import { useRestaurantInfo } from '@/lib/use-restaurant-info'
+import { getToken } from '@/lib/auth'
 
 // ── Navegação ─────────────────────────────────────────────────────────────────
 
@@ -25,6 +27,8 @@ interface NavItem {
   href: string
   label: string
   icon: LucideIcon
+  /** Se definido, exibe o item apenas para os papéis listados */
+  roles?: string[]
 }
 
 interface NavGroup {
@@ -45,11 +49,28 @@ const NAV_GROUPS: NavGroup[] = [
   {
     group: 'SISTEMA',
     items: [
-      { href: '/admin/cardapio', label: 'Cardápio admin', icon: Package },
-      { href: '/configuracoes', label: 'Configurações', icon: Settings },
+      { href: '/admin/cardapio',  label: 'Cardápio admin', icon: Package },
+      { href: '/admin/usuarios',  label: 'Usuários',       icon: Users,   roles: ['ADMIN', 'MANAGER'] },
+      { href: '/configuracoes',   label: 'Configurações',  icon: Settings },
     ],
   },
 ]
+
+// ── Decodifica o papel do JWT ────────────────────────────────────────────────
+
+function getUserRoleFromToken(): string | null {
+  try {
+    const token = getToken()
+    if (!token) return null
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(atob(b64)) as { role?: string; roles?: string[] }
+    return payload.role ?? ((Array.isArray(payload.roles) && payload.roles[0]) || null)
+  } catch {
+    return null
+  }
+}
 
 const SIDEBAR_KEY = 'mf_sidebar'
 
@@ -73,47 +94,55 @@ function BrandBadge({ collapsed }: { collapsed: boolean }) {
 function NavContent({
   collapsed,
   onNavClick,
+  userRole,
 }: {
   collapsed: boolean
   onNavClick?: () => void
+  userRole: string | null
 }) {
   const pathname = usePathname()
   return (
     <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Menu principal">
-      {NAV_GROUPS.map(({ group, items }) => (
-        <div key={group} className="mb-3">
-          {!collapsed && (
-            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-text-muted select-none">
-              {group}
-            </p>
-          )}
-          <ul role="list" className="flex flex-col gap-0.5">
-            {items.map(({ href, label, icon: Icon }) => {
-              const isActive = pathname === href || pathname.startsWith(href + '/')
-              return (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    title={collapsed ? label : undefined}
-                    aria-current={isActive ? 'page' : undefined}
-                    onClick={onNavClick}
-                    className={[
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150',
-                      collapsed ? 'justify-center' : '',
-                      isActive
-                        ? 'bg-primary-700 text-white'
-                        : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
-                    ].join(' ')}
-                  >
-                    <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                    {!collapsed && <span>{label}</span>}
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      ))}
+      {NAV_GROUPS.map(({ group, items }) => {
+        const visibleItems = items.filter(
+          ({ roles }) => !roles || (userRole !== null && roles.includes(userRole)),
+        )
+        if (visibleItems.length === 0) return null
+        return (
+          <div key={group} className="mb-3">
+            {!collapsed && (
+              <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-text-muted select-none">
+                {group}
+              </p>
+            )}
+            <ul role="list" className="flex flex-col gap-0.5">
+              {visibleItems.map(({ href, label, icon: Icon }) => {
+                const isActive = pathname === href || pathname.startsWith(href + '/')
+                return (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      title={collapsed ? label : undefined}
+                      aria-current={isActive ? 'page' : undefined}
+                      onClick={onNavClick}
+                      className={[
+                        'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150',
+                        collapsed ? 'justify-center' : '',
+                        isActive
+                          ? 'bg-primary-700 text-white'
+                          : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
+                      ].join(' ')}
+                    >
+                      <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                      {!collapsed && <span>{label}</span>}
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )
+      })}
     </nav>
   )
 }
@@ -128,6 +157,7 @@ interface SidebarProps {
 export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [mounted,   setMounted]   = useState(false)
+  const [userRole,  setUserRole]  = useState<string | null>(null)
   const { restaurantName, logoUrl } = useRestaurantInfo()
 
   useEffect(() => {
@@ -137,6 +167,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
         const saved = localStorage.getItem(SIDEBAR_KEY)
         if (saved === 'collapsed') setCollapsed(true)
       } catch { /* ignore */ }
+      setUserRole(getUserRoleFromToken())
     })
   }, [])
 
@@ -180,7 +211,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
-            <NavContent collapsed={false} onNavClick={onClose} />
+            <NavContent collapsed={false} onNavClick={onClose} userRole={userRole} />
           </aside>
         </div>
       )}
@@ -192,7 +223,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
       >
         <div className="flex min-h-0 flex-1 flex-col border-r border-border-light bg-bg-primary">
           {brandBlock(isCollapsed)}
-          <NavContent collapsed={isCollapsed} />
+          <NavContent collapsed={isCollapsed} userRole={userRole} />
           <div className="border-t border-border-light p-3">
             <button
               onClick={toggle}

@@ -6,7 +6,7 @@ import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 
 // Rotas publicas: sem sidebar/topbar, renderiza children direto
-const PUBLIC_PREFIXES = ['/', '/login', '/cardapio']
+const PUBLIC_PREFIXES = ['/', '/login', '/cardapio', '/aceitar-convite']
 
 function isPublicRoute(pathname: string): boolean {
   if (pathname === '/') return true

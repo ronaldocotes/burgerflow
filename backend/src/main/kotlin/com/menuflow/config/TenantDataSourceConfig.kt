@@ -1,5 +1,6 @@
 package com.menuflow.config
 
+import com.menuflow.model.AuditLog
 import com.menuflow.model.CashSession
 import com.menuflow.model.CashSessionEntry
 import com.menuflow.model.Category
@@ -77,6 +78,7 @@ class TenantDataSourceConfig {
                 TenantConfig::class.java,
                 CashSession::class.java,
                 CashSessionEntry::class.java,
+                AuditLog::class.java,
             )
             .persistenceUnit("tenant")
             .properties(

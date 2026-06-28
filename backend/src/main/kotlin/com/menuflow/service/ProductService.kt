@@ -23,6 +23,7 @@ class ProductService(
     private val productRepository: ProductRepository,
     private val productOptionGroupRepository: ProductOptionGroupRepository,
     private val productOptionRepository: ProductOptionRepository,
+    private val auditLogService: AuditLogService,
 ) {
 
     @Transactional("tenantTransactionManager", readOnly = true)
@@ -92,7 +93,9 @@ class ProductService(
             promoStartsAt = req.promoStartsAt,
             promoEndsAt = req.promoEndsAt,
         )
-        return ProductResponse.from(productRepository.save(product))
+        val saved = productRepository.save(product)
+        auditLogService.log("product.create", "product", saved.id, after = snapshot(saved))
+        return ProductResponse.from(saved)
     }
 
     @Transactional("tenantTransactionManager")
@@ -101,6 +104,7 @@ class ProductService(
         if (product.sku != req.sku && productRepository.existsBySku(req.sku)) {
             throw ConflictException("Product with SKU ${req.sku} already exists")
         }
+        val before = snapshot(product)
         product.categoryId = req.categoryId
         product.sku = req.sku
         product.name = req.name
@@ -115,18 +119,30 @@ class ProductService(
         product.promoPriceCents = req.promoPriceCents
         product.promoStartsAt = req.promoStartsAt
         product.promoEndsAt = req.promoEndsAt
-        return ProductResponse.from(productRepository.save(product))
+        val saved = productRepository.save(product)
+        auditLogService.log("product.update", "product", saved.id, before = before, after = snapshot(saved))
+        return ProductResponse.from(saved)
     }
 
     /** Soft delete: flip active=false, keep the row for order history integrity. */
     @Transactional("tenantTransactionManager")
     fun delete(id: UUID) {
         val product = getActiveEntity(id)
+        val before = snapshot(product)
         product.active = false
         productRepository.save(product)
+        auditLogService.log("product.delete", "product", id, before = before)
     }
 
     private fun getActiveEntity(id: UUID): Product =
         productRepository.findByIdAndActiveTrue(id)
             ?: throw ResourceNotFoundException("Product not found: $id")
+
+    /** Snapshot enxuto p/ a trilha de auditoria (evita serializar a entidade JPA inteira). */
+    private fun snapshot(p: Product): Map<String, Any?> = mapOf(
+        "sku" to p.sku,
+        "name" to p.name,
+        "priceCents" to p.priceCents,
+        "active" to p.active,
+    )
 }
