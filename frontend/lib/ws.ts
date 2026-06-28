@@ -5,8 +5,21 @@
 import { Client, StompSubscription } from "@stomp/stompjs";
 import { TOKEN_KEY } from "./api";
 
-const WS_URL =
-  process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8080/ws";
+export function normalizeWsUrl(raw: string): string {
+  try {
+    const url = new URL(raw);
+    if (!url.pathname || url.pathname === "/") {
+      url.pathname = "/ws";
+    }
+    return url.toString();
+  } catch {
+    return raw;
+  }
+}
+
+const WS_URL = normalizeWsUrl(
+  process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8080/ws",
+);
 
 export type WsStatus = "live" | "reconnecting";
 

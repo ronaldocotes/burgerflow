@@ -187,7 +187,7 @@ export function ProductDetailModal({ product, onClose, onAdd }: Props) {
             {/* Observacoes por item */}
             <div className="mt-4">
               <label htmlFor="pdm-notes" className="block text-sm font-medium text-text-primary mb-1">
-                Alguma observacao?
+                Alguma observação?
               </label>
               <textarea
                 id="pdm-notes"

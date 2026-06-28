@@ -156,6 +156,19 @@ body {
            focus:outline-none transition-all duration-200;
   }
 
+  .input {
+    @apply w-full px-4 py-2 border border-border-medium rounded-lg
+           bg-bg-primary text-text-primary placeholder:text-text-muted
+           focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20
+           focus:outline-none transition-all duration-200;
+  }
+
+  .icon-button {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg
+           text-text-secondary hover:bg-bg-tertiary hover:text-text-primary
+           transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
   .input-with-leading-icon {
     padding-left: 2.75rem;
   }

@@ -32,24 +32,24 @@ function LeftPanel() {
           MenuFlow
         </h1>
         <p className="mb-1 text-base font-medium text-primary-200">
-          Sistema de Gestao para
+          Sistema de Gestão para
         </p>
         <p className="text-base font-medium text-primary-200">Restaurantes</p>
 
         {/* Card missão */}
         <div className="mt-10 w-full rounded-2xl border border-white/10 bg-white/10 px-6 py-5 text-left backdrop-blur-sm">
           <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-primary-300">
-            Nossa solucao
+            Nossa solução
           </p>
           <p className="text-sm leading-relaxed text-white/90">
-            Gerencie pedidos, cardapio e pagamentos de forma simples e integrada,
+            Gerencie pedidos, cardápio e pagamentos de forma simples e integrada,
             em qualquer dispositivo.
           </p>
         </div>
       </div>
 
       <p className="relative pb-6 text-center text-xs text-white/40">
-        MenuFlow · Sistema de Gestao · v1.0 · 2026
+        MenuFlow · Sistema de Gestão · v1.0 · 2026
       </p>
     </div>
   );
@@ -80,7 +80,7 @@ export default function LoginPage() {
           ? err.status === 401
             ? "Restaurante, e-mail ou senha invalidos."
             : err.message
-          : "Nao foi possivel entrar. Tente novamente.",
+          : "Não foi possível entrar. Tente novamente.",
       );
     } finally {
       setLoading(false);
@@ -219,7 +219,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-8 text-center text-xs text-text-muted">
-            MenuFlow · Sistema de Gestao · v1.0 · 2026
+            MenuFlow · Sistema de Gestão · v1.0 · 2026
           </p>
         </div>
       </div>

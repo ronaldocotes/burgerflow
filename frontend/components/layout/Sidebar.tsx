@@ -8,6 +8,7 @@ import {
   ShoppingCart,
   ChefHat,
   LayoutGrid,
+  Package,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -17,7 +18,7 @@ import {
 } from 'lucide-react'
 import { useRestaurantInfo } from '@/lib/use-restaurant-info'
 
-// ── Navegacao ─────────────────────────────────────────────────────────────────
+// ── Navegação ─────────────────────────────────────────────────────────────────
 
 interface NavItem {
   href: string
@@ -32,7 +33,7 @@ interface NavGroup {
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    group: 'OPERACAO',
+    group: 'OPERAÇÃO',
     items: [
       { href: '/pdv',   label: 'PDV',     icon: ShoppingCart },
       { href: '/kds',   label: 'Cozinha', icon: ChefHat      },
@@ -42,14 +43,15 @@ const NAV_GROUPS: NavGroup[] = [
   {
     group: 'SISTEMA',
     items: [
-      { href: '/configuracoes', label: 'Configuracoes', icon: Settings },
+      { href: '/admin/cardapio', label: 'Cardápio admin', icon: Package },
+      { href: '/configuracoes', label: 'Configurações', icon: Settings },
     ],
   },
 ]
 
 const SIDEBAR_KEY = 'mf_sidebar'
 
-// ── Badge de marca (fallback quando nao ha logo da empresa) ──────────────────
+// ── Badge de marca (fallback quando não há logo da empresa) ──────────────────
 
 function BrandBadge({ collapsed }: { collapsed: boolean }) {
   return (
@@ -160,7 +162,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
     <>
       {/* ── Drawer mobile (lg:hidden) ─────────────────────────────────────── */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu de navegacao">
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu de navegação">
           {/* Scrim */}
           <div className="absolute inset-0 bg-black/50" aria-hidden="true" onClick={onClose} />
           {/* Painel */}
@@ -184,7 +186,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
       {/* ── Sidebar desktop (hidden em mobile) ───────────────────────────── */}
       <aside
         className={['hidden lg:flex shrink-0 flex-col transition-all duration-200 overflow-hidden', isCollapsed ? 'lg:w-16' : 'lg:w-64'].join(' ')}
-        aria-label="Navegacao principal"
+        aria-label="Navegação principal"
       >
         <div className="flex min-h-0 flex-1 flex-col border-r border-border-light bg-bg-primary">
           {brandBlock(isCollapsed)}

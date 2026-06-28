@@ -10,7 +10,8 @@ const ROUTE_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/pdv',           title: 'PDV'           },
   { prefix: '/kds',           title: 'Cozinha — KDS' },
   { prefix: '/mesas',         title: 'Mesas'         },
-  { prefix: '/configuracoes', title: 'Configuracoes' },
+  { prefix: '/admin/cardapio', title: 'Cardápio admin' },
+  { prefix: '/configuracoes', title: 'Configurações' },
 ]
 
 function routeTitle(pathname: string): string {
@@ -43,7 +44,7 @@ const ROLE_LABELS: Record<string, string> = {
   MANAGER: 'Gerente',
   CASHIER: 'Caixa',
   KITCHEN: 'Cozinheiro',
-  WAITER:  'Garcom',
+  WAITER:  'Garçom',
   STAFF:   'Colaborador',
 }
 

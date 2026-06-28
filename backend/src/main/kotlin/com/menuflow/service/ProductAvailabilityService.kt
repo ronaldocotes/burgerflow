@@ -45,6 +45,8 @@ class ProductAvailabilityService(
         }
         channelRepo.deleteByProductId(productId)
         windowRepo.deleteByProductId(productId)
+        channelRepo.flush()
+        windowRepo.flush()
         channels.forEach { channelRepo.save(ProductChannel(productId = productId, channel = it)) }
         req.windows.forEach {
             windowRepo.save(

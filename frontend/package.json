@@ -11,6 +11,7 @@
     "format": "prettier --write .",
     "type-check": "tsc --noEmit",
     "test": "jest --passWithNoTests",
+    "test:e2e": "playwright test",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --passWithNoTests"
   },
@@ -23,6 +24,7 @@
     "react-qr-code": "^2.2.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

@@ -71,7 +71,7 @@ function QrModal({ table, onClose }: QrModalProps) {
         </div>
 
         <p className="mt-4 text-center text-sm text-text-secondary">
-          Aponte a camera para acessar o cardapio
+          Aponte a câmera para acessar o cardápio
         </p>
 
         <div className="mt-6 flex gap-3">
@@ -90,7 +90,7 @@ function QrModal({ table, onClose }: QrModalProps) {
   );
 }
 
-// ── Modal de confirmacao de fechamento ────────────────────────────────────────
+// ── Modal de confirmação de fechamento ────────────────────────────────────────
 
 interface CloseTableModalProps {
   table: TableDto;
@@ -131,7 +131,7 @@ function CloseTableModal({ table, onClose, onConfirm }: CloseTableModalProps) {
           Fechar {table.label}?
         </h2>
         <p className="mb-6 text-sm text-text-secondary">
-          Esta acao nao pode ser desfeita.
+          Esta ação não pode ser desfeita.
         </p>
         {err && <p className="mb-3 text-sm text-error">{err}</p>}
         <div className="flex gap-3">
@@ -316,7 +316,7 @@ export default function MesasPage() {
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [fetchError, setFetchError] = useState(false);
 
-  // Guard de autenticacao client-side (identico ao KDS/PDV)
+  // Guard de autenticação client-side (idêntico ao KDS/PDV)
   if (typeof window !== "undefined" && !getToken()) {
     router.replace("/");
     return null;
@@ -346,7 +346,7 @@ export default function MesasPage() {
       await api.post(sessionPath, {});
       await refresh();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : "Erro na operacao.";
+      const msg = e instanceof ApiError ? e.message : "Erro na operação.";
       setActionError(msg);
       setTimeout(() => setActionError(null), 4000);
       await refresh();
@@ -407,7 +407,7 @@ export default function MesasPage() {
         </nav>
       </header>
 
-      {/* Toast de erro de acao */}
+      {/* Toast de erro de ação */}
       {actionError && (
         <div
           role="alert"
@@ -426,7 +426,7 @@ export default function MesasPage() {
         {fetchError && (
           <div className="flex flex-col items-center justify-center gap-4 py-24 text-text-secondary">
             <p className="text-base font-medium">
-              Nao foi possivel carregar as mesas.
+              Não foi possível carregar as mesas.
             </p>
             <button
               className="btn-primary"

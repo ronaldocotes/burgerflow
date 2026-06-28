@@ -69,7 +69,7 @@ function ConfigSkeleton() {
     <div
       className="animate-pulse rounded-2xl bg-bg-primary p-6 shadow-card"
       aria-busy="true"
-      aria-label="Carregando configuracoes..."
+      aria-label="Carregando configurações..."
     >
       <div className="mb-4 h-5 w-1/3 rounded bg-bg-tertiary" aria-hidden="true" />
       <div className="flex items-center justify-between gap-4">
@@ -164,11 +164,11 @@ export default function ConfiguracoesPage() {
     setConfig((prev) => (prev ? { ...prev, autoAcceptOrders: next } : prev));
     try {
       await api.patch<TenantConfig>("/config", { autoAcceptOrders: next });
-      showToast("Configuracao salva", "success");
+      showToast("Configuração salva", "success");
     } catch (err) {
       setConfig((prev) => (prev ? { ...prev, autoAcceptOrders: !next } : prev));
       const msg =
-        err instanceof ApiError ? err.message : "Erro ao salvar configuracao.";
+        err instanceof ApiError ? err.message : "Erro ao salvar configuração.";
       showToast(msg, "error");
     } finally {
       setSaving(false);
@@ -178,7 +178,7 @@ export default function ConfiguracoesPage() {
   return (
     <div className="flex min-h-screen flex-col bg-bg-secondary">
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
-        <h2 className="mb-6 text-2xl font-bold text-text-primary">Configuracoes</h2>
+        <h2 className="mb-6 text-2xl font-bold text-text-primary">Configurações</h2>
 
         {/* 1. Estado: carregando */}
         {loadState === "loading" && <ConfigSkeleton />}
@@ -190,7 +190,7 @@ export default function ConfiguracoesPage() {
             className="flex flex-col items-center gap-4 rounded-2xl bg-bg-primary p-8 text-center shadow-card"
           >
             <p className="text-base font-medium text-text-primary">
-              Nao foi possivel carregar as configuracoes.
+              Não foi possível carregar as configurações.
             </p>
             <button className="btn-primary" onClick={() => void load()}>
               Tentar novamente
@@ -212,10 +212,10 @@ export default function ConfiguracoesPage() {
               <div className="flex items-center justify-between gap-4">
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-text-primary">
-                    Aceite automatico
+                    Aceite automático
                   </p>
                   <p className="mt-0.5 text-sm text-text-secondary">
-                    Pedidos vao direto para a cozinha sem acao manual.
+                    Pedidos vão direto para a cozinha sem ação manual.
                   </p>
                 </div>
 
@@ -233,8 +233,8 @@ export default function ConfiguracoesPage() {
                     onChange={(next) => void handleToggle(next)}
                     label={
                       config.autoAcceptOrders
-                        ? "Aceite automatico ativado"
-                        : "Aceite automatico desativado"
+                        ? "Aceite automático ativado"
+                        : "Aceite automático desativado"
                     }
                   />
                 </div>

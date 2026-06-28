@@ -92,7 +92,7 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: https://menuflow.duckdns.org/api/v1
-        NEXT_PUBLIC_WS_URL: wss://menuflow.duckdns.org
+        NEXT_PUBLIC_WS_URL: wss://menuflow.duckdns.org/ws
         NEXT_PUBLIC_ENVIRONMENT: production
         NEXT_PUBLIC_TENANT_SLUG: demo
     image: menuflow-frontend:latest

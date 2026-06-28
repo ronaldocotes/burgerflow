@@ -55,6 +55,33 @@ class ProductAvailabilityTest @Autowired constructor(
     }
 
     @Test
+    fun `put availability is idempotent and replaces previous rows`() {
+        TenantContext.set("av_replace")
+        val p = newProduct()
+
+        service.set(
+            p,
+            AvailabilityRequest(
+                channels = listOf("DELIVERY", "ONLINE"),
+                windows = listOf(WindowDto(1, 480, 1320)),
+            ),
+        )
+
+        val replaced = service.set(
+            p,
+            AvailabilityRequest(
+                channels = listOf("DELIVERY", "ONLINE"),
+                windows = listOf(WindowDto(2, 600, 1200)),
+            ),
+        )
+
+        assertTrue(replaced.channels.containsAll(listOf("DELIVERY", "ONLINE")))
+        assertTrue(replaced.windows == listOf(WindowDto(2, 600, 1200)))
+        assertTrue(service.isAvailableNow(p, "DELIVERY", ZonedDateTime.of(2026, 6, 30, 11, 0, 0, 0, sp)))
+        assertFalse(service.isAvailableNow(p, "DELIVERY", ZonedDateTime.of(2026, 6, 29, 11, 0, 0, 0, sp)))
+    }
+
+    @Test
     fun `time window restricts by day of week and hour`() {
         TenantContext.set("av3")
         val p = newProduct()

@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "MenuFlow",
-  description: "Gestao operacional para restaurantes",
+  description: "Gestão operacional para restaurantes",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

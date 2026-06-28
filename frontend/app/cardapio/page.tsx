@@ -85,7 +85,7 @@ function CategoryBar({
     <div
       className="sticky top-16 z-[9] bg-bg-primary border-b border-border-light shadow-sm"
       role="navigation"
-      aria-label="Categorias do cardapio"
+      aria-label="Categorias do cardápio"
     >
       <div ref={barRef} className="flex gap-1.5 px-4 py-2 overflow-x-auto no-scrollbar">
         {sections.map((s) => {
@@ -172,7 +172,7 @@ function CardapioContent() {
         setPixKey(null);
       } else {
         const res = await fetch(`${API_BASE}/public/${PUBLIC_TENANT}/menu`);
-        if (!res.ok) throw new Error("Cardapio indisponivel no momento.");
+        if (!res.ok) throw new Error("Cardápio indisponível no momento.");
         const data = (await res.json()) as PublicMenuResponse;
         setCategories(data.categories);
         setProducts(data.products);
@@ -181,7 +181,7 @@ function CardapioContent() {
         setBestsellerIds(data.bestsellerIds ?? []);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar o cardapio.");
+      setError(err instanceof Error ? err.message : "Erro ao carregar o cardápio.");
     } finally {
       setLoading(false);
     }
@@ -377,7 +377,7 @@ function CardapioView({
           </svg>
         </button>
         <h1 className="flex-1 text-center text-xl font-bold text-text-primary">
-          <span aria-hidden="true">🍔</span> Cardapio
+          <span aria-hidden="true">🍔</span> Cardápio
         </h1>
         {/* Espaçador igual ao botão para manter o título centralizado */}
         <div className="w-9 flex-shrink-0" aria-hidden="true" />
@@ -423,7 +423,7 @@ function CardapioView({
         )}
         {sections.length === 0 ? (
           <div className="empty-state">
-            <p className="empty-state-title">Cardapio vazio</p>
+            <p className="empty-state-title">Cardápio vazio</p>
             <p className="empty-state-description">Nenhum produto cadastrado ainda.</p>
           </div>
         ) : (

@@ -58,6 +58,31 @@ export interface Product {
   optionGroups?: PublicOptionGroupResponse[];
 }
 
+export interface Ingredient {
+  id: string;
+  name: string;
+  description: string;
+  unit: string;
+  unitCostCents: number;
+  stockQuantity: number;
+  minStock: number;
+  isAllergen: boolean;
+  active: boolean;
+  lowStock: boolean;
+}
+
+export interface AvailabilityWindow {
+  dayOfWeek: number;
+  startMinute: number;
+  endMinute: number;
+}
+
+export interface ProductAvailability {
+  productId: string;
+  channels: string[];
+  windows: AvailabilityWindow[];
+}
+
 // --- Variações de produto (pizza) e complementos ---
 // O catálogo NÃO sinaliza se um produto é pizza/tem complemento; o PDV descobre
 // buscando estes endpoints por produto. Lista vazia = não se aplica.
