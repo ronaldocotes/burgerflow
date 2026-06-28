@@ -384,14 +384,14 @@ export default function PdvPage() {
                     disabled={unavailable || loadingThis}
                     aria-busy={loadingThis}
                     onClick={() => void onPickProduct(p)}
-                    className="pos-product-card min-h-[72px] text-left disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                    className="pos-product-card min-h-[88px] text-left disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                   >
-                    <div className="p-3">
+                    <div className="p-4">
                       <h3 className="line-clamp-2 text-sm font-semibold leading-tight text-text-primary">
                         {p.name}
                       </h3>
                       <div className="mt-2 flex items-baseline gap-2">
-                        <span className="text-sm font-bold text-primary-700">
+                        <span className="text-base font-bold text-primary-700">
                           {formatBRL(p.effectivePriceCents)}
                         </span>
                         {p.onPromo && (
@@ -541,7 +541,7 @@ export default function PdvPage() {
                         type="button"
                         aria-label={`Diminuir ${line.productName}`}
                         onClick={() => setQuantity(line.lineId, line.quantity - 1)}
-                        className="w-10 h-10 rounded-md bg-bg-tertiary text-text-primary font-bold leading-none hover:bg-border-light"
+                        className="w-11 h-11 rounded-md bg-bg-tertiary text-text-primary font-bold leading-none hover:bg-border-light"
                       >
                         −
                       </button>
@@ -555,7 +555,7 @@ export default function PdvPage() {
                         type="button"
                         aria-label={`Aumentar ${line.productName}`}
                         onClick={() => setQuantity(line.lineId, line.quantity + 1)}
-                        className="w-10 h-10 rounded-md bg-bg-tertiary text-text-primary font-bold leading-none hover:bg-border-light"
+                        className="w-11 h-11 rounded-md bg-bg-tertiary text-text-primary font-bold leading-none hover:bg-border-light"
                       >
                         +
                       </button>
@@ -596,24 +596,22 @@ export default function PdvPage() {
         </aside>
       </div>
 
-      {/* FAB carrinho — mobile only */}
-      {cart.length > 0 && (
-        <div className="fixed bottom-6 right-6 z-30 lg:hidden">
-          <button
-            type="button"
-            onClick={() => setShowMobileCart(true)}
-            className="flex items-center gap-3 rounded-full bg-primary-700 px-5 py-3 text-white shadow-lg hover:bg-primary-800 active:scale-95 transition-transform"
-            aria-label="Ver carrinho"
-          >
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-bold text-primary-700">
-              {cart.reduce((s, l) => s + l.quantity, 0)}
-            </span>
-            <span className="text-sm font-semibold">
-              {quoting ? "…" : quote ? formatBRL(quote.totalCents) : "Ver carrinho"}
-            </span>
-          </button>
-        </div>
-      )}
+      {/* FAB carrinho — mobile only (sempre visível para orientar o usuário) */}
+      <div className="fixed bottom-6 right-6 z-30 lg:hidden">
+        <button
+          type="button"
+          onClick={() => setShowMobileCart(true)}
+          className="flex items-center gap-3 rounded-full bg-primary-700 px-5 py-3 text-white shadow-lg hover:bg-primary-800 active:scale-95 transition-transform"
+          aria-label="Ver carrinho"
+        >
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-bold text-primary-700">
+            {cart.reduce((s, l) => s + l.quantity, 0)}
+          </span>
+          <span className="text-sm font-semibold">
+            {cart.length === 0 ? "Ver pedido" : quoting ? "…" : quote ? formatBRL(quote.totalCents) : "Ver pedido"}
+          </span>
+        </button>
+      </div>
 
       {editing && (
         <ItemModal
