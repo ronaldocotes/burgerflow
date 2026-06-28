@@ -91,22 +91,43 @@ export default function PdvPage() {
   } | null>(null);
   const [showPayment, setShowPayment] = useState(false);
 
+  const redirectToLogin = useCallback(() => {
+    logout();
+    router.replace("/login");
+  }, [router]);
+
+  const handleUnauthorized = useCallback(
+    (err: unknown): boolean => {
+      if (err instanceof ApiError && err.status === 401) {
+        redirectToLogin();
+        return true;
+      }
+      return false;
+    },
+    [redirectToLogin],
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const [prods, cats] = await Promise.all([
         api.get<Page<Product>>("/products?size=200"),
-        api.get<Category[]>("/categories").catch(() => [] as Category[]),
+        api.get<Page<Category>>("/categories?size=200").catch(() => null),
       ]);
       setProducts(prods.content);
-      setCategories(cats.filter((c) => c.active).sort((a, b) => a.displayOrder - b.displayOrder));
+      setCategories(
+        (cats?.content ?? [])
+          .filter((c) => c.active)
+          .sort((a, b) => a.displayOrder - b.displayOrder),
+      );
     } catch (err) {
+      if (handleUnauthorized(err)) return;
       setError(err instanceof Error ? err.message : "Erro ao carregar produtos.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [handleUnauthorized]);
 
   useEffect(() => {
     if (!getToken()) {
@@ -162,6 +183,7 @@ export default function PdvPage() {
       })
       .catch((err) => {
         if (cancelled || seq !== quoteSeq.current) return;
+        if (handleUnauthorized(err)) return;
         setQuote(null);
         setQuoteError(
           err instanceof ApiError
@@ -176,7 +198,7 @@ export default function PdvPage() {
     return () => {
       cancelled = true;
     };
-  }, [items, orderType]);
+  }, [handleUnauthorized, items, orderType]);
 
   // Clicar num produto: descobre variações; se houver, abre o modal; senão entra direto.
   async function onPickProduct(p: Product) {
@@ -205,7 +227,8 @@ export default function PdvPage() {
       } else {
         addSimple(p);
       }
-    } catch {
+    } catch (err) {
+      if (handleUnauthorized(err)) return;
       // Se as variações não puderem ser lidas, cai no caminho simples (o quote ainda valida).
       addSimple(p);
     } finally {
@@ -611,6 +634,7 @@ export default function PdvPage() {
           items={items}
           cart={cart}
           onClose={() => setShowPayment(false)}
+          onUnauthorized={redirectToLogin}
           onConfirmed={() => {
             setShowPayment(false);
             clearCart();
@@ -1048,6 +1072,7 @@ function PaymentModal({
   items,
   cart,
   onClose,
+  onUnauthorized,
   onConfirmed,
 }: {
   quote: QuoteResponse;
@@ -1055,6 +1080,7 @@ function PaymentModal({
   items: OrderItemInput[];
   cart: CartLine[];
   onClose: () => void;
+  onUnauthorized: () => void;
   onConfirmed: () => void;
 }) {
   const [method, setMethod] = useState<PaymentMethod>("CASH");
@@ -1094,6 +1120,10 @@ function PaymentModal({
       });
       onConfirmed();
     } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        onUnauthorized();
+        return;
+      }
       setErr(e instanceof ApiError ? e.message : "Falha ao registrar o pedido.");
       setSubmitting(false);
     }
