@@ -2,16 +2,18 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import { login } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [tenant,   setTenant]   = useState("");
+  const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
-  const [tenant, setTenant] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [showPwd,  setShowPwd]  = useState(false);
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState<string | null>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -19,33 +21,48 @@ export default function LoginPage() {
     setError(null);
     try {
       await login(email.trim(), password, tenant.trim());
-      router.push("/cardapio");
+      router.push("/pdv");
     } catch (err) {
       setError(
         err instanceof ApiError
           ? err.status === 401
-            ? "E-mail, senha ou restaurante inválidos."
+            ? "E-mail, senha ou restaurante invalidos."
             : err.message
-          : "Não foi possível entrar. Tente novamente.",
+          : "Nao foi possivel entrar. Tente novamente.",
       );
     } finally {
       setLoading(false);
     }
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-bg-secondary px-4">
-      <div className="w-full max-w-sm bg-bg-primary rounded-xl shadow-card p-8 animate-fade-in">
-        <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-text-primary">
-            <span aria-hidden="true">🍔</span> MenuFlow
-          </h1>
-          <p className="text-text-secondary text-sm mt-1">Entrar no painel</p>
-        </div>
+  const canSubmit = !loading && !!email && !!password && !!tenant;
 
-        <form onSubmit={onSubmit} noValidate>
-          <div className="form-group">
-            <label className="form-label" htmlFor="tenant">
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-bg-secondary px-4">
+      <div className="w-full max-w-sm animate-fade-in">
+        {/* Card */}
+        <form
+          onSubmit={onSubmit}
+          noValidate
+          className="rounded-2xl bg-bg-primary p-8 shadow-card"
+        >
+          {/* Brand */}
+          <div className="mb-8 flex flex-col items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-700 text-xl font-extrabold text-white select-none shadow-card">
+              MF
+            </div>
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-text-primary">MenuFlow</h1>
+              <p className="mt-0.5 text-sm text-text-muted">Painel de gestao</p>
+            </div>
+          </div>
+
+          {/* Campo: Restaurante */}
+          <div className="mb-4">
+            <label
+              htmlFor="tenant"
+              className="form-label"
+            >
               Restaurante
             </label>
             <input
@@ -53,18 +70,21 @@ export default function LoginPage() {
               className="input-field"
               value={tenant}
               onChange={(e) => setTenant(e.target.value)}
-              placeholder="ex.: minha-hamburgueria"
+              placeholder="minha-hamburgueria"
               autoComplete="organization"
+              autoFocus
+              disabled={loading}
               aria-required="true"
               required
             />
-            <p className="text-xs text-text-muted mt-1">
-              O identificador do seu restaurante no sistema.
+            <p className="mt-1 text-xs text-text-muted">
+              Identificador do seu restaurante no sistema.
             </p>
           </div>
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="email">
+          {/* Campo: E-mail */}
+          <div className="mb-4">
+            <label htmlFor="email" className="form-label">
               E-mail
             </label>
             <input
@@ -73,39 +93,59 @@ export default function LoginPage() {
               className="input-field"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="você@restaurante.com"
+              placeholder="voce@restaurante.com"
               autoComplete="email"
+              disabled={loading}
               aria-required="true"
               required
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="password">
+          {/* Campo: Senha com toggle */}
+          <div className="mb-6">
+            <label htmlFor="password" className="form-label">
               Senha
             </label>
-            <input
-              id="password"
-              type="password"
-              className="input-field"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              aria-required="true"
-              required
-            />
+            <div className="relative">
+              <input
+                id="password"
+                type={showPwd ? "text" : "password"}
+                className="input-field pr-10"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                disabled={loading}
+                aria-required="true"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd((v) => !v)}
+                disabled={loading}
+                aria-label={showPwd ? "Ocultar senha" : "Mostrar senha"}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-text-muted hover:text-text-secondary"
+              >
+                {showPwd ? (
+                  <EyeOff className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <Eye className="h-4 w-4" aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
 
+          {/* Erro */}
           {error && (
-            <p className="form-error mb-3" role="alert">
+            <p className="form-error mb-4" role="alert">
               {error}
             </p>
           )}
 
+          {/* Submit */}
           <button
             type="submit"
             className="btn-primary w-full"
-            disabled={loading || !email || !password || !tenant}
+            disabled={!canSubmit}
           >
             {loading ? "Entrando..." : "Entrar"}
           </button>
