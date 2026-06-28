@@ -2,7 +2,7 @@
 
 import { ChangeEvent, Dispatch, FormEvent, ReactNode, SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle, ImagePlus, Layers3, Package, Pencil, Plus, RefreshCw, Save, Trash2, Wheat, XCircle, type LucideIcon } from "lucide-react";
+import { CheckCircle, ImagePlus, Layers3, Package, Pencil, Plus, RefreshCw, Save, Trash2, Wheat, X, XCircle, type LucideIcon } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { Category, Ingredient, Page, Product, ProductAvailability, formatBRL } from "@/types/menu";
@@ -85,6 +85,16 @@ export default function AdminCardapioPage() {
   const [ingredientForm, setIngredientForm] = useState(EMPTY_INGREDIENT);
   const [availability, setAvailability] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [mobileFormOpen, setMobileFormOpen] = useState(false);
+  const [isXl, setIsXl] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1280px)");
+    setIsXl(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsXl(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -151,6 +161,7 @@ export default function AdminCardapioPage() {
     } catch {
       setAvailability([]);
     }
+    if (!isXl) setMobileFormOpen(true);
   }
 
   async function saveProduct(event: FormEvent<HTMLFormElement>) {
@@ -180,6 +191,7 @@ export default function AdminCardapioPage() {
         : await api.post<Product>("/products", body, { "Idempotency-Key": crypto.randomUUID() });
       await api.put<ProductAvailability>(`/products/${saved.id}/availability`, { channels: availability, windows: [] });
       setNotice({ type: "success", message: "Produto salvo." });
+      setMobileFormOpen(false);
       resetProduct();
       await load();
     } catch (err) {
@@ -326,7 +338,7 @@ export default function AdminCardapioPage() {
             {tab === "products" && (
               <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
                 <section className="overflow-hidden rounded-lg bg-bg-primary shadow-card">
-                  <TableHeader title="Produtos" actionLabel="Novo produto" onAction={resetProduct} />
+                  <TableHeader title="Produtos" actionLabel="Novo produto" onAction={() => { resetProduct(); if (!isXl) setMobileFormOpen(true); }} />
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead className="bg-bg-secondary text-left text-xs uppercase text-text-muted">
@@ -464,6 +476,38 @@ export default function AdminCardapioPage() {
           </>
         )}
       </main>
+
+      {/* Overlay de formulário de produto — tablet (<xl) */}
+      {mobileFormOpen && (
+        <div className="xl:hidden fixed inset-0 z-50 overflow-y-auto bg-bg-secondary">
+          <div className="mx-auto max-w-lg px-4 py-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-text-primary">
+                {productForm.id ? "Editar produto" : "Novo produto"}
+              </h2>
+              <button
+                type="button"
+                aria-label="Fechar formulário"
+                onClick={() => setMobileFormOpen(false)}
+                className="icon-button"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+            <ProductForm
+              form={productForm}
+              categories={activeCategories}
+              availability={availability}
+              saving={saving}
+              uploading={uploading}
+              onSubmit={saveProduct}
+              onUpload={uploadImage}
+              setForm={setProductForm}
+              setAvailability={setAvailability}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
