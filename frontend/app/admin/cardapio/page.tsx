@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, Dispatch, FormEvent, ReactNode, SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, Dispatch, FormEvent, ReactNode, SetStateAction, useCallback, useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle, ImagePlus, Layers3, Package, Pencil, Plus, RefreshCw, Save, Trash2, Wheat, X, XCircle, type LucideIcon } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
@@ -69,6 +69,26 @@ function selectedChannels(current: string[], value: string, checked: boolean): s
   return Array.from(next);
 }
 
+const XL_QUERY = "(min-width: 1280px)";
+
+function getXlMediaQuery(): MediaQueryList {
+  return window.matchMedia(XL_QUERY);
+}
+
+function subscribeToXl(callback: () => void): () => void {
+  const mq = getXlMediaQuery();
+  mq.addEventListener("change", callback);
+  return () => mq.removeEventListener("change", callback);
+}
+
+function getIsXlSnapshot(): boolean {
+  return getXlMediaQuery().matches;
+}
+
+function getServerIsXlSnapshot(): boolean {
+  return false;
+}
+
 export default function AdminCardapioPage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("products");
@@ -86,15 +106,8 @@ export default function AdminCardapioPage() {
   const [availability, setAvailability] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [mobileFormOpen, setMobileFormOpen] = useState(false);
-  const [isXl, setIsXl] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1280px)");
-    setIsXl(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsXl(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ path: string; label: string } | null>(null);
+  const isXl = useSyncExternalStore(subscribeToXl, getIsXlSnapshot, getServerIsXlSnapshot);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -251,15 +264,20 @@ export default function AdminCardapioPage() {
     }
   }
 
-  async function remove(path: string, label: string) {
-    if (!window.confirm(`Remover ${label}?`)) return;
+  function remove(path: string, label: string) {
+    setDeleteConfirm({ path, label });
+  }
+
+  async function confirmDelete() {
+    if (!deleteConfirm) return;
     setSaving(true);
     try {
-      await api.del(path);
-      setNotice({ type: "success", message: `${label} removido.` });
+      await api.del(deleteConfirm.path);
+      setNotice({ type: "success", message: `${deleteConfirm.label} removido.` });
+      setDeleteConfirm(null);
       await load();
     } catch (err) {
-      setNotice({ type: "error", message: err instanceof ApiError ? err.message : `Erro ao remover ${label}.` });
+      setNotice({ type: "error", message: err instanceof ApiError ? err.message : `Erro ao remover ${deleteConfirm.label}.` });
     } finally {
       setSaving(false);
     }
@@ -322,7 +340,7 @@ export default function AdminCardapioPage() {
           <Metric icon={Package} label="Produtos ativos" value={activeProducts.length} />
           <Metric icon={Layers3} label="Categorias" value={activeCategories.length} />
           <Metric icon={Wheat} label="Insumos" value={activeIngredients.length} />
-          <Metric icon={ImagePlus} label="Com imagem" value={activeProducts.filter((p) => p.imageUrl).length} />
+          <Metric icon={ImagePlus} label="Com imagem" value={activeProducts.filter((p) => p.imageUrl).length} note={`de ${activeProducts.length}`} />
         </section>
 
         <div role="tablist" aria-label="Seções do cardápio" className="flex gap-2 overflow-x-auto border-b border-border-light">
@@ -332,7 +350,21 @@ export default function AdminCardapioPage() {
         </div>
 
         {loading ? (
-          <div className="rounded-lg bg-bg-primary p-6 text-sm text-text-secondary shadow-card">Carregando dados...</div>
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+            <div className="overflow-hidden rounded-lg bg-bg-primary shadow-card animate-pulse">
+              <div className="h-12 border-b border-border-light" />
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center gap-4 border-b border-border-light px-4 py-3">
+                  <div className="h-4 w-1/3 rounded bg-bg-tertiary" />
+                  <div className="h-4 w-1/5 rounded bg-bg-tertiary" />
+                  <div className="h-4 w-1/6 rounded bg-bg-tertiary" />
+                  <div className="h-4 w-1/6 rounded bg-bg-tertiary" />
+                  <div className="ml-auto h-4 w-12 rounded bg-bg-tertiary" />
+                </div>
+              ))}
+            </div>
+            <div className="h-80 rounded-lg bg-bg-primary shadow-card animate-pulse" />
+          </div>
         ) : (
           <>
             {tab === "products" && (
@@ -457,7 +489,7 @@ export default function AdminCardapioPage() {
                   <MoneyInput label="Custo unitário" cents={ingredientForm.unitCostCents} onChange={(v) => setIngredientForm((p) => ({ ...p, unitCostCents: v }))} />
                   <DecimalInput label="Estoque" value={ingredientForm.stockQuantity} onChange={(v) => setIngredientForm((p) => ({ ...p, stockQuantity: v }))} />
                   <DecimalInput label="Estoque mínimo" value={ingredientForm.minStock} onChange={(v) => setIngredientForm((p) => ({ ...p, minStock: v }))} />
-                  <label className="flex items-center gap-2 text-sm text-text-secondary">
+                  <label className="flex min-h-6 items-center gap-2 text-sm leading-5 text-text-secondary">
                     <input type="checkbox" checked={ingredientForm.isAllergen} onChange={(e) => setIngredientForm((p) => ({ ...p, isAllergen: e.target.checked }))} />
                     Alérgeno
                   </label>
@@ -508,15 +540,46 @@ export default function AdminCardapioPage() {
           </div>
         </div>
       )}
+
+      {/* Modal de confirmação de remoção */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-bg-primary p-6 shadow-xl">
+            <h3 className="mb-2 text-base font-bold text-text-primary">Confirmar remoção</h3>
+            <p className="mb-6 text-sm text-text-secondary">
+              Remover <strong>{deleteConfirm.label}</strong>? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-3">
+              <button
+                className="btn-outline flex-1"
+                onClick={() => setDeleteConfirm(null)}
+                disabled={saving}
+              >
+                Cancelar
+              </button>
+              <button
+                className="flex-1 rounded-lg bg-error px-4 py-2 font-medium text-white transition-colors hover:bg-red-700 active:bg-red-800 disabled:opacity-50"
+                onClick={() => void confirmDelete()}
+                disabled={saving}
+              >
+                {saving ? "Removendo…" : "Remover"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function Metric({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: number }) {
+function Metric({ icon: Icon, label, value, note }: { icon: LucideIcon; label: string; value: number; note?: string }) {
   return (
     <div className="rounded-lg bg-bg-primary p-4 shadow-card">
       <Icon className="mb-3 h-5 w-5 text-primary-700" aria-hidden="true" />
-      <p className="text-2xl font-bold text-text-primary">{value}</p>
+      <p className="text-2xl font-bold text-text-primary">
+        {value}
+        {note && <span className="ml-1 text-sm font-normal text-text-muted">{note}</span>}
+      </p>
       <p className="text-xs text-text-secondary">{label}</p>
     </div>
   );
@@ -558,7 +621,7 @@ function ProductForm(props: {
   return (
     <form onSubmit={onSubmit} className="rounded-lg bg-bg-primary p-4 shadow-card">
       <h2 className="mb-4 text-sm font-semibold text-text-primary">{form.id ? "Editar produto" : "Novo produto"}</h2>
-      <div className="grid gap-3">
+      <div className="grid gap-4">
         <TextInput label="Nome" value={form.name} onChange={(v) => setForm((p) => ({ ...p, name: v }))} required />
         <TextInput label="SKU" value={form.sku} onChange={(v) => setForm((p) => ({ ...p, sku: v }))} required />
         <label className="grid gap-1 text-sm font-medium text-text-secondary">
@@ -570,16 +633,17 @@ function ProductForm(props: {
           </select>
         </label>
         <TextArea label="Descrição" value={form.description} onChange={(v) => setForm((p) => ({ ...p, description: v }))} />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 min-[380px]:grid-cols-2">
           <MoneyInput label="Preço" cents={form.priceCents} onChange={(v) => setForm((p) => ({ ...p, priceCents: v }))} />
           <MoneyInput label="Custo" cents={form.costPriceCents} onChange={(v) => setForm((p) => ({ ...p, costPriceCents: v }))} />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-3 min-[380px]:grid-cols-2">
           <MoneyInput label="Preço promo" cents={form.promoPriceCents} onChange={(v) => setForm((p) => ({ ...p, promoPriceCents: v }))} />
           <NumberInput label="Tempo (min)" value={form.preparationTimeMinutes} min={1} onChange={(v) => setForm((p) => ({ ...p, preparationTimeMinutes: v }))} />
         </div>
         <NumberInput label="Ordem" value={form.displayOrder} onChange={(v) => setForm((p) => ({ ...p, displayOrder: v }))} />
         <TextInput label="URL da imagem" value={form.imageUrl} onChange={(v) => setForm((p) => ({ ...p, imageUrl: v }))} />
+        <p className="text-center text-xs text-text-muted">— ou —</p>
         <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border-medium px-3 py-2 text-sm text-text-secondary hover:bg-bg-secondary">
           <ImagePlus className="h-4 w-4" aria-hidden="true" />
           {uploading ? "Enviando..." : "Enviar imagem"}
@@ -587,9 +651,9 @@ function ProductForm(props: {
         </label>
         <div className="grid gap-2">
           <p className="text-sm font-medium text-text-secondary">Canais de venda</p>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2">
             {CHANNELS.map((channel) => (
-              <label key={channel.value} className="flex items-center gap-2 text-sm text-text-secondary">
+              <label key={channel.value} className="flex min-h-6 items-center gap-2 text-sm leading-5 text-text-secondary">
                 <input
                   type="checkbox"
                   checked={availability.includes(channel.value)}
@@ -601,12 +665,12 @@ function ProductForm(props: {
           </div>
           <p className="text-xs text-text-muted">Nenhum canal marcado significa disponível em todos.</p>
         </div>
-        <div className="flex gap-4">
-          <label className="flex items-center gap-2 text-sm text-text-secondary">
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          <label className="flex min-h-6 items-center gap-2 text-sm leading-5 text-text-secondary">
             <input type="checkbox" checked={form.isAvailable} onChange={(e) => setForm((p) => ({ ...p, isAvailable: e.target.checked }))} />
             Disponível
           </label>
-          <label className="flex items-center gap-2 text-sm text-text-secondary">
+          <label className="flex min-h-6 items-center gap-2 text-sm leading-5 text-text-secondary">
             <input type="checkbox" checked={form.isFeatured} onChange={(e) => setForm((p) => ({ ...p, isFeatured: e.target.checked }))} />
             Destaque
           </label>

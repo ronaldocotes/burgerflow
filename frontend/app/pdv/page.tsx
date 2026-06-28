@@ -34,6 +34,7 @@ import {
   QuoteResponse,
 } from "@/types/cart";
 import LoadingSpinner from "@/components/loading-spinner";
+import { ShoppingCart, ShoppingBag, Truck, UtensilsCrossed } from "lucide-react";
 
 // PDV: grade de produtos -> carrinho (linhas com variação) -> total do servidor
 // (POST /orders/quote, casado por índice) -> finalizar (POST /orders + Idempotency-Key).
@@ -487,22 +488,23 @@ export default function PdvPage() {
             >
               {(
                 [
-                  ["DINE_IN", "Balcão"],
-                  ["TAKEAWAY", "Retirada"],
-                  ["DELIVERY", "Entrega"],
-                ] as [OrderType, string][]
-              ).map(([value, label]) => (
+                  ["DINE_IN", "Balcão", UtensilsCrossed],
+                  ["TAKEAWAY", "Retirada", ShoppingBag],
+                  ["DELIVERY", "Entrega", Truck],
+                ] as [OrderType, string, typeof UtensilsCrossed][]
+              ).map(([value, label, Icon]) => (
                 <button
                   key={value}
                   type="button"
                   onClick={() => setOrderType(value)}
                   aria-pressed={orderType === value}
-                  className={`text-sm py-2 rounded-md border transition-colors ${
+                  className={`inline-flex flex-col items-center gap-1 py-2 rounded-md border text-xs font-medium transition-colors ${
                     orderType === value
                       ? "bg-primary-700 text-white border-primary-700"
                       : "bg-bg-secondary text-text-secondary border-border-light hover:bg-bg-tertiary"
                   }`}
                 >
+                  <Icon className="h-4 w-4" aria-hidden="true" />
                   {label}
                 </button>
               ))}
@@ -512,9 +514,10 @@ export default function PdvPage() {
           {/* Linhas */}
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
             {cart.length === 0 ? (
-              <p className="text-sm text-text-muted text-center py-8">
-                Toque num produto para adicionar.
-              </p>
+              <div className="flex flex-col items-center justify-center gap-3 py-10 text-text-muted">
+                <ShoppingCart className="h-10 w-10 opacity-30" aria-hidden="true" />
+                <p className="text-sm text-center">Toque num produto para adicionar.</p>
+              </div>
             ) : (
               cart.map((line, idx) => {
                 const q = quote?.items[idx];
