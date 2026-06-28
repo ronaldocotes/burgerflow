@@ -176,15 +176,6 @@ export default function ConfiguracoesPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-bg-secondary">
-      {/* Header */}
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border-light bg-bg-primary px-6 py-3">
-        <div className="flex items-center gap-3">
-          <span className="text-xl" aria-hidden="true">&#x2699;</span>
-          <h1 className="text-lg font-bold text-text-primary">Configuracoes</h1>
-        </div>
-
-      </header>
-
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
         <h2 className="mb-6 text-2xl font-bold text-text-primary">Configuracoes</h2>
 

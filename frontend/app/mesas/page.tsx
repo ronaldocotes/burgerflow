@@ -384,7 +384,6 @@ export default function MesasPage() {
       {/* Header */}
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border-light bg-bg-primary px-6 py-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold text-text-primary">Mesas</h1>
           <span
             className={`inline-block h-2.5 w-2.5 rounded-full ${liveDot}`}
             title={feedStatus === "live" ? "Ao vivo" : "Reconectando"}

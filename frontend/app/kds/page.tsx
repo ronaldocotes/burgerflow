@@ -381,9 +381,6 @@ export default function KdsPage() {
       {/* Header */}
       <header className="flex items-center justify-between border-b border-border-light px-6 py-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold text-text-primary">
-            Cozinha — KDS
-          </h1>
           <span
             className={`inline-block h-2.5 w-2.5 rounded-full ${liveDot}`}
             title={feedStatus === "live" ? "Ao vivo" : "Reconectando"}

@@ -268,12 +268,6 @@ export default function PdvPage() {
 
   return (
     <main className="min-h-screen bg-bg-secondary flex flex-col">
-      <header className="header sticky top-0 z-10">
-        <h1 className="header-title">
-          <span aria-hidden="true">🧾</span> PDV
-        </h1>
-      </header>
-
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_22rem] gap-0">
         {/* Grade de produtos */}
         <section className="p-4 md:p-6">
