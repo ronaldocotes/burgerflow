@@ -1,13 +1,16 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, UtensilsCrossed } from "lucide-react";
 import { login } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
+import { useRestaurantInfo } from "@/lib/use-restaurant-info";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { restaurantName, logoUrl } = useRestaurantInfo();
   const [tenant,   setTenant]   = useState("");
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
@@ -37,32 +40,43 @@ export default function LoginPage() {
 
   const canSubmit = !loading && !!email && !!password && !!tenant;
 
+  // Nome exibido: nome do tenant no campo (digitado) ou restaurantName da API
+  const displayName = restaurantName ?? "MenuFlow";
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-secondary px-4">
       <div className="w-full max-w-sm animate-fade-in">
-        {/* Card */}
         <form
           onSubmit={onSubmit}
           noValidate
           className="rounded-2xl bg-bg-primary p-8 shadow-card"
         >
-          {/* Brand */}
+          {/* Brand: logo da empresa ou badge padrao */}
           <div className="mb-8 flex flex-col items-center gap-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-700 text-xl font-extrabold text-white select-none shadow-card">
-              MF
-            </div>
+            {logoUrl ? (
+              <Image
+                src={logoUrl}
+                alt={displayName}
+                width={56}
+                height={56}
+                className="rounded-2xl object-contain shadow-card"
+              />
+            ) : (
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-700 text-white shadow-card">
+                <UtensilsCrossed className="h-7 w-7" aria-hidden="true" />
+              </div>
+            )}
             <div className="text-center">
-              <h1 className="text-2xl font-bold text-text-primary">MenuFlow</h1>
+              <h1 className="text-2xl font-bold text-text-primary">
+                {displayName}
+              </h1>
               <p className="mt-0.5 text-sm text-text-muted">Painel de gestao</p>
             </div>
           </div>
 
           {/* Campo: Restaurante */}
           <div className="mb-4">
-            <label
-              htmlFor="tenant"
-              className="form-label"
-            >
+            <label htmlFor="tenant" className="form-label">
               Restaurante
             </label>
             <input

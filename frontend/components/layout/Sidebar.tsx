@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -10,10 +11,12 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  UtensilsCrossed,
   type LucideIcon,
 } from 'lucide-react'
+import { useRestaurantInfo } from '@/lib/use-restaurant-info'
 
-// ── Estrutura de navegacao ────────────────────────────────────────────────────
+// ── Navegacao ─────────────────────────────────────────────────────────────────
 
 interface NavItem {
   href: string
@@ -45,12 +48,28 @@ const NAV_GROUPS: NavGroup[] = [
 
 const SIDEBAR_KEY = 'mf_sidebar'
 
+// ── Badge de marca (fallback quando nao ha logo da empresa) ──────────────────
+
+function BrandBadge({ collapsed }: { collapsed: boolean }) {
+  return (
+    <div
+      className={[
+        'flex shrink-0 items-center justify-center rounded-xl bg-primary-700 text-white',
+        collapsed ? 'h-9 w-9' : 'h-9 w-9',
+      ].join(' ')}
+    >
+      <UtensilsCrossed className="h-5 w-5" aria-hidden="true" />
+    </div>
+  )
+}
+
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
 export function Sidebar() {
   const pathname  = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [mounted,   setMounted]   = useState(false)
+  const { restaurantName, logoUrl } = useRestaurantInfo()
 
   useEffect(() => {
     setMounted(true)
@@ -91,12 +110,20 @@ export function Sidebar() {
             isCollapsed ? 'justify-center' : 'gap-3',
           ].join(' ')}
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-700 text-sm font-bold text-white select-none">
-            MF
-          </div>
+          {logoUrl ? (
+            <Image
+              src={logoUrl}
+              alt={restaurantName ?? 'Logo'}
+              width={36}
+              height={36}
+              className="shrink-0 rounded-xl object-contain"
+            />
+          ) : (
+            <BrandBadge collapsed={isCollapsed} />
+          )}
           {!isCollapsed && (
             <span className="truncate text-sm font-semibold text-text-primary">
-              MenuFlow
+              {restaurantName ?? 'MenuFlow'}
             </span>
           )}
         </div>
@@ -105,7 +132,6 @@ export function Sidebar() {
         <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Menu principal">
           {NAV_GROUPS.map(({ group, items }) => (
             <div key={group} className="mb-3">
-              {/* Label do grupo: visivel so quando expandida */}
               {!isCollapsed && (
                 <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-text-muted select-none">
                   {group}
@@ -140,7 +166,7 @@ export function Sidebar() {
           ))}
         </nav>
 
-        {/* Rodape: toggle */}
+        {/* Toggle */}
         <div className="border-t border-border-light p-3">
           <button
             onClick={toggle}

@@ -5,18 +5,33 @@ import { api } from './api'
 
 interface TenantConfig {
   restaurantName: string | null
+  logoUrl: string | null
   autoAcceptOrders: boolean
 }
 
-export function useRestaurantInfo() {
-  const [restaurantName, setRestaurantName] = useState<string | null>(null)
+interface RestaurantInfo {
+  restaurantName: string | null
+  /** URL da logo da empresa — null enquanto carrega ou se nao configurado */
+  logoUrl: string | null
+}
+
+export function useRestaurantInfo(): RestaurantInfo {
+  const [info, setInfo] = useState<RestaurantInfo>({
+    restaurantName: null,
+    logoUrl: null,
+  })
 
   useEffect(() => {
     api
       .get<TenantConfig>('/config')
-      .then((cfg) => setRestaurantName(cfg.restaurantName ?? null))
+      .then((cfg) =>
+        setInfo({
+          restaurantName: cfg.restaurantName ?? null,
+          logoUrl: cfg.logoUrl ?? null,
+        })
+      )
       .catch(() => {})
   }, [])
 
-  return { restaurantName }
+  return info
 }
