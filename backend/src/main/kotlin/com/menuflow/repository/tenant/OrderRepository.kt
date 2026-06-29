@@ -107,4 +107,57 @@ interface OrderRepository :
         @Param("from") from: Instant,
         @Param("to") to: Instant,
     ): Long
+
+    // --- DRE Automático (Fase 3.1) ---
+
+    /**
+     * Agregados do DRE para os pedidos DELIVERED concluídos no período [from, to):
+     * soma de total, taxas de marketplace e cartão, CMV (cogs) e a CONTAGEM de
+     * pedidos — nessa ordem. COALESCE garante 0 em período vazio (sem NULL/NPE).
+     * Retorna exatamente UMA linha (sem GROUP BY) como List<Object[]> de um
+     * elemento; o serviço pega .first() e converte cada coluna em Long.
+     * completedAt é o carimbo temporal da venda concluída.
+     */
+    @Query(
+        """
+        SELECT COALESCE(SUM(o.totalCents), 0),
+               COALESCE(SUM(o.marketplaceFeeCents), 0),
+               COALESCE(SUM(o.cardFeeCents), 0),
+               COALESCE(SUM(o.cogsCents), 0),
+               COUNT(o)
+        FROM Order o
+        WHERE o.status = com.menuflow.model.OrderStatus.DELIVERED
+          AND o.completedAt >= :from AND o.completedAt < :to
+        """,
+    )
+    fun dreAggregate(@Param("from") from: Instant, @Param("to") to: Instant): List<Array<Any>>
+
+    /**
+     * Quantidade de pedidos DELIVERED por canal de venda no período. Cada linha é
+     * [SalesChannel, COUNT]. Usado no recorte "pedidos por canal" do DRE.
+     */
+    @Query(
+        """
+        SELECT o.salesChannel, COUNT(o) FROM Order o
+        WHERE o.status = com.menuflow.model.OrderStatus.DELIVERED
+          AND o.completedAt >= :from AND o.completedAt < :to
+        GROUP BY o.salesChannel
+        """,
+    )
+    fun countByChannel(@Param("from") from: Instant, @Param("to") to: Instant): List<Array<Any>>
+
+    /**
+     * Quantidade de pedidos DELIVERED por forma de pagamento no período. Cada linha
+     * é [PaymentMethod, COUNT]; paymentMethod pode ser null (entrega concluída sem
+     * pagamento registrado) -> o serviço agrupa como "UNKNOWN".
+     */
+    @Query(
+        """
+        SELECT o.paymentMethod, COUNT(o) FROM Order o
+        WHERE o.status = com.menuflow.model.OrderStatus.DELIVERED
+          AND o.completedAt >= :from AND o.completedAt < :to
+        GROUP BY o.paymentMethod
+        """,
+    )
+    fun countByPaymentMethod(@Param("from") from: Instant, @Param("to") to: Instant): List<Array<Any>>
 }

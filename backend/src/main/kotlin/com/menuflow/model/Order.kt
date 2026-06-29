@@ -122,6 +122,28 @@ data class Order(
      */
     @Column(name = "cash_session_id")
     var cashSessionId: UUID? = null,
+
+    // --- DRE Automático (Fase 3.1) — snapshots de custo/taxa gravados na venda ---
+    /**
+     * Canal de venda do pedido, para o recorte do DRE. Derivado no
+     * OrderService.create (público=ONLINE; operador: DELIVERY/DINE_IN/COUNTER por
+     * orderType). Default COUNTER nos pedidos antigos (backfill na V22).
+     */
+    @Column(name = "sales_channel", nullable = false)
+    @Enumerated(EnumType.STRING)
+    var salesChannel: SalesChannel = SalesChannel.COUNTER,
+
+    /** Snapshot do CMV (custo da mercadoria) no momento da venda, em centavos. */
+    @Column(name = "cogs_cents", nullable = false)
+    var cogsCents: Long = 0,
+
+    /** Taxa de marketplace (iFood/Rappi) calculada na venda, em centavos. */
+    @Column(name = "marketplace_fee_cents", nullable = false)
+    var marketplaceFeeCents: Long = 0,
+
+    /** Taxa de cartão calculada no pagamento, em centavos. */
+    @Column(name = "card_fee_cents", nullable = false)
+    var cardFeeCents: Long = 0,
 ) {
     @PreUpdate
     fun preUpdate() {

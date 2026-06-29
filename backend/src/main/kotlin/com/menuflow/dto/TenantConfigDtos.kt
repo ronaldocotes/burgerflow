@@ -1,7 +1,10 @@
 package com.menuflow.dto
 
 import com.menuflow.model.TenantConfig
+import jakarta.validation.constraints.DecimalMax
+import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.Size
+import java.math.BigDecimal
 
 /**
  * Estado das configurações do tenant. Exposto em GET /config e devolvido por
@@ -16,6 +19,10 @@ data class TenantConfigResponse(
     val address: String?,
     val openingHours: String?,
     val merchantCity: String?,
+    // Alíquotas do DRE (Fase 3.1).
+    val marketplaceFeePct: BigDecimal,
+    val cardFeePct: BigDecimal,
+    val taxPct: BigDecimal,
 ) {
     companion object {
         fun from(c: TenantConfig) =
@@ -28,6 +35,9 @@ data class TenantConfigResponse(
                 address          = c.address,
                 openingHours     = c.openingHours,
                 merchantCity     = c.merchantCity,
+                marketplaceFeePct = c.marketplaceFeePct,
+                cardFeePct        = c.cardFeePct,
+                taxPct            = c.taxPct,
             )
     }
 }
@@ -53,4 +63,11 @@ data class TenantConfigUpdateRequest(
     val openingHours: String? = null,
     @field:Size(max = 50)
     val merchantCity: String? = null,
+    // Alíquotas do DRE (Fase 3.1): 0..100 (%). Omitido (null) = preservar valor atual.
+    @field:DecimalMin("0.0") @field:DecimalMax("100.0")
+    val marketplaceFeePct: BigDecimal? = null,
+    @field:DecimalMin("0.0") @field:DecimalMax("100.0")
+    val cardFeePct: BigDecimal? = null,
+    @field:DecimalMin("0.0") @field:DecimalMax("100.0")
+    val taxPct: BigDecimal? = null,
 )

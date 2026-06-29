@@ -5,13 +5,16 @@ import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
-// Tipos
+// ── Tipos ─────────────────────────────────────────────────────────────────────
 
 interface TenantConfig {
   autoAcceptOrders: boolean;
+  marketplaceFeePct?: number;
+  cardFeePct?: number;
+  taxPct?: number;
 }
 
-// Toast simples (estado local, sem biblioteca)
+// ── Toast simples ─────────────────────────────────────────────────────────────
 
 type ToastType = "success" | "error";
 
@@ -62,14 +65,14 @@ function ToastContainer({ toasts }: { toasts: ToastState[] }) {
   );
 }
 
-// Skeleton de 1 card
+// ── Skeleton ──────────────────────────────────────────────────────────────────
 
 function ConfigSkeleton() {
   return (
     <div
       className="animate-pulse rounded-2xl bg-bg-primary p-6 shadow-card"
       aria-busy="true"
-      aria-label="Carregando configurações..."
+      aria-label="Carregando configuracoes..."
     >
       <div className="mb-4 h-5 w-1/3 rounded bg-bg-tertiary" aria-hidden="true" />
       <div className="flex items-center justify-between gap-4">
@@ -83,7 +86,7 @@ function ConfigSkeleton() {
   );
 }
 
-// Toggle pill
+// ── Toggle pill ───────────────────────────────────────────────────────────────
 
 interface ToggleProps {
   id: string;
@@ -122,7 +125,46 @@ function Toggle({ id, checked, disabled, onChange, label }: ToggleProps) {
   );
 }
 
-// Pagina principal
+// ── Campo numerico de percentual ──────────────────────────────────────────────
+
+interface PctFieldProps {
+  id: string;
+  label: string;
+  description: string;
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}
+
+function PctField({ id, label, description, value, onChange, disabled }: PctFieldProps) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex-1">
+        <label htmlFor={id} className="text-sm font-semibold text-text-primary">
+          {label}
+        </label>
+        <p className="mt-0.5 text-sm text-text-secondary">{description}</p>
+      </div>
+      <div className="flex items-center gap-1">
+        <input
+          id={id}
+          type="number"
+          min="0"
+          max="100"
+          step="0.1"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          className="input-field w-24 text-right disabled:opacity-50"
+          aria-label={label}
+        />
+        <span className="text-sm text-text-secondary">%</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Pagina principal ──────────────────────────────────────────────────────────
 
 export default function ConfiguracoesPage() {
   const router = useRouter();
@@ -133,6 +175,13 @@ export default function ConfiguracoesPage() {
     "loading",
   );
   const [saving, setSaving] = useState(false);
+  const [savingTaxes, setSavingTaxes] = useState(false);
+
+  // Campos de taxa (string para input controlado)
+  const [marketplaceFeePct, setMarketplaceFeePct] = useState("");
+  const [cardFeePct, setCardFeePct] = useState("");
+  const [taxPct, setTaxPct] = useState("");
+
   const isAuthenticated = typeof window === "undefined" || !!getToken();
 
   const load = useCallback(async () => {
@@ -140,6 +189,9 @@ export default function ConfiguracoesPage() {
     try {
       const data = await api.get<TenantConfig>("/config");
       setConfig(data);
+      setMarketplaceFeePct(data.marketplaceFeePct?.toString() ?? "0");
+      setCardFeePct(data.cardFeePct?.toString() ?? "0");
+      setTaxPct(data.taxPct?.toString() ?? "0");
       setLoadState("ok");
     } catch {
       setLoadState("error");
@@ -164,21 +216,42 @@ export default function ConfiguracoesPage() {
     setConfig((prev) => (prev ? { ...prev, autoAcceptOrders: next } : prev));
     try {
       await api.patch<TenantConfig>("/config", { autoAcceptOrders: next });
-      showToast("Configuração salva", "success");
+      showToast("Configuracao salva", "success");
     } catch (err) {
       setConfig((prev) => (prev ? { ...prev, autoAcceptOrders: !next } : prev));
       const msg =
-        err instanceof ApiError ? err.message : "Erro ao salvar configuração.";
+        err instanceof ApiError ? err.message : "Erro ao salvar configuracao.";
       showToast(msg, "error");
     } finally {
       setSaving(false);
     }
   }
 
+  async function handleSaveTaxes(e: React.FormEvent) {
+    e.preventDefault();
+    if (savingTaxes) return;
+    const body = {
+      marketplaceFeePct: Number.parseFloat(marketplaceFeePct) || 0,
+      cardFeePct: Number.parseFloat(cardFeePct) || 0,
+      taxPct: Number.parseFloat(taxPct) || 0,
+    };
+    setSavingTaxes(true);
+    try {
+      await api.patch<TenantConfig>("/config", body);
+      showToast("Taxas salvas", "success");
+    } catch (err) {
+      const msg =
+        err instanceof ApiError ? err.message : "Erro ao salvar taxas.";
+      showToast(msg, "error");
+    } finally {
+      setSavingTaxes(false);
+    }
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-bg-secondary">
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
-        <h2 className="mb-6 text-2xl font-bold text-text-primary">Configurações</h2>
+        <h2 className="mb-6 text-2xl font-bold text-text-primary">Configuracoes</h2>
 
         {/* 1. Estado: carregando */}
         {loadState === "loading" && <ConfigSkeleton />}
@@ -190,7 +263,7 @@ export default function ConfiguracoesPage() {
             className="flex flex-col items-center gap-4 rounded-2xl bg-bg-primary p-8 text-center shadow-card"
           >
             <p className="text-base font-medium text-text-primary">
-              Não foi possível carregar as configurações.
+              Nao foi possivel carregar as configuracoes.
             </p>
             <button className="btn-primary" onClick={() => void load()}>
               Tentar novamente
@@ -200,47 +273,115 @@ export default function ConfiguracoesPage() {
 
         {/* 3. Estado: ok */}
         {loadState === "ok" && config && (
-          <section aria-labelledby="secao-pedidos">
-            <h3
-              id="secao-pedidos"
-              className="mb-3 text-sm font-semibold uppercase tracking-wider text-text-secondary"
-            >
-              Pedidos
-            </h3>
+          <div className="space-y-8">
+            {/* Secao: Pedidos */}
+            <section aria-labelledby="secao-pedidos">
+              <h3
+                id="secao-pedidos"
+                className="mb-3 text-sm font-semibold uppercase tracking-wider text-text-secondary"
+              >
+                Pedidos
+              </h3>
 
-            <div className="rounded-2xl bg-bg-primary p-6 shadow-card">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-text-primary">
-                    Aceite automático
-                  </p>
-                  <p className="mt-0.5 text-sm text-text-secondary">
-                    Pedidos vão direto para a cozinha sem ação manual.
-                  </p>
-                </div>
+              <div className="rounded-2xl bg-bg-primary p-6 shadow-card">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-text-primary">
+                      Aceite automatico
+                    </p>
+                    <p className="mt-0.5 text-sm text-text-secondary">
+                      Pedidos vao direto para a cozinha sem acao manual.
+                    </p>
+                  </div>
 
-                <div className="flex items-center gap-3">
-                  {saving && (
-                    <span
-                      className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary-700 border-t-transparent"
-                      aria-hidden="true"
+                  <div className="flex items-center gap-3">
+                    {saving && (
+                      <span
+                        className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary-700 border-t-transparent"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <Toggle
+                      id="toggle-auto-accept"
+                      checked={config.autoAcceptOrders}
+                      disabled={saving}
+                      onChange={(next) => void handleToggle(next)}
+                      label={
+                        config.autoAcceptOrders
+                          ? "Aceite automatico ativado"
+                          : "Aceite automatico desativado"
+                      }
                     />
-                  )}
-                  <Toggle
-                    id="toggle-auto-accept"
-                    checked={config.autoAcceptOrders}
-                    disabled={saving}
-                    onChange={(next) => void handleToggle(next)}
-                    label={
-                      config.autoAcceptOrders
-                        ? "Aceite automático ativado"
-                        : "Aceite automático desativado"
-                    }
-                  />
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+
+            {/* Secao: Taxas e Impostos */}
+            <section aria-labelledby="secao-taxas">
+              <h3
+                id="secao-taxas"
+                className="mb-3 text-sm font-semibold uppercase tracking-wider text-text-secondary"
+              >
+                Taxas e Impostos
+              </h3>
+
+              <div className="rounded-2xl bg-bg-primary p-6 shadow-card">
+                <p className="mb-5 text-sm text-text-secondary">
+                  Percentuais usados no calculo do DRE. Aplique sobre a receita bruta.
+                </p>
+
+                <form onSubmit={(e) => void handleSaveTaxes(e)} className="space-y-5">
+                  <PctField
+                    id="marketplace-fee"
+                    label="Taxa marketplace"
+                    description="Comissao cobrada por plataformas (ex: iFood, Rappi)."
+                    value={marketplaceFeePct}
+                    onChange={setMarketplaceFeePct}
+                    disabled={savingTaxes}
+                  />
+
+                  <div className="border-t border-border-light" role="separator" />
+
+                  <PctField
+                    id="card-fee"
+                    label="Taxa cartao"
+                    description="Taxa media cobrada pelas maquininhas de cartao."
+                    value={cardFeePct}
+                    onChange={setCardFeePct}
+                    disabled={savingTaxes}
+                  />
+
+                  <div className="border-t border-border-light" role="separator" />
+
+                  <PctField
+                    id="tax-pct"
+                    label="Imposto"
+                    description="Simples Nacional ou aliquota media aplicavel."
+                    value={taxPct}
+                    onChange={setTaxPct}
+                    disabled={savingTaxes}
+                  />
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="submit"
+                      disabled={savingTaxes}
+                      className="btn-primary flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {savingTaxes && (
+                        <span
+                          className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
+                          aria-hidden="true"
+                        />
+                      )}
+                      {savingTaxes ? "Salvando..." : "Salvar taxas"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+          </div>
         )}
       </main>
 

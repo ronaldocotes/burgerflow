@@ -115,6 +115,11 @@ class PdvService(
             PdvPaymentMethod.CARD -> com.menuflow.model.PaymentMethod.CREDIT_CARD
             PdvPaymentMethod.PIX -> com.menuflow.model.PaymentMethod.PIX
         }
+        // DRE (Fase 3.1): o PDV cria o pedido SEM forma de pagamento e só a define
+        // aqui — então a taxa de cartão (snapshot do DRE) é calculada NESTE ponto,
+        // não no create (que para o PDV viu paymentMethod=null). Mesmo raciocínio
+        // do carimbo do caixa acima.
+        order.cardFeeCents = orderService.computeCardFeeCents(order.totalCents, order.paymentMethod)
         order.status = OrderStatus.DELIVERED
         order.completedAt = Instant.now()
         orderRepository.save(order)

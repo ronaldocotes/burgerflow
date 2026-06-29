@@ -37,6 +37,10 @@ class TenantConfigService(
         req.address?.let         { config.address        = it.trim().ifBlank { null } }
         req.openingHours?.let    { config.openingHours   = it.trim().ifBlank { null } }
         req.merchantCity?.let    { config.merchantCity   = it.trim().ifBlank { null } }
+        // Alíquotas do DRE: omitido (null) preserva; enviado sobrescreve.
+        req.marketplaceFeePct?.let { config.marketplaceFeePct = it }
+        req.cardFeePct?.let        { config.cardFeePct        = it }
+        req.taxPct?.let            { config.taxPct            = it }
         return TenantConfigResponse.from(repository.save(config))
     }
 }

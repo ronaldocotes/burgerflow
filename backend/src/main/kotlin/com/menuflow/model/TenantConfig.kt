@@ -1,6 +1,7 @@
 package com.menuflow.model
 
 import jakarta.persistence.*
+import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
 
@@ -59,6 +60,19 @@ data class TenantConfig(
      */
     @Column(name = "asaas_customer_id", length = 64)
     var asaasCustomerId: String? = null,
+
+    // --- Alíquotas para o DRE Automático (Fase 3.1). Percentuais, default 0. ---
+    /** Alíquota (%) de marketplace (iFood/Rappi) sobre o total de pedidos DELIVERY. */
+    @Column(name = "marketplace_fee_pct", nullable = false, precision = 5, scale = 2)
+    var marketplaceFeePct: BigDecimal = BigDecimal.ZERO,
+
+    /** Alíquota (%) de cartão sobre o total de pedidos pagos em cartão. */
+    @Column(name = "card_fee_pct", nullable = false, precision = 5, scale = 2)
+    var cardFeePct: BigDecimal = BigDecimal.ZERO,
+
+    /** Alíquota (%) de impostos sobre a receita bruta. */
+    @Column(name = "tax_pct", nullable = false, precision = 5, scale = 2)
+    var taxPct: BigDecimal = BigDecimal.ZERO,
 
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),

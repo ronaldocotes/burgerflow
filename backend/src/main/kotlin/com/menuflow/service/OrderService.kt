@@ -21,6 +21,8 @@ import com.menuflow.model.OrderStatus
 import com.menuflow.model.OrderType
 import com.menuflow.model.PaymentMethod
 import com.menuflow.model.Product
+import com.menuflow.model.SalesChannel
+import com.menuflow.model.TenantConfig
 import com.menuflow.repository.tenant.CashSessionRepository
 import com.menuflow.repository.tenant.IngredientRepository
 import com.menuflow.repository.tenant.OrderRepository
@@ -38,6 +40,8 @@ import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -57,6 +61,7 @@ class OrderService(
     private val productFlavorRepository: ProductFlavorRepository,
     private val productCrustPriceRepository: ProductCrustPriceRepository,
     private val tenantConfigRepository: TenantConfigRepository,
+    private val productRecipeService: ProductRecipeService,
     private val cashSessionRepository: CashSessionRepository,
     private val realtimePublisher: com.menuflow.service.RealtimePublisher,
     private val auditLogService: AuditLogService,
@@ -143,11 +148,31 @@ class OrderService(
         // 3. Compute totals (centavos) and persist the order. MESMO cálculo do quote.
         val (deliveryFee, total) = computeTotals(subtotal, req.orderType, req.discountCents, req.deliveryFeeCents)
 
-        // Aceite automático (config do tenant): com o flag ligado o pedido nasce
-        // em PREPARING e vai direto para a cozinha, sem ação manual no PENDING.
-        // Ausência de linha de config = default desligado (PENDING).
-        val autoAccept = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()?.autoAcceptOrders ?: false
+        // Config do tenant lida UMA vez (aceite automático + alíquotas do DRE).
+        // Ausência de linha de config = defaults seguros (aceite off, alíquotas 0).
+        val config = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()
+
+        // Aceite automático: com o flag ligado o pedido nasce em PREPARING e vai
+        // direto para a cozinha, sem ação manual no PENDING.
+        val autoAccept = config?.autoAcceptOrders ?: false
         val initialStatus = if (autoAccept) OrderStatus.PREPARING else OrderStatus.PENDING
+
+        // DRE (Fase 3.1) — canal de venda + snapshots de custo/taxa no momento da
+        // venda (determinístico mesmo que preços/fichas/alíquotas mudem depois).
+        // Canal: pedido público (sem operador) é ONLINE; com operador, segue o
+        // orderType. Marketplace só incide no canal DELIVERY; cartão só quando a
+        // forma de pagamento já é cartão aqui (no PDV ela é definida no pay(),
+        // onde a taxa é recalculada — ver PdvService.pay).
+        val channel = when {
+            userId == null -> SalesChannel.ONLINE
+            req.orderType == OrderType.DELIVERY -> SalesChannel.DELIVERY
+            req.orderType == OrderType.DINE_IN -> SalesChannel.DINE_IN
+            else -> SalesChannel.COUNTER
+        }
+        val cogs = items.sumOf { productRecipeService.cmv(it.productId).cmvCents * it.quantity }
+        val marketplaceFee =
+            if (channel == SalesChannel.DELIVERY) pctOfCents(total, config?.marketplaceFeePct ?: BigDecimal.ZERO) else 0L
+        val cardFee = cardFeeWithConfig(total, req.paymentMethod, config)
 
         // Caixa: venda em dinheiro de um operador autenticado (PDV/balcão) entra no
         // turno de caixa aberto -> carimba o pedido. Sem caixa aberto, a venda em
@@ -176,6 +201,10 @@ class OrderService(
             totalCents = total,
             paymentMethod = req.paymentMethod,
             cashSessionId = cashSessionId,
+            salesChannel = channel,
+            cogsCents = cogs,
+            marketplaceFeeCents = marketplaceFee,
+            cardFeeCents = cardFee,
             estimatedPrepTimeMinutes = (req.items.sumOf { it.quantity } * 5).coerceAtLeast(10),
         )
         val saved = orderRepository.save(order)
@@ -540,6 +569,28 @@ class OrderService(
         val suffix = Random.nextInt(0, 1_000_000).toString().padStart(6, '0')
         return "MF-$datePart-$suffix"
     }
+
+    // --- DRE Automático (Fase 3.1): cálculo de taxa de cartão ---
+
+    /**
+     * Taxa de cartão (centavos) sobre o total quando a forma de pagamento é cartão
+     * (CREDIT_CARD/DEBIT_CARD); senão 0. Lê a alíquota da config do tenant. Público
+     * porque o PDV define a forma de pagamento só no pay() (PdvService) — é lá que
+     * a taxa é (re)calculada, depois do carimbo da forma de pagamento.
+     */
+    @Transactional("tenantTransactionManager", readOnly = true)
+    fun computeCardFeeCents(totalCents: Long, method: PaymentMethod?): Long =
+        cardFeeWithConfig(totalCents, method, tenantConfigRepository.findFirstByOrderByCreatedAtAsc())
+
+    /** Igual ao acima, mas reusando uma config já carregada (evita 2ª leitura no create). */
+    private fun cardFeeWithConfig(totalCents: Long, method: PaymentMethod?, config: TenantConfig?): Long {
+        if (method != PaymentMethod.CREDIT_CARD && method != PaymentMethod.DEBIT_CARD) return 0L
+        return pctOfCents(totalCents, config?.cardFeePct ?: BigDecimal.ZERO)
+    }
+
+    /** Aplica uma alíquota (%) sobre centavos, HALF-UP, em BigDecimal (sem float). */
+    private fun pctOfCents(cents: Long, pct: BigDecimal): Long =
+        BigDecimal.valueOf(cents).multiply(pct).divide(BigDecimal(100), 0, RoundingMode.HALF_UP).toLong()
 
     companion object {
         private val PLACEHOLDER: UUID = UUID(0, 0)
