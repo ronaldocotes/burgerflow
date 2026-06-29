@@ -133,6 +133,34 @@ data class TenantConfig(
     @Column(name = "cart_recovery_expiry_hours", nullable = false)
     var cartRecoveryExpiryHours: Int = 2,
 
+    // --- Rastreamento de conversao: Meta CAPI + Google sGTM (Fase 3.7) ---
+    /** Pixel ID da Meta (Events Manager). Null = Meta nao configurada. */
+    @Column(name = "meta_pixel_id", length = 100)
+    var metaPixelId: String? = null,
+
+    /**
+     * Access token da Meta CAPI (SEGREDO). Nunca e devolvido no GET /config — a
+     * resposta expoe apenas o flag hasMetaToken. Persistido no banco do tenant.
+     */
+    @Column(name = "meta_access_token", columnDefinition = "text")
+    var metaAccessToken: String? = null,
+
+    /** test_event_code da Meta: direciona o evento para o teste do Events Manager. Null em producao. */
+    @Column(name = "meta_test_event_code", length = 50)
+    var metaTestEventCode: String? = null,
+
+    /** URL do sGTM (Server-Side Google Tag Manager) do restaurante. Null = Google nao configurado. */
+    @Column(name = "google_sgtm_url", columnDefinition = "text")
+    var googleSgtmUrl: String? = null,
+
+    /** Measurement ID GA4 (ex.: G-XXXXXXXX) usado no Measurement Protocol. */
+    @Column(name = "google_measurement_id", length = 50)
+    var googleMeasurementId: String? = null,
+
+    /** Liga/desliga o rastreamento de conversao (master switch). */
+    @Column(name = "conversion_tracking_enabled", nullable = false)
+    var conversionTrackingEnabled: Boolean = false,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 

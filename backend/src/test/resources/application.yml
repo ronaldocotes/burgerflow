@@ -26,3 +26,7 @@ menuflow:
     enabled: false
     send-delay-min-seconds: 0
     send-delay-max-seconds: 0
+  # Job de despacho de conversoes desligado nos testes (o @Scheduled nao deve disparar
+  # contra o Postgres compartilhado nem fazer HTTP real para Meta/Google).
+  conversions:
+    enabled: false

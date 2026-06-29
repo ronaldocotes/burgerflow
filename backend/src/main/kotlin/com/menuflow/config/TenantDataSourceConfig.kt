@@ -7,6 +7,7 @@ import com.menuflow.model.CartSession
 import com.menuflow.model.CashSession
 import com.menuflow.model.CashSessionEntry
 import com.menuflow.model.Category
+import com.menuflow.model.ConversionDispatch
 import com.menuflow.model.Coupon
 import com.menuflow.model.CouponRedemption
 import com.menuflow.model.Customer
@@ -107,6 +108,7 @@ class TenantDataSourceConfig {
                 CartSession::class.java,
                 TrackingLink::class.java,
                 MarketingEvent::class.java,
+                ConversionDispatch::class.java,
             )
             .persistenceUnit("tenant")
             .properties(

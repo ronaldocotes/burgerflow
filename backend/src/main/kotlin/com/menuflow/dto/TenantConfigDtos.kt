@@ -41,6 +41,14 @@ data class TenantConfigResponse(
     val cartRecoveryDelayMinutes: Int,
     val cartRecoveryMessage: String?,
     val cartRecoveryExpiryHours: Int,
+    // Rastreamento de conversao (Fase 3.7). O token da Meta NUNCA e exposto:
+    // a resposta traz apenas hasMetaToken (true se ha token salvo).
+    val metaPixelId: String?,
+    val hasMetaToken: Boolean,
+    val metaTestEventCode: String?,
+    val googleSgtmUrl: String?,
+    val googleMeasurementId: String?,
+    val conversionTrackingEnabled: Boolean,
 ) {
     companion object {
         fun from(c: TenantConfig) =
@@ -69,6 +77,12 @@ data class TenantConfigResponse(
                 cartRecoveryDelayMinutes  = c.cartRecoveryDelayMinutes,
                 cartRecoveryMessage       = c.cartRecoveryMessage,
                 cartRecoveryExpiryHours   = c.cartRecoveryExpiryHours,
+                metaPixelId               = c.metaPixelId,
+                hasMetaToken              = !c.metaAccessToken.isNullOrBlank(),
+                metaTestEventCode         = c.metaTestEventCode,
+                googleSgtmUrl             = c.googleSgtmUrl,
+                googleMeasurementId       = c.googleMeasurementId,
+                conversionTrackingEnabled = c.conversionTrackingEnabled,
             )
     }
 }
@@ -128,4 +142,17 @@ data class TenantConfigUpdateRequest(
     val cartRecoveryMessage: String? = null,
     @field:Min(1) @field:Max(168)
     val cartRecoveryExpiryHours: Int? = null,
+    // Rastreamento de conversao (Fase 3.7): omitido (null) = preservar valor atual.
+    // metaAccessToken e aceito aqui (gravado), mas NUNCA devolvido no GET (so hasMetaToken).
+    @field:Size(max = 100)
+    val metaPixelId: String? = null,
+    @field:Size(max = 500)
+    val metaAccessToken: String? = null,
+    @field:Size(max = 50)
+    val metaTestEventCode: String? = null,
+    @field:Size(max = 500)
+    val googleSgtmUrl: String? = null,
+    @field:Size(max = 50)
+    val googleMeasurementId: String? = null,
+    val conversionTrackingEnabled: Boolean? = null,
 )

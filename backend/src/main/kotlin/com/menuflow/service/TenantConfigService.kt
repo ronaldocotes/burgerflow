@@ -57,6 +57,14 @@ class TenantConfigService(
         req.cartRecoveryDelayMinutes?.let { config.cartRecoveryDelayMinutes = it }
         req.cartRecoveryMessage?.let      { config.cartRecoveryMessage      = it.trim().ifBlank { null } }
         req.cartRecoveryExpiryHours?.let  { config.cartRecoveryExpiryHours  = it }
+        // Rastreamento de conversao (Fase 3.7): omitido (null) preserva; enviado sobrescreve.
+        // Enviar "" limpa o campo (ifBlank -> null), inclusive o token da Meta.
+        req.metaPixelId?.let           { config.metaPixelId         = it.trim().ifBlank { null } }
+        req.metaAccessToken?.let       { config.metaAccessToken     = it.trim().ifBlank { null } }
+        req.metaTestEventCode?.let     { config.metaTestEventCode   = it.trim().ifBlank { null } }
+        req.googleSgtmUrl?.let         { config.googleSgtmUrl       = it.trim().ifBlank { null } }
+        req.googleMeasurementId?.let   { config.googleMeasurementId = it.trim().ifBlank { null } }
+        req.conversionTrackingEnabled?.let { config.conversionTrackingEnabled = it }
         return TenantConfigResponse.from(repository.save(config))
     }
 }
