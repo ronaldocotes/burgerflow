@@ -197,6 +197,9 @@ class LoyaltyService(
         val threshold = config?.loyaltyRewardThreshold ?: 0
         val progress = if (threshold > 0) customer.loyaltyPoints % threshold else customer.loyaltyPoints
         val punches = loyaltyRewardRepository.countByCustomerIdAndRedeemedAtIsNull(customerId).toInt()
+        val pendingRewardId = if (punches > 0)
+            loyaltyRewardRepository.findFirstByCustomerIdAndRedeemedAtIsNull(customerId)?.id
+        else null
         val txs = loyaltyTransactionRepository
             .findTop10ByCustomerIdOrderByCreatedAtDesc(customerId)
             .map { LoyaltyTransactionResponse.from(it) }
@@ -205,6 +208,7 @@ class LoyaltyService(
             rewardThreshold = threshold,
             progress = progress,
             punches = punches,
+            pendingRewardId = pendingRewardId,
             transactions = txs,
         )
     }

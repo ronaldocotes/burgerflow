@@ -20,6 +20,8 @@ data class LoyaltyStatusResponse(
     val rewardThreshold: Int,
     val progress: Int,
     val punches: Int,
+    /** ID do primeiro punch disponível; null se punches==0. Usado pelo frontend para chamar /redeem/{id}. */
+    val pendingRewardId: UUID?,
     val transactions: List<LoyaltyTransactionResponse>,
 )
 

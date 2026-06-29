@@ -7,6 +7,7 @@ import Link from 'next/link'
 import {
   usePathname } from 'next/navigation'
 import {
+  Star,
   Tag,
   ShoppingCart,
   ChefHat,
@@ -50,7 +51,8 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/pdv',   label: 'PDV',     icon: ShoppingCart },
       { href: '/kds',   label: 'Cozinha', icon: ChefHat      },
       { href: '/mesas', label: 'Mesas',   icon: LayoutGrid   },
-      { href: '/caixa', label: 'Caixa',   icon: Wallet       },
+      { href: '/caixa',            label: 'Caixa',       icon: Wallet, },
+      { href: '/admin/fidelidade', label: 'Fidelidade',   icon: Star,   roles: ['ADMIN', 'MANAGER', 'CASHIER'] },
     ],
   },
   {
