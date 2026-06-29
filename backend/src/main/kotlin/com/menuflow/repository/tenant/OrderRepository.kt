@@ -22,6 +22,12 @@ interface OrderRepository :
     fun findAllByOrderByCreatedAtDesc(pageable: Pageable): List<Order>
 
     /**
+     * Ultimo pedido feito por um telefone (bot WhatsApp, Fase 4.3). O telefone vem do
+     * remetente VERIFICADO do webhook (nunca do LLM) — o cliente so ve o proprio pedido.
+     */
+    fun findTopByCustomerPhoneOrderByCreatedAtDesc(customerPhone: String): Order?
+
+    /**
      * Há pedido da comanda ainda em produção (PENDING/PREPARING)? Usado por
      * TableService.closeSession para impedir fechar a conta com a cozinha aberta.
      */

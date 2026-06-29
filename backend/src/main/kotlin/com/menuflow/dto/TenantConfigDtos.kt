@@ -56,6 +56,19 @@ data class TenantConfigResponse(
     // Hardening do Copiloto (Fase 4.2).
     val aiMaxMessageLength: Int,
     val aiBlockedPatterns: String?,
+    // Bot WhatsApp inbound (Fase 4.3).
+    val botEnabled: Boolean,
+    val botSystemPrompt: String?,
+    val botHandoffKeyword: String?,
+    val botWelcomeMessage: String?,
+    val botHandoffMessage: String?,
+    val openingHoursMonday: String?,
+    val openingHoursTuesday: String?,
+    val openingHoursWednesday: String?,
+    val openingHoursThursday: String?,
+    val openingHoursFriday: String?,
+    val openingHoursSaturday: String?,
+    val openingHoursSunday: String?,
 ) {
     companion object {
         fun from(c: TenantConfig) =
@@ -95,6 +108,18 @@ data class TenantConfigResponse(
                 aiDailyLimit              = c.aiDailyLimit,
                 aiMaxMessageLength        = c.aiMaxMessageLength,
                 aiBlockedPatterns         = c.aiBlockedPatterns,
+                botEnabled                = c.botEnabled,
+                botSystemPrompt           = c.botSystemPrompt,
+                botHandoffKeyword         = c.botHandoffKeyword,
+                botWelcomeMessage         = c.botWelcomeMessage,
+                botHandoffMessage         = c.botHandoffMessage,
+                openingHoursMonday        = c.openingHoursMonday,
+                openingHoursTuesday       = c.openingHoursTuesday,
+                openingHoursWednesday     = c.openingHoursWednesday,
+                openingHoursThursday      = c.openingHoursThursday,
+                openingHoursFriday        = c.openingHoursFriday,
+                openingHoursSaturday      = c.openingHoursSaturday,
+                openingHoursSunday        = c.openingHoursSunday,
             )
     }
 }
@@ -178,4 +203,28 @@ data class TenantConfigUpdateRequest(
     val aiMaxMessageLength: Int? = null,
     @field:Size(max = 4000)
     val aiBlockedPatterns: String? = null,
+    // Bot WhatsApp inbound (Fase 4.3): omitido (null) = preservar valor atual.
+    val botEnabled: Boolean? = null,
+    @field:Size(max = 4000)
+    val botSystemPrompt: String? = null,
+    @field:Size(max = 50)
+    val botHandoffKeyword: String? = null,
+    @field:Size(max = 1000)
+    val botWelcomeMessage: String? = null,
+    @field:Size(max = 1000)
+    val botHandoffMessage: String? = null,
+    @field:Size(max = 20)
+    val openingHoursMonday: String? = null,
+    @field:Size(max = 20)
+    val openingHoursTuesday: String? = null,
+    @field:Size(max = 20)
+    val openingHoursWednesday: String? = null,
+    @field:Size(max = 20)
+    val openingHoursThursday: String? = null,
+    @field:Size(max = 20)
+    val openingHoursFriday: String? = null,
+    @field:Size(max = 20)
+    val openingHoursSaturday: String? = null,
+    @field:Size(max = 20)
+    val openingHoursSunday: String? = null,
 )

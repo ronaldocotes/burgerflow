@@ -27,9 +27,12 @@ class PublicOrderRateLimitFilter(
         val uri = request.requestURI
         // Cobre criar pedido publico e a pre-checagem de cupom (Fase 3.2) — ambos
         // sao writes/leituras publicas passiveis de abuso (enumeracao de cupom).
+        // Inclui o webhook do bot WhatsApp (Fase 4.3): rota publica adivinhavel; o
+        // throttle por IP e a defesa-base contra flood/abuso de envio.
         val isPublicWrite = request.method == "POST" &&
             uri.contains("/public/") &&
-            (uri.endsWith("/orders") || uri.endsWith("/apply-coupon") || uri.endsWith("/whatsapp-opt-out"))
+            (uri.endsWith("/orders") || uri.endsWith("/apply-coupon") ||
+                uri.endsWith("/whatsapp-opt-out") || uri.endsWith("/whatsapp/webhook"))
         // Clique de tracking (Fase 3.6): GET /public/{slug}/r/{trackingSlug} grava um
         // evento + incrementa o contador a cada hit -> vetor de click-fraud/flood,
         // limitado por IP como os writes publicos.

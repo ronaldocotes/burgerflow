@@ -2,6 +2,7 @@ package com.menuflow.config
 
 import com.menuflow.model.AiConversation
 import com.menuflow.model.AuditLog
+import com.menuflow.model.BotHandoff
 import com.menuflow.model.Campaign
 import com.menuflow.model.CampaignSend
 import com.menuflow.model.CartSession
@@ -111,6 +112,7 @@ class TenantDataSourceConfig {
                 MarketingEvent::class.java,
                 ConversionDispatch::class.java,
                 AiConversation::class.java,
+                BotHandoff::class.java,
             )
             .persistenceUnit("tenant")
             .properties(

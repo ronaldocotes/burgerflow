@@ -72,6 +72,19 @@ class TenantConfigService(
         // Hardening do Copiloto (Fase 4.2): omitido (null) preserva; "" limpa os padroes extras.
         req.aiMaxMessageLength?.let { config.aiMaxMessageLength = it }
         req.aiBlockedPatterns?.let  { config.aiBlockedPatterns  = it.trim().ifBlank { null } }
+        // Bot WhatsApp inbound (Fase 4.3): omitido (null) preserva; "" limpa textos opcionais.
+        req.botEnabled?.let         { config.botEnabled         = it }
+        req.botSystemPrompt?.let    { config.botSystemPrompt    = it.trim().ifBlank { null } }
+        req.botHandoffKeyword?.let  { config.botHandoffKeyword  = it.trim().ifBlank { null } }
+        req.botWelcomeMessage?.let  { config.botWelcomeMessage  = it.trim().ifBlank { null } }
+        req.botHandoffMessage?.let  { config.botHandoffMessage  = it.trim().ifBlank { null } }
+        req.openingHoursMonday?.let    { config.openingHoursMonday    = it.trim().ifBlank { null } }
+        req.openingHoursTuesday?.let   { config.openingHoursTuesday   = it.trim().ifBlank { null } }
+        req.openingHoursWednesday?.let { config.openingHoursWednesday = it.trim().ifBlank { null } }
+        req.openingHoursThursday?.let  { config.openingHoursThursday  = it.trim().ifBlank { null } }
+        req.openingHoursFriday?.let    { config.openingHoursFriday    = it.trim().ifBlank { null } }
+        req.openingHoursSaturday?.let  { config.openingHoursSaturday  = it.trim().ifBlank { null } }
+        req.openingHoursSunday?.let    { config.openingHoursSunday    = it.trim().ifBlank { null } }
         return TenantConfigResponse.from(repository.save(config))
     }
 }

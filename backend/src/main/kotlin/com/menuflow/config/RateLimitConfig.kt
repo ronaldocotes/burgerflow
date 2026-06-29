@@ -6,8 +6,11 @@ import com.menuflow.security.ratelimit.InMemoryLoginRateLimiter
 import com.menuflow.security.ratelimit.LoginRateLimiter
 import com.menuflow.security.ratelimit.PublicOrderRateLimitProperties
 import com.menuflow.security.ratelimit.RateLimitProperties
+import com.menuflow.security.ratelimit.InMemoryWebhookMessageDeduplicator
 import com.menuflow.security.ratelimit.RedisAiTenantRateLimiter
 import com.menuflow.security.ratelimit.RedisLoginRateLimiter
+import com.menuflow.security.ratelimit.RedisWebhookMessageDeduplicator
+import com.menuflow.security.ratelimit.WebhookMessageDeduplicator
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.data.redis.core.StringRedisTemplate
 import io.github.bucket4j.distributed.ExpirationAfterWriteStrategy
@@ -108,6 +111,30 @@ class RateLimitConfig {
         }
         log.info("AI tenant rate limiter: in-memory ({}/{}s per tenant)", limit, windowSeconds)
         return InMemoryAiTenantRateLimiter(limit, windowSeconds)
+    }
+
+    /**
+     * Deduplicador de mensagens de webhook do bot (Fase 4.3). Idempotencia por
+     * messageId (WAHA reentrega ate 2xx). backend=redis -> SET NX EX compartilhado;
+     * qualquer outro (default) -> em memoria (dev/test, zero dependencia). Mesmo
+     * padrao do aiTenantRateLimiter (StringRedisTemplate via ObjectProvider).
+     */
+    @Bean
+    fun webhookMessageDeduplicator(
+        stringRedisTemplate: ObjectProvider<StringRedisTemplate>,
+        @org.springframework.beans.factory.annotation.Value("\${menuflow.bot.dedup.backend:memory}")
+        backend: String,
+    ): WebhookMessageDeduplicator {
+        if (backend.equals("redis", ignoreCase = true)) {
+            val redis = stringRedisTemplate.ifAvailable
+            if (redis != null) {
+                log.info("Bot webhook deduplicator: redis (SET NX EX 24h)")
+                return RedisWebhookMessageDeduplicator(redis)
+            }
+            log.warn("Bot webhook deduplicator: StringRedisTemplate ausente, usando in-memory")
+        }
+        log.info("Bot webhook deduplicator: in-memory")
+        return InMemoryWebhookMessageDeduplicator()
     }
 
     private fun redisLimiter(props: RateLimitProperties, redisProps: RedisProperties): LoginRateLimiter {

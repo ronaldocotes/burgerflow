@@ -187,6 +187,49 @@ data class TenantConfig(
     @Column(name = "ai_blocked_patterns", columnDefinition = "text")
     var aiBlockedPatterns: String? = null,
 
+    // --- Bot WhatsApp inbound (Fase 4.3) ---
+    /** Liga/desliga o atendente virtual (bot) no WhatsApp do restaurante. */
+    @Column(name = "bot_enabled", nullable = false)
+    var botEnabled: Boolean = false,
+
+    /** Personalizacao opcional do prompt de sistema do bot (tom, regras do restaurante). */
+    @Column(name = "bot_system_prompt", columnDefinition = "text")
+    var botSystemPrompt: String? = null,
+
+    /** Palavra-chave que o cliente digita para falar com um humano (default "atendente"). */
+    @Column(name = "bot_handoff_keyword", length = 50)
+    var botHandoffKeyword: String? = "atendente",
+
+    /** Saudacao inicial do bot. */
+    @Column(name = "bot_welcome_message", columnDefinition = "text")
+    var botWelcomeMessage: String? = "Olá! Sou o assistente virtual. Como posso ajudar?",
+
+    /** Mensagem enviada ao cliente ao transferir para um humano. */
+    @Column(name = "bot_handoff_message", columnDefinition = "text")
+    var botHandoffMessage: String? = "Transferindo para um atendente humano. Aguarde!",
+
+    // Horarios de funcionamento por dia ("HH:mm-HH:mm"); null = fechado naquele dia.
+    @Column(name = "opening_hours_monday", length = 20)
+    var openingHoursMonday: String? = null,
+
+    @Column(name = "opening_hours_tuesday", length = 20)
+    var openingHoursTuesday: String? = null,
+
+    @Column(name = "opening_hours_wednesday", length = 20)
+    var openingHoursWednesday: String? = null,
+
+    @Column(name = "opening_hours_thursday", length = 20)
+    var openingHoursThursday: String? = null,
+
+    @Column(name = "opening_hours_friday", length = 20)
+    var openingHoursFriday: String? = null,
+
+    @Column(name = "opening_hours_saturday", length = 20)
+    var openingHoursSaturday: String? = null,
+
+    @Column(name = "opening_hours_sunday", length = 20)
+    var openingHoursSunday: String? = null,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 
