@@ -39,6 +39,11 @@ data class OrderCreateRequest(
     val paymentMethod: PaymentMethod? = null,
     val deliveryFeeCents: Long = 0,
     val discountCents: Long = 0,
+    /**
+     * Código do cupom de desconto (Fase 3.2). Quando presente, SOBRESCREVE o
+     * discountCents manual (anti-fraude: não combina cupom + desconto manual).
+     */
+    @field:Size(max = 50) val couponCode: String? = null,
 )
 
 data class OrderStatusUpdateRequest(
@@ -178,6 +183,8 @@ data class OrderResponse(
     val priority: String,
     val estimatedPrepTimeMinutes: Int,
     val notes: String?,
+    val couponCode: String? = null,
+    val couponDiscountCents: Long = 0,
     val createdAt: Instant,
     val updatedAt: Instant,
     val completedAt: Instant?,
@@ -201,6 +208,8 @@ data class OrderResponse(
             priority = o.priority.name,
             estimatedPrepTimeMinutes = o.estimatedPrepTimeMinutes,
             notes = o.notes,
+            couponCode = o.couponCode,
+            couponDiscountCents = o.couponDiscountCents,
             createdAt = o.createdAt,
             updatedAt = o.updatedAt,
             completedAt = o.completedAt,

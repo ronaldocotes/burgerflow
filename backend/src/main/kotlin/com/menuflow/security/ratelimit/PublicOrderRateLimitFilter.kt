@@ -25,9 +25,12 @@ class PublicOrderRateLimitFilter(
         // Casa tanto sob o context-path real (/api/v1/public/{slug}/orders) quanto
         // sob MockMvc (/public/{slug}/orders).
         val uri = request.requestURI
-        val isPublicOrder = request.method == "POST" &&
-            uri.contains("/public/") && uri.endsWith("/orders")
-        return !isPublicOrder
+        // Cobre criar pedido publico e a pre-checagem de cupom (Fase 3.2) — ambos
+        // sao writes/leituras publicas passiveis de abuso (enumeracao de cupom).
+        val isPublicWrite = request.method == "POST" &&
+            uri.contains("/public/") &&
+            (uri.endsWith("/orders") || uri.endsWith("/apply-coupon"))
+        return !isPublicWrite
     }
 
     override fun doFilterInternal(

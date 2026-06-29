@@ -65,6 +65,7 @@ class OrderService(
     private val cashSessionRepository: CashSessionRepository,
     private val realtimePublisher: com.menuflow.service.RealtimePublisher,
     private val auditLogService: AuditLogService,
+    private val couponService: CouponService,
     private val eventPublisher: org.springframework.context.ApplicationEventPublisher,
 ) {
 
@@ -101,10 +102,28 @@ class OrderService(
     fun create(req: OrderCreateRequest, userId: UUID?): OrderResponse {
         // 1. Resolve products, build line items (price snapshot), validar complementos
         // e os valores monetários. MESMA lógica que o quote usa -> os totais batem.
-        val priced = priceItems(req.items, req.discountCents, req.deliveryFeeCents)
+        // Cupom (Fase 3.2) SOBRESCREVE o desconto manual: com um código informado, o
+        // desconto do operador é ignorado (anti-fraude — não combina cupom + manual).
+        // Sem cupom, o desconto manual segue validado dentro do priceItems (>=0 e
+        // <= subtotal).
+        val couponCode = req.couponCode?.trim()?.takeIf { it.isNotBlank() }
+        val priced = priceItems(
+            req.items,
+            if (couponCode != null) 0L else req.discountCents,
+            req.deliveryFeeCents,
+        )
         val items = priced.items
         val optionsByIndex = priced.optionsByIndex
         val subtotal = priced.subtotalCents
+
+        // Valida e TRAVA o cupom (lock pessimista na linha) ANTES de baixar estoque:
+        // falha rápida sem segurar lock de insumo, e o lock serializa redenções
+        // concorrentes (não estoura maxUses em corrida). A redenção é registrada
+        // depois que o pedido existe, na MESMA transação -> atômica e race-safe.
+        val couponApp = couponCode?.let {
+            couponService.validateAndLock(it, subtotal, req.customerPhone)
+        }
+        val effectiveDiscount = couponApp?.discountCents ?: req.discountCents
 
         // Ficha técnica: agrega o consumo de insumos a partir das linhas já precificadas.
         val required = HashMap<UUID, Double>()
@@ -146,7 +165,8 @@ class OrderService(
         }
 
         // 3. Compute totals (centavos) and persist the order. MESMO cálculo do quote.
-        val (deliveryFee, total) = computeTotals(subtotal, req.orderType, req.discountCents, req.deliveryFeeCents)
+        // Usa o desconto efetivo (cupom quando houver, senão o manual).
+        val (deliveryFee, total) = computeTotals(subtotal, req.orderType, effectiveDiscount, req.deliveryFeeCents)
 
         // Config do tenant lida UMA vez (aceite automático + alíquotas do DRE).
         // Ausência de linha de config = defaults seguros (aceite off, alíquotas 0).
@@ -196,11 +216,14 @@ class OrderService(
             tableNumber = req.tableNumber,
             notes = req.notes,
             subtotalCents = subtotal,
-            discountCents = req.discountCents,
+            discountCents = effectiveDiscount,
             deliveryFeeCents = deliveryFee,
             totalCents = total,
             paymentMethod = req.paymentMethod,
             cashSessionId = cashSessionId,
+            couponId = couponApp?.coupon?.id,
+            couponCode = couponApp?.coupon?.code,
+            couponDiscountCents = couponApp?.discountCents ?: 0,
             salesChannel = channel,
             cogsCents = cogs,
             marketplaceFeeCents = marketplaceFee,
@@ -211,10 +234,16 @@ class OrderService(
         items.forEach { it.orderId = saved.id!! }
         saved.items.addAll(items)
         val persisted = orderRepository.save(saved)
-        // Desconto aplicado por um operador autenticado é um ato sensível (afeta o
-        // total cobrado) -> auditar. Pedido público (sem principal) não registra:
-        // o AuditLogService pula quando não há ator resolvível.
-        if (req.discountCents > 0) {
+        // Cupom: registra a redenção agora que o pedido tem id, na MESMA transação
+        // (o lock pessimista da validação ainda está ativo -> race-safe).
+        couponApp?.let {
+            couponService.recordRedemption(it.coupon, persisted.id!!, req.customerPhone, it.discountCents)
+        }
+        // Desconto MANUAL aplicado por um operador autenticado é um ato sensível (afeta
+        // o total cobrado) -> auditar. Com cupom, o registro é a própria redenção
+        // (coupon_redemptions). Pedido público (sem principal) não registra: o
+        // AuditLogService pula quando não há ator resolvível.
+        if (couponCode == null && req.discountCents > 0) {
             auditLogService.log(
                 action = "order.discount",
                 entity = "order",

@@ -144,6 +144,22 @@ data class Order(
     /** Taxa de cartão calculada no pagamento, em centavos. */
     @Column(name = "card_fee_cents", nullable = false)
     var cardFeeCents: Long = 0,
+
+    // --- Cupons & Descontos (Fase 3.2) — snapshot do cupom usado na venda ---
+    /** Cupom aplicado ao pedido (Coupon.id no banco do tenant); null se nenhum. */
+    @Column(name = "coupon_id")
+    var couponId: UUID? = null,
+
+    /** Snapshot do código do cupom usado (preserva mesmo que o cupom mude depois). */
+    @Column(name = "coupon_code", length = 50)
+    var couponCode: String? = null,
+
+    /**
+     * Desconto abatido pelo cupom, em centavos. Já está incluído em [discountCents]
+     * (cupom sobrescreve o desconto manual); este campo é o recorte só-do-cupom.
+     */
+    @Column(name = "coupon_discount_cents", nullable = false)
+    var couponDiscountCents: Long = 0,
 ) {
     @PreUpdate
     fun preUpdate() {

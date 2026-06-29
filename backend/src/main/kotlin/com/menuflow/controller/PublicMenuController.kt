@@ -1,5 +1,7 @@
 package com.menuflow.controller
 
+import com.menuflow.dto.ApplyCouponRequest
+import com.menuflow.dto.ApplyCouponResponse
 import com.menuflow.dto.CategoryResponse
 import com.menuflow.dto.OrderCreateRequest
 import com.menuflow.dto.OrderItemRequest
@@ -60,6 +62,8 @@ data class PublicOrderRequest(
     val observations: String? = null,
     /** Telefone p/ receber avisos do pedido por WhatsApp (Fase 2.4); opt-in, opcional. */
     @field:Size(max = 20) val customerPhone: String? = null,
+    /** Cupom de desconto opcional (Fase 3.2); validado/redimido em OrderService.create. */
+    @field:Size(max = 50) val couponCode: String? = null,
 )
 
 data class PublicOrderCreatedResponse(
@@ -75,6 +79,7 @@ class PublicMenuController(
     private val categoryService: CategoryService,
     private val productService: ProductService,
     private val orderService: OrderService,
+    private val couponService: com.menuflow.service.CouponService,
     private val tenantConfigRepository: TenantConfigRepository,
     private val orderItemRepository: OrderItemRepository,
 ) {
@@ -125,6 +130,7 @@ class PublicMenuController(
                 customerPhone = req.customerPhone,
                 notes = notes,
                 paymentMethod = paymentMethod,
+                couponCode = req.couponCode,
                 items = req.items.map {
                     OrderItemRequest(
                         productId = it.productId,
@@ -136,6 +142,26 @@ class PublicMenuController(
             )
             val created = orderService.create(orderReq, null)
             ResponseEntity.ok(PublicOrderCreatedResponse(created.id, created.orderNumber, created.totalCents))
+        } finally {
+            TenantContext.clear()
+        }
+    }
+
+    /**
+     * Pré-checagem pública de cupom (Fase 3.2): o cliente confere o desconto antes de
+     * fechar o pedido. Não persiste nada. Cupom inválido propaga 404/400 com mensagem
+     * (GlobalExceptionHandler). Rate-limited por IP (PublicOrderRateLimitFilter).
+     */
+    @PostMapping("/{tenantSlug}/apply-coupon")
+    fun applyCoupon(
+        @PathVariable tenantSlug: String,
+        @Valid @RequestBody req: ApplyCouponRequest,
+    ): ResponseEntity<ApplyCouponResponse> {
+        if (!tenantRepository.existsBySlug(tenantSlug)) return ResponseEntity.notFound().build()
+        TenantContext.set(tenantSlug)
+        return try {
+            val app = couponService.preview(req.code, req.subtotalCents, req.customerPhone)
+            ResponseEntity.ok(ApplyCouponResponse(valid = true, discountCents = app.discountCents, description = app.description))
         } finally {
             TenantContext.clear()
         }
