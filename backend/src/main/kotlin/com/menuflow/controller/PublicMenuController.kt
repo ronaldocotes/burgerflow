@@ -6,6 +6,7 @@ import com.menuflow.dto.CategoryResponse
 import com.menuflow.dto.OrderCreateRequest
 import com.menuflow.dto.OrderItemRequest
 import com.menuflow.dto.PublicProductResponse
+import com.menuflow.dto.TrackingRedirectResponse
 import com.menuflow.model.OrderType
 import com.menuflow.model.PaymentMethod
 import com.menuflow.repository.control.TenantRepository
@@ -14,7 +15,9 @@ import com.menuflow.repository.tenant.TenantConfigRepository
 import com.menuflow.service.CategoryService
 import com.menuflow.service.OrderService
 import com.menuflow.service.ProductService
+import com.menuflow.service.TrackingService
 import com.menuflow.tenant.TenantContext
+import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.NotBlank
@@ -83,6 +86,7 @@ class PublicMenuController(
     private val campaignService: com.menuflow.service.CampaignService,
     private val tenantConfigRepository: TenantConfigRepository,
     private val orderItemRepository: OrderItemRepository,
+    private val trackingService: TrackingService,
 ) {
     @GetMapping("/{tenantSlug}/menu")
     fun getMenu(@PathVariable tenantSlug: String): ResponseEntity<PublicMenuResponse> {
@@ -166,6 +170,36 @@ class PublicMenuController(
         } finally {
             TenantContext.clear()
         }
+    }
+
+    /**
+     * Clique em link de tracking first-party (Fase 3.6). O cliente abre
+     * https://.../r/{trackingSlug}; o frontend chama este endpoint, que registra o
+     * CLICK (IP anonimizado + user-agent) e devolve a URL de destino. NAO redireciona
+     * server-side (302) — o Next.js gerencia o redirect. Slug invalido/inativo -> 404.
+     * Rate-limited por IP (PublicOrderRateLimitFilter cobre /r/).
+     */
+    @GetMapping("/{tenantSlug}/r/{trackingSlug}")
+    fun trackClick(
+        @PathVariable tenantSlug: String,
+        @PathVariable trackingSlug: String,
+        request: HttpServletRequest,
+    ): ResponseEntity<TrackingRedirectResponse> {
+        if (!tenantRepository.existsBySlug(tenantSlug)) return ResponseEntity.notFound().build()
+        TenantContext.set(tenantSlug)
+        return try {
+            val redirect = trackingService.recordClick(trackingSlug, clientIp(request), request.getHeader("User-Agent"))
+            ResponseEntity.ok(redirect)
+        } finally {
+            TenantContext.clear()
+        }
+    }
+
+    /** IP do cliente: 1o X-Forwarded-For (atras de proxy/LB) ou remoteAddr. */
+    private fun clientIp(request: HttpServletRequest): String? {
+        val xff = request.getHeader("X-Forwarded-For")
+        if (!xff.isNullOrBlank()) return xff.split(",").first().trim()
+        return request.remoteAddr
     }
 
     /**

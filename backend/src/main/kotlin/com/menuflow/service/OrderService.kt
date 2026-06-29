@@ -67,6 +67,7 @@ class OrderService(
     private val auditLogService: AuditLogService,
     private val couponService: CouponService,
     private val cartRecoveryService: CartRecoveryService,
+    private val trackingService: TrackingService,
     private val eventPublisher: org.springframework.context.ApplicationEventPublisher,
 ) {
 
@@ -256,6 +257,11 @@ class OrderService(
         // pagamento e tem telefone, cria a comanda de recuperacao. A insercao roda APOS
         // o commit (FK em orders(id) + nunca pode derrubar o pedido) — o service trata.
         cartRecoveryService.onOrderCreated(persisted)
+        // Tracking first-party (Fase 3.6): se o pedido veio de um link rastreavel,
+        // registra a conversao (receita = total do pedido). O servico trata: insere
+        // APOS o commit (FK em orders(id)) em tx propria, idempotente e fail-safe —
+        // nunca derruba a criacao do pedido.
+        req.trackingLinkId?.let { trackingService.recordConversion(persisted.id!!, it, persisted.totalCents) }
         // Com os itens já persistidos (cada um com id), anexa os complementos
         // (snapshot) e salva em cascata — orderItemId só pode ser preenchido aqui.
         if (optionsByIndex.isNotEmpty()) {

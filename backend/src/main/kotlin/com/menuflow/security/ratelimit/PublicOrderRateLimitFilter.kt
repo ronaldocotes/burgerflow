@@ -30,7 +30,12 @@ class PublicOrderRateLimitFilter(
         val isPublicWrite = request.method == "POST" &&
             uri.contains("/public/") &&
             (uri.endsWith("/orders") || uri.endsWith("/apply-coupon") || uri.endsWith("/whatsapp-opt-out"))
-        return !isPublicWrite
+        // Clique de tracking (Fase 3.6): GET /public/{slug}/r/{trackingSlug} grava um
+        // evento + incrementa o contador a cada hit -> vetor de click-fraud/flood,
+        // limitado por IP como os writes publicos.
+        val isTrackingClick = request.method == "GET" &&
+            uri.contains("/public/") && uri.contains("/r/")
+        return !(isPublicWrite || isTrackingClick)
     }
 
     override fun doFilterInternal(

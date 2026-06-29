@@ -17,6 +17,7 @@ import com.menuflow.model.IdempotencyKey
 import com.menuflow.model.Ingredient
 import com.menuflow.model.LoyaltyReward
 import com.menuflow.model.LoyaltyTransaction
+import com.menuflow.model.MarketingEvent
 import com.menuflow.model.OperatingExpense
 import com.menuflow.model.Order
 import com.menuflow.model.OrderItem
@@ -26,6 +27,7 @@ import com.menuflow.model.Product
 import com.menuflow.model.ProductIngredient
 import com.menuflow.model.RefreshToken
 import com.menuflow.model.TenantConfig
+import com.menuflow.model.TrackingLink
 import com.menuflow.model.WebhookEvent
 import com.menuflow.tenant.DynamicTenantRoutingDataSource
 import com.menuflow.tenant.TenantDataSourceProperties
@@ -103,6 +105,8 @@ class TenantDataSourceConfig {
                 Campaign::class.java,
                 CampaignSend::class.java,
                 CartSession::class.java,
+                TrackingLink::class.java,
+                MarketingEvent::class.java,
             )
             .persistenceUnit("tenant")
             .properties(

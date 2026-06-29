@@ -44,6 +44,12 @@ data class OrderCreateRequest(
      * discountCents manual (anti-fraude: não combina cupom + desconto manual).
      */
     @field:Size(max = 50) val couponCode: String? = null,
+    /**
+     * Link de tracking first-party (Fase 3.6) que originou o pedido, repassado pelo
+     * frontend (query param do cardapio). Quando presente, registra a conversao em
+     * marketing_events apos o pedido ser criado (atribuicao ROAS).
+     */
+    val trackingLinkId: UUID? = null,
 )
 
 data class OrderStatusUpdateRequest(
