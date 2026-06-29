@@ -26,6 +26,7 @@ import {
   Megaphone,
   Link2,
   Zap,
+  Bot,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -71,6 +72,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/tracking',   label: 'Rastreamento',   icon: Link2,     roles: ['ADMIN', 'MANAGER'] },
       { href: '/admin/conversoes', label: 'Conversoes',     icon: Zap,       roles: ['ADMIN', 'MANAGER'] },
       { href: '/admin/carrinhos', label: 'Carrinhos',      icon: ShoppingCart, roles: ['ADMIN', 'MANAGER'] },
+      { href: '/admin/bot',       label: 'Bot WhatsApp',   icon: Bot,          roles: ['ADMIN', 'MANAGER'] },
       { href: '/financeiro/dre', label: 'DRE', icon: BarChart2, roles: ['ADMIN', 'MANAGER'] },
       { href: '/configuracoes',       label: 'Configurações',  icon: Settings },
     ],
