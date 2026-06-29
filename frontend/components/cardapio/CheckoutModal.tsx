@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { Tag, CheckCircle, XCircle } from "lucide-react";
 import { formatBRL } from "@/types/menu";
 import { API_BASE } from "@/lib/api";
 import type { CartLine } from "./types";
+import type { ApplyCouponResponse } from "@/types/coupon";
 
 type PaymentMethod = "CASH" | "PIX" | "CREDIT_CARD" | "DEBIT_CARD";
 
@@ -19,8 +21,8 @@ interface Props {
 const PAYMENT_OPTIONS: { value: PaymentMethod; emoji: string; label: string }[] = [
   { value: "CASH",        emoji: "💵", label: "Dinheiro" },
   { value: "PIX",         emoji: "⚡",      label: "PIX" },
-  { value: "DEBIT_CARD",  emoji: "💳", label: "Débito" },
-  { value: "CREDIT_CARD", emoji: "💳", label: "Crédito" },
+  { value: "DEBIT_CARD",  emoji: "💳", label: "Debito" },
+  { value: "CREDIT_CARD", emoji: "💳", label: "Credito" },
 ];
 
 export function CheckoutModal({
@@ -39,6 +41,12 @@ export function CheckoutModal({
   const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
+  // ── Estado do cupom ─────────────────────────────────────────────────────────
+  const [couponCode, setCouponCode] = useState("");
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<ApplyCouponResponse | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -55,13 +63,48 @@ export function CheckoutModal({
     modalRef.current?.focus();
   }, []);
 
-  const total = cart.reduce(
+  const subtotal = cart.reduce(
     (sum, l) => {
       const linePrice = l.product.effectivePriceCents + (l.options?.reduce((s, o) => s + o.priceCents, 0) ?? 0);
       return sum + linePrice * l.quantity;
     },
     0,
   );
+
+  const discountCents = appliedCoupon?.valid ? appliedCoupon.discountCents : 0;
+  const total = Math.max(0, subtotal - discountCents);
+
+  async function handleApplyCoupon() {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) return;
+    setApplyingCoupon(true);
+    setCouponError(null);
+    setAppliedCoupon(null);
+    try {
+      const res = await fetch(`${API_BASE}/public/${tenantSlug}/apply-coupon`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, subtotalCents: subtotal }),
+      });
+      const data = (await res.json()) as ApplyCouponResponse & { message?: string };
+      if (!res.ok || !data.valid) {
+        const msg = typeof data.message === "string" ? data.message : "Cupom invalido ou expirado.";
+        setCouponError(msg);
+      } else {
+        setAppliedCoupon(data);
+      }
+    } catch {
+      setCouponError("Nao foi possivel verificar o cupom. Tente novamente.");
+    } finally {
+      setApplyingCoupon(false);
+    }
+  }
+
+  function handleRemoveCoupon() {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    setCouponError(null);
+  }
 
   const canSubmit = nome.trim().length > 0 && payment !== null && !sending;
 
@@ -78,6 +121,7 @@ export function CheckoutModal({
           paymentMethod: payment,
           tableLabel: tableLabel ?? undefined,
           observations: obs.trim() || undefined,
+          couponCode: appliedCoupon?.valid ? couponCode.trim().toUpperCase() : undefined,
           items: cart.map((l) => ({
             productId: l.product.id,
             quantity: l.quantity,
@@ -128,7 +172,7 @@ export function CheckoutModal({
               <p className="text-sm text-text-muted mb-2">Pedido #{successOrderId}</p>
             )}
             <p className="text-text-secondary mb-6">
-              Seu pedido foi enviado! Aguarde a preparação.
+              Seu pedido foi enviado! Aguarde a preparacao.
             </p>
             <button onClick={onNewOrder} className="btn-primary w-full min-h-[48px]">
               Novo Pedido
@@ -140,9 +184,21 @@ export function CheckoutModal({
             <h2 className="text-xl font-bold text-text-primary mb-5">Finalizar Pedido</h2>
 
             {/* Total resumo */}
-            <div className="bg-bg-secondary rounded-lg p-3 mb-4 flex justify-between items-center">
-              <span className="text-text-secondary">Total</span>
-              <span className="text-lg font-bold text-text-primary">{formatBRL(total)}</span>
+            <div className="bg-bg-secondary rounded-lg p-3 mb-4">
+              <div className="flex justify-between items-center">
+                <span className="text-text-secondary">Subtotal</span>
+                <span className="font-medium text-text-primary">{formatBRL(subtotal)}</span>
+              </div>
+              {discountCents > 0 && (
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-success text-sm">Desconto ({couponCode.toUpperCase()})</span>
+                  <span className="text-success font-medium">- {formatBRL(discountCents)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center mt-2 pt-2 border-t border-border-light">
+                <span className="text-text-secondary font-medium">Total</span>
+                <span className="text-lg font-bold text-text-primary">{formatBRL(total)}</span>
+              </div>
             </div>
 
             {/* Nome */}
@@ -166,13 +222,13 @@ export function CheckoutModal({
             {/* Observacoes */}
             <div className="form-group">
               <label className="form-label" htmlFor="checkout-obs">
-                Observações{" "}
+                Observacoes{" "}
                 <span className="text-text-muted text-xs">(opcional)</span>
               </label>
               <textarea
                 id="checkout-obs"
                 className="input-field resize-none"
-                placeholder="Ex: sem cebola, bem passado…"
+                placeholder="Ex: sem cebola, bem passado..."
                 rows={2}
                 value={obs}
                 onChange={(e) => setObs(e.target.value)}
@@ -221,7 +277,78 @@ export function CheckoutModal({
               </div>
             )}
 
-            {/* Erro */}
+            {/* Campo de cupom */}
+            <div className="form-group">
+              <label className="form-label" htmlFor="checkout-coupon">
+                <span className="flex items-center gap-1.5">
+                  <Tag className="h-3.5 w-3.5 text-text-muted" aria-hidden="true" />
+                  Tem um cupom? <span className="text-text-muted text-xs">(opcional)</span>
+                </span>
+              </label>
+
+              {appliedCoupon?.valid ? (
+                /* Cupom aplicado — exibe badge de sucesso */
+                <div
+                  className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2.5"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium text-green-700">
+                    <CheckCircle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                    Cupom aplicado: - {formatBRL(appliedCoupon.discountCents)}
+                    {appliedCoupon.description && (
+                      <span className="text-green-600 font-normal">({appliedCoupon.description})</span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleRemoveCoupon}
+                    aria-label="Remover cupom"
+                    className="text-green-600 hover:text-green-800 ml-2 flex-shrink-0"
+                  >
+                    <XCircle className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
+              ) : (
+                /* Campo de entrada do cupom */
+                <div className="flex gap-2">
+                  <input
+                    id="checkout-coupon"
+                    type="text"
+                    className="input-field flex-1 uppercase font-mono"
+                    placeholder="PROMO10"
+                    value={couponCode}
+                    onChange={(e) => {
+                      setCouponCode(e.target.value.toUpperCase());
+                      setCouponError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); void handleApplyCoupon(); }
+                    }}
+                    autoComplete="off"
+                    autoCapitalize="characters"
+                    aria-describedby={couponError ? "coupon-error" : undefined}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { void handleApplyCoupon(); }}
+                    disabled={!couponCode.trim() || applyingCoupon}
+                    className="btn-outline px-4 py-2 min-h-[44px] whitespace-nowrap disabled:opacity-50"
+                  >
+                    {applyingCoupon ? "..." : "Aplicar"}
+                  </button>
+                </div>
+              )}
+
+              {couponError && (
+                <p id="coupon-error" className="text-error text-xs mt-1.5 flex items-center gap-1" role="alert">
+                  <XCircle className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+                  {couponError}
+                </p>
+              )}
+            </div>
+
+            {/* Erro geral */}
             {error && (
               <p className="text-error text-sm mb-4" role="alert">
                 {error}

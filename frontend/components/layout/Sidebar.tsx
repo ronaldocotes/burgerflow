@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import {
+  useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import {
+  usePathname } from 'next/navigation'
+import {
+  Tag,
   ShoppingCart,
   ChefHat,
   LayoutGrid,
@@ -20,8 +23,10 @@ import {
   BarChart2,
   type LucideIcon,
 } from 'lucide-react'
-import { useRestaurantInfo } from '@/lib/use-restaurant-info'
-import { getToken } from '@/lib/auth'
+import {
+  useRestaurantInfo } from '@/lib/use-restaurant-info'
+import {
+  getToken } from '@/lib/auth'
 
 // ── Navegação ─────────────────────────────────────────────────────────────────
 
@@ -54,6 +59,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/cardapio',      label: 'Cardápio admin', icon: Package },
       { href: '/admin/usuarios',      label: 'Usuários',       icon: Users,  roles: ['ADMIN', 'MANAGER'] },
       { href: '/admin/entregadores',  label: 'Entregadores',   icon: Truck,  roles: ['ADMIN', 'MANAGER'] },
+      { href: '/admin/cupons',     label: 'Cupons',         icon: Tag,      roles: ['ADMIN', 'MANAGER'] },
       { href: '/financeiro/dre', label: 'DRE', icon: BarChart2, roles: ['ADMIN', 'MANAGER'] },
       { href: '/configuracoes',       label: 'Configurações',  icon: Settings },
     ],
