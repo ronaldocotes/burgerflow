@@ -25,6 +25,7 @@ import {
   Users2,
   Megaphone,
   Link2,
+  Zap,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -68,6 +69,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/rfv',        label: 'RFV',            icon: Users2,   roles: ['ADMIN', 'MANAGER'] },
       { href: '/admin/campanhas',  label: 'Campanhas',      icon: Megaphone, roles: ['ADMIN', 'MANAGER'] },
       { href: '/admin/tracking',   label: 'Rastreamento',   icon: Link2,     roles: ['ADMIN', 'MANAGER'] },
+      { href: '/admin/conversoes', label: 'Conversoes',     icon: Zap,       roles: ['ADMIN', 'MANAGER'] },
       { href: '/admin/carrinhos', label: 'Carrinhos',      icon: ShoppingCart, roles: ['ADMIN', 'MANAGER'] },
       { href: '/financeiro/dre', label: 'DRE', icon: BarChart2, roles: ['ADMIN', 'MANAGER'] },
       { href: '/configuracoes',       label: 'Configurações',  icon: Settings },
