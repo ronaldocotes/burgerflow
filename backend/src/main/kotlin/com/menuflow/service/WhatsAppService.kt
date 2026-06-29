@@ -69,10 +69,28 @@ class WhatsAppService(
      * telefone -> nao envia (opt-in). Falha -> log + segue (fail-open).
      */
     fun send(event: OrderStatusNotification) {
-        val digits = event.customerPhone?.replace(Regex("[^0-9]"), "").orEmpty()
-        if (digits.isEmpty()) return // opt-in: pedido sem telefone nao notifica
+        dispatch(event.customerPhone, buildMessage(event.kind, event.restaurantName))
+    }
 
-        val text = buildMessage(event.kind, event.restaurantName)
+    /**
+     * Aviso de recompensa de fidelidade desbloqueada (Fase 3.3). Fail-open e opt-in
+     * (sem telefone, nao envia), igual aos demais avisos. Chamado pelo LoyaltyService
+     * APOS o credito ser comitado.
+     */
+    fun sendLoyaltyReward(customerPhone: String?, rewardDescription: String) {
+        dispatch(customerPhone, "🎉 Você ganhou uma recompensa! $rewardDescription")
+    }
+
+    /**
+     * Normaliza o telefone (digitos + DDI 55) e despacha o texto para o WAHA. Sem
+     * telefone -> nao envia (opt-in). Falha -> log + segue (fail-open). Compartilhado
+     * por todos os avisos para garantir a mesma normalizacao e a mesma garantia de
+     * fail-open.
+     */
+    private fun dispatch(customerPhone: String?, text: String) {
+        val digits = customerPhone?.replace(Regex("[^0-9]"), "").orEmpty()
+        if (digits.isEmpty()) return // opt-in: sem telefone nao notifica
+
         val msisdn = if (digits.startsWith("55")) digits else "55$digits"
         val chatId = "$msisdn@c.us"
 
@@ -85,7 +103,7 @@ class WhatsAppService(
                 .toBodilessEntity()
         } catch (e: Exception) {
             // Fail-open: o aviso e best-effort; nunca derruba o fluxo do pedido.
-            log.warn("WhatsApp send failed (kind={}): {}", event.kind, e.message)
+            log.warn("WhatsApp send failed: {}", e.message)
         }
     }
 

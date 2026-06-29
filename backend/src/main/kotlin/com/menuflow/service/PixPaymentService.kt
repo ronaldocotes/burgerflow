@@ -5,6 +5,7 @@ import com.menuflow.client.AsaasCustomerRequest
 import com.menuflow.client.AsaasPaymentRequest
 import com.menuflow.dto.AsaasWebhookBody
 import com.menuflow.dto.PaymentIntentResponse
+import com.menuflow.event.OrderPaidEvent
 import com.menuflow.exception.ConflictException
 import com.menuflow.exception.ResourceNotFoundException
 import com.menuflow.model.PaymentIntent
@@ -16,7 +17,9 @@ import com.menuflow.repository.tenant.OrderRepository
 import com.menuflow.repository.tenant.PaymentIntentRepository
 import com.menuflow.repository.tenant.TenantConfigRepository
 import com.menuflow.repository.tenant.WebhookEventRepository
+import com.menuflow.tenant.TenantContext
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
@@ -45,6 +48,7 @@ class PixPaymentService(
     private val orderRepository: OrderRepository,
     private val configRepository: TenantConfigRepository,
     private val auditLogService: AuditLogService,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val saoPaulo = ZoneId.of("America/Sao_Paulo")
@@ -154,6 +158,20 @@ class PixPaymentService(
             order.paymentStatus = PaymentStatus.PAID
             order.paymentMethod = PaymentMethod.PIX
             orderRepository.save(order)
+
+            // Espinha da Fase 3: pedido ficou PAID via PIX -> publica o fato de
+            // domínio DENTRO desta transação; listeners (fidelidade) consomem
+            // AFTER_COMMIT. tenantSlug do TenantContext (o controller já vinculou o
+            // slug do path) para rotear de volta no db-per-tenant.
+            eventPublisher.publishEvent(
+                OrderPaidEvent(
+                    tenantSlug = TenantContext.getOrThrow(),
+                    orderId = order.id!!,
+                    customerId = order.customerId,
+                    customerPhone = order.customerPhone,
+                    totalCents = order.totalCents,
+                ),
+            )
         }
 
         // Auditoria (pula em silencio se nao houver ator resolvivel — webhook nao

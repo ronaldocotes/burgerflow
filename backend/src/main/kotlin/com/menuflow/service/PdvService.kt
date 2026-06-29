@@ -8,6 +8,7 @@ import com.menuflow.dto.PdvPaymentRequest
 import com.menuflow.exception.BusinessException
 import com.menuflow.exception.ConflictException
 import com.menuflow.exception.ResourceNotFoundException
+import com.menuflow.event.OrderPaidEvent
 import com.menuflow.exception.UnprocessableEntityException
 import com.menuflow.model.CashSessionStatus
 import com.menuflow.model.OrderStatus
@@ -17,6 +18,8 @@ import com.menuflow.model.PdvPaymentMethod
 import com.menuflow.repository.tenant.CashSessionRepository
 import com.menuflow.repository.tenant.OrderRepository
 import com.menuflow.repository.tenant.PaymentRepository
+import com.menuflow.tenant.TenantContext
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -33,6 +36,7 @@ class PdvService(
     private val orderRepository: OrderRepository,
     private val paymentRepository: PaymentRepository,
     private val cashSessionRepository: CashSessionRepository,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     /** Creates a PDV order, delegating to the shared atomic order-creation logic. */
@@ -123,6 +127,20 @@ class PdvService(
         order.status = OrderStatus.DELIVERED
         order.completedAt = Instant.now()
         orderRepository.save(order)
+
+        // Espinha da Fase 3: o pedido acabou de ficar PAID -> publica o fato de
+        // domínio DENTRO desta transação. Os listeners (fidelidade etc.) consomem
+        // APÓS o commit (AFTER_COMMIT). O slug do tenant vem do TenantContext do
+        // token assinado, necessário para rotear de volta no modelo db-per-tenant.
+        eventPublisher.publishEvent(
+            OrderPaidEvent(
+                tenantSlug = TenantContext.getOrThrow(),
+                orderId = order.id!!,
+                customerId = order.customerId,
+                customerPhone = order.customerPhone,
+                totalCents = order.totalCents,
+            ),
+        )
 
         return PaymentResponse.from(payment, order.totalCents)
     }

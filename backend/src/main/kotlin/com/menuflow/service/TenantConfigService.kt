@@ -41,6 +41,11 @@ class TenantConfigService(
         req.marketplaceFeePct?.let { config.marketplaceFeePct = it }
         req.cardFeePct?.let        { config.cardFeePct        = it }
         req.taxPct?.let            { config.taxPct            = it }
+        // Fidelidade (Fase 3.3): omitido (null) preserva; enviado sobrescreve.
+        req.loyaltyEnabled?.let           { config.loyaltyEnabled          = it }
+        req.loyaltyPointsPerReal?.let     { config.loyaltyPointsPerReal    = it }
+        req.loyaltyRewardThreshold?.let   { config.loyaltyRewardThreshold  = it }
+        req.loyaltyRewardDescription?.let { config.loyaltyRewardDescription = it.trim().ifBlank { null } }
         return TenantConfigResponse.from(repository.save(config))
     }
 }

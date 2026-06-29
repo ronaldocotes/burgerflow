@@ -3,6 +3,8 @@ package com.menuflow.dto
 import com.menuflow.model.TenantConfig
 import jakarta.validation.constraints.DecimalMax
 import jakarta.validation.constraints.DecimalMin
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.Size
 import java.math.BigDecimal
 
@@ -23,6 +25,11 @@ data class TenantConfigResponse(
     val marketplaceFeePct: BigDecimal,
     val cardFeePct: BigDecimal,
     val taxPct: BigDecimal,
+    // Programa de Fidelidade (Fase 3.3).
+    val loyaltyEnabled: Boolean,
+    val loyaltyPointsPerReal: Int,
+    val loyaltyRewardThreshold: Int,
+    val loyaltyRewardDescription: String?,
 ) {
     companion object {
         fun from(c: TenantConfig) =
@@ -38,6 +45,10 @@ data class TenantConfigResponse(
                 marketplaceFeePct = c.marketplaceFeePct,
                 cardFeePct        = c.cardFeePct,
                 taxPct            = c.taxPct,
+                loyaltyEnabled            = c.loyaltyEnabled,
+                loyaltyPointsPerReal      = c.loyaltyPointsPerReal,
+                loyaltyRewardThreshold    = c.loyaltyRewardThreshold,
+                loyaltyRewardDescription  = c.loyaltyRewardDescription,
             )
     }
 }
@@ -70,4 +81,12 @@ data class TenantConfigUpdateRequest(
     val cardFeePct: BigDecimal? = null,
     @field:DecimalMin("0.0") @field:DecimalMax("100.0")
     val taxPct: BigDecimal? = null,
+    // Fidelidade (Fase 3.3): omitido (null) = preservar valor atual.
+    val loyaltyEnabled: Boolean? = null,
+    @field:Min(0) @field:Max(1000)
+    val loyaltyPointsPerReal: Int? = null,
+    @field:Min(1) @field:Max(100000)
+    val loyaltyRewardThreshold: Int? = null,
+    @field:Size(max = 200)
+    val loyaltyRewardDescription: String? = null,
 )

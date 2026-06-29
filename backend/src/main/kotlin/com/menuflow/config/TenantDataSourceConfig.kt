@@ -12,6 +12,8 @@ import com.menuflow.model.DriverConfig
 import com.menuflow.model.DriverSettlement
 import com.menuflow.model.IdempotencyKey
 import com.menuflow.model.Ingredient
+import com.menuflow.model.LoyaltyReward
+import com.menuflow.model.LoyaltyTransaction
 import com.menuflow.model.OperatingExpense
 import com.menuflow.model.Order
 import com.menuflow.model.OrderItem
@@ -93,6 +95,8 @@ class TenantDataSourceConfig {
                 OperatingExpense::class.java,
                 Coupon::class.java,
                 CouponRedemption::class.java,
+                LoyaltyTransaction::class.java,
+                LoyaltyReward::class.java,
             )
             .persistenceUnit("tenant")
             .properties(

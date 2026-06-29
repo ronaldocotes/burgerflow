@@ -74,6 +74,23 @@ data class TenantConfig(
     @Column(name = "tax_pct", nullable = false, precision = 5, scale = 2)
     var taxPct: BigDecimal = BigDecimal.ZERO,
 
+    // --- Programa de Fidelidade punch-card (Fase 3.3) ---
+    /** Liga/desliga o programa de fidelidade do restaurante. */
+    @Column(name = "loyalty_enabled", nullable = false)
+    var loyaltyEnabled: Boolean = false,
+
+    /** Pontos creditados por R$1,00 gasto (truncado). */
+    @Column(name = "loyalty_points_per_real", nullable = false)
+    var loyaltyPointsPerReal: Int = 1,
+
+    /** Pontos necessários para desbloquear 1 recompensa (punch). */
+    @Column(name = "loyalty_reward_threshold", nullable = false)
+    var loyaltyRewardThreshold: Int = 100,
+
+    /** Texto da recompensa enviado ao cliente ao desbloquear o punch. */
+    @Column(name = "loyalty_reward_description", length = 200)
+    var loyaltyRewardDescription: String? = "Recompensa desbloqueada!",
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 
