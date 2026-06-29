@@ -3,11 +3,14 @@ package com.menuflow.controller
 import com.menuflow.dto.AiChatRequest
 import com.menuflow.dto.AiChatResponse
 import com.menuflow.dto.AiConversationEntry
+import com.menuflow.dto.AiMetricsResponse
 import com.menuflow.security.SecurityUtils
 import com.menuflow.service.AiConversationService
 import com.menuflow.service.AiCopilotService
+import com.menuflow.service.AiMetricsService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
@@ -29,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController
 class AiController(
     private val copilotService: AiCopilotService,
     private val conversationService: AiConversationService,
+    private val metricsService: AiMetricsService,
 ) {
 
     @PostMapping("/chat")
@@ -53,4 +57,13 @@ class AiController(
     fun deleteHistory(@RequestParam sessionId: String) {
         conversationService.deleteSession(sessionId)
     }
+
+    /**
+     * Painel de observabilidade do Copiloto do restaurante (Fase 4.2). Restrito ao
+     * ADMIN do tenant — metricas de uso/custo/saude sao informacao gerencial. O tenant
+     * vem do principal assinado (JwtAuthFilter ja vinculou o TenantContext).
+     */
+    @GetMapping("/metrics")
+    @PreAuthorize("hasRole('ADMIN')")
+    fun metrics(): AiMetricsResponse = metricsService.metrics()
 }

@@ -1,11 +1,13 @@
 package com.menuflow.service
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.menuflow.client.ChatMessage
 import com.menuflow.client.ChatResponse
 import com.menuflow.client.LiteLLMClient
 import com.menuflow.dto.AiChatResponse
 import com.menuflow.exception.ForbiddenException
 import com.menuflow.exception.TooManyRequestsException
+import com.menuflow.security.ratelimit.AiTenantRateLimiter
 import com.menuflow.tenant.TenantContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -32,6 +34,8 @@ class AiCopilotService(
     private val conversationService: AiConversationService,
     private val usageService: AiUsageService,
     private val tenantConfigService: TenantConfigService,
+    private val aiRateLimiter: AiTenantRateLimiter,
+    private val objectMapper: ObjectMapper,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val zone = ZoneId.of("America/Sao_Paulo")
@@ -59,6 +63,30 @@ class AiCopilotService(
 
             val sid = sessionId?.trim()?.ifBlank { null } ?: UUID.randomUUID().toString()
 
+            // Rate limit por TENANT (anti-monopolio do gateway LiteLLM). Distinto do
+            // rate limit por usuario; uma janela curta (default 20/min) por restaurante.
+            if (!aiRateLimiter.tryAcquire(tenantSlug)) {
+                throw TooManyRequestsException("Muitas solicitacoes simultaneas para este restaurante.")
+            }
+
+            // Guardrail 1 — truncamento: mensagem acima do teto e cortada SILENCIOSAMENTE
+            // (nao lancamos erro; apenas logamos). Protege contexto/custo do LLM.
+            val message = if (userMessage.length > config.aiMaxMessageLength) {
+                log.warn("Mensagem do copiloto truncada de {} para {} chars (tenant {})", userMessage.length, config.aiMaxMessageLength, tenantSlug)
+                userMessage.take(config.aiMaxMessageLength)
+            } else {
+                userMessage
+            }
+
+            // Guardrail 2 — prompt injection: padroes default (hardcoded) + extras do tenant.
+            // Se bater, NAO chama o LLM: registra a tentativa (role='blocked') e devolve a
+            // mensagem padrao de recusa com toolsUsed vazio.
+            if (isBlocked(message, config.aiBlockedPatterns)) {
+                log.warn("Mensagem bloqueada por guardrail de injection (tenant {})", tenantSlug)
+                conversationService.save(sid, "blocked", message)
+                return AiChatResponse(text = BLOCKED_MESSAGE, sessionId = sid, toolsUsed = emptyList(), tokensUsed = 0)
+            }
+
             // Rate limit diario: perguntas (role='user') desde o inicio do dia no fuso do negocio.
             val startOfDay = LocalDate.now(zone).atStartOfDay(zone).toInstant()
             val usedToday = conversationService.countUserMessagesSince(startOfDay)
@@ -68,8 +96,8 @@ class AiCopilotService(
                 )
             }
 
-            // Persiste a pergunta ANTES de chamar o LLM (entra no historico e na contagem diaria).
-            conversationService.save(sid, "user", userMessage)
+            // Persiste a pergunta (ja truncada) ANTES de chamar o LLM (historico + contagem diaria).
+            conversationService.save(sid, "user", message)
 
             // Contexto: prompt de sistema + historico recente (so texto user/assistant; os
             // turnos 'tool' sao intermediarios e nao sao reenviados entre requisicoes).
@@ -100,9 +128,13 @@ class AiCopilotService(
                 // O assistant pediu ferramentas: ecoa o turno e executa cada uma.
                 messages.add(ChatMessage("assistant", response.content, toolCalls = response.toolCalls))
                 for (call in response.toolCalls) {
+                    // Tracing de latencia por ferramenta (persiste latency_ms; o log por-tool
+                    // com o tenant fica dentro de AiToolRegistry.execute).
+                    val start = System.currentTimeMillis()
                     val result = toolRegistry.execute(call.name, call.arguments, actorUserId, userRoles)
+                    val latencyMs = (System.currentTimeMillis() - start).toInt()
                     toolsUsed.add(call.name)
-                    conversationService.save(sid, "tool", content = null, toolName = call.name, toolResult = result)
+                    conversationService.save(sid, "tool", content = null, toolName = call.name, toolResult = result, latencyMs = latencyMs)
                     messages.add(ChatMessage("tool", content = result, toolCallId = call.id))
                 }
             }
@@ -111,7 +143,8 @@ class AiCopilotService(
                 ?: lastResponse?.content?.takeIf { it.isNotBlank() }
                 ?: "Nao consegui concluir a analise agora. Pode reformular a pergunta?"
 
-            conversationService.save(sid, "assistant", text)
+            val totalTokens = promptTokens + completionTokens
+            conversationService.save(sid, "assistant", text, totalTokens = totalTokens.toInt())
 
             // Telemetria de uso (billing) — best-effort: nunca derruba a resposta ao dono.
             try {
@@ -120,9 +153,33 @@ class AiCopilotService(
                 log.warn("Falha ao registrar uso de IA (ignorado): {}", e.message)
             }
 
-            return AiChatResponse(text = text, sessionId = sid, toolsUsed = toolsUsed.distinct())
+            return AiChatResponse(text = text, sessionId = sid, toolsUsed = toolsUsed.distinct(), tokensUsed = totalTokens)
         } finally {
             if (previous != null) TenantContext.set(previous) else TenantContext.clear()
+        }
+    }
+
+    /**
+     * Decide se a mensagem deve ser bloqueada por prompt injection: bate contra os
+     * padroes default (hardcoded) E os extras configurados pelo tenant (JSON array de
+     * regexes). Regex invalida nos extras e ignorada (nunca derruba o fluxo).
+     */
+    private fun isBlocked(message: String, extraPatternsJson: String?): Boolean {
+        if (DEFAULT_BLOCKED_PATTERNS.any { it.containsMatchIn(message) }) return true
+        return parseExtraPatterns(extraPatternsJson).any {
+            runCatching { it.containsMatchIn(message) }.getOrDefault(false)
+        }
+    }
+
+    /** Le o JSON array de regexes extras do tenant; null/vazio/invalido -> lista vazia. */
+    private fun parseExtraPatterns(json: String?): List<Regex> {
+        if (json.isNullOrBlank()) return emptyList()
+        return try {
+            objectMapper.readValue(json, Array<String>::class.java)
+                .mapNotNull { runCatching { Regex(it, RegexOption.IGNORE_CASE) }.getOrNull() }
+        } catch (e: Exception) {
+            log.warn("ai_blocked_patterns invalido (ignorado): {}", e.message)
+            emptyList()
         }
     }
 
@@ -146,5 +203,20 @@ class AiCopilotService(
         /** Teto de rodadas de tool-use por pergunta (guarda contra loop infinito). */
         const val MAX_ITERATIONS = 5
         private val MONTH_FMT = DateTimeFormatter.ofPattern("yyyy-MM")
+
+        /** Resposta padrao quando a mensagem e barrada por guardrail de injection. */
+        const val BLOCKED_MESSAGE = "Não consigo responder a esse tipo de solicitação."
+
+        /**
+         * Padroes de prompt injection bloqueados por padrao (sempre ativos; o tenant
+         * so ACRESCENTA via ai_blocked_patterns). Cobrem jailbreak classico, injecao
+         * de role, extracao de system prompt e escalonamento.
+         */
+        val DEFAULT_BLOCKED_PATTERNS: List<Regex> = listOf(
+            Regex("(?i)ignore.*(previous|above|instruc)"),
+            Regex("(?i)(system|assistant)\\s*:"),
+            Regex("(?i)reveal.*(prompt|instruc|system)"),
+            Regex("(?i)(sudo|root|admin)\\s+(mode|access)"),
+        )
     }
 }

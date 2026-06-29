@@ -36,6 +36,14 @@ data class AiConversation(
     @Column(name = "tool_result", columnDefinition = "text")
     val toolResult: String? = null,
 
+    /** Tempo de execucao da ferramenta em ms (preenchido nas linhas role="tool"; Fase 4.2). */
+    @Column(name = "latency_ms")
+    val latencyMs: Int? = null,
+
+    /** Tokens (prompt+completion) da rodada (preenchido na linha final role="assistant"; Fase 4.2). */
+    @Column(name = "total_tokens")
+    val totalTokens: Int? = null,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 )

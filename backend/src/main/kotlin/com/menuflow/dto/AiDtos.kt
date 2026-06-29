@@ -23,6 +23,62 @@ data class AiChatResponse(
     val text: String,
     val sessionId: String,
     val toolsUsed: List<String>,
+    /** Tokens (prompt+completion) consumidos na resposta. Aditivo (Fase 4.2); 0 quando bloqueado. */
+    val tokensUsed: Long = 0,
+)
+
+// ----------------------------- Observabilidade (Fase 4.2) -----------------------------
+
+/** Metricas de um intervalo (hoje / ultimos 7 dias). */
+data class DayMetrics(
+    val requests: Int,
+    val tokens: Int,
+    val avgTokensPerRequest: Double,
+)
+
+/** Uso de uma ferramenta no periodo (top tools). */
+data class ToolUsageStats(
+    val toolName: String,
+    val callCount: Int,
+    val avgLatencyMs: Long,
+)
+
+/** Painel de observabilidade do Copiloto (GET /ai/metrics, ADMIN do restaurante). */
+data class AiMetricsResponse(
+    val today: DayMetrics,
+    val last7Days: DayMetrics,
+    val topTools: List<ToolUsageStats>,
+    val avgLatencyMs: Long,
+    val blockedRequests: Int,
+)
+
+// ----------------------------- Avaliacao / golden set (Fase 4.2) -----------------------------
+
+/** Pergunta do golden set (GET /ai/golden-set). */
+data class GoldenQuestionResponse(
+    val id: UUID,
+    val question: String,
+    val expectedTools: List<String>,
+    val category: String,
+    val active: Boolean,
+)
+
+/** Resultado da avaliacao de UMA pergunta contra o tenant. */
+data class EvalResult(
+    val question: String,
+    val expectedTools: List<String>,
+    val actualTools: List<String>,
+    val passed: Boolean,
+    val latencyMs: Long,
+    val tokensUsed: Long,
+)
+
+/** Sumario do eval do golden set (POST /ai/eval). */
+data class EvalSummary(
+    val totalQuestions: Int,
+    val passed: Int,
+    val passRate: Double,
+    val results: List<EvalResult>,
 )
 
 /** Entrada do historico de uma sessao (GET /ai/history). */

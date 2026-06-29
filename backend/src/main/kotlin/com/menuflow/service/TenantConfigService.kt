@@ -69,6 +69,9 @@ class TenantConfigService(
         req.aiEnabled?.let      { config.aiEnabled      = it }
         req.aiSystemPrompt?.let { config.aiSystemPrompt = it.trim().ifBlank { null } }
         req.aiDailyLimit?.let   { config.aiDailyLimit   = it }
+        // Hardening do Copiloto (Fase 4.2): omitido (null) preserva; "" limpa os padroes extras.
+        req.aiMaxMessageLength?.let { config.aiMaxMessageLength = it }
+        req.aiBlockedPatterns?.let  { config.aiBlockedPatterns  = it.trim().ifBlank { null } }
         return TenantConfigResponse.from(repository.save(config))
     }
 }

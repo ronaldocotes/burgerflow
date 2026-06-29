@@ -1,10 +1,15 @@
 package com.menuflow.config
 
+import com.menuflow.security.ratelimit.AiTenantRateLimiter
+import com.menuflow.security.ratelimit.InMemoryAiTenantRateLimiter
 import com.menuflow.security.ratelimit.InMemoryLoginRateLimiter
 import com.menuflow.security.ratelimit.LoginRateLimiter
 import com.menuflow.security.ratelimit.PublicOrderRateLimitProperties
 import com.menuflow.security.ratelimit.RateLimitProperties
+import com.menuflow.security.ratelimit.RedisAiTenantRateLimiter
 import com.menuflow.security.ratelimit.RedisLoginRateLimiter
+import org.springframework.beans.factory.ObjectProvider
+import org.springframework.data.redis.core.StringRedisTemplate
 import io.github.bucket4j.distributed.ExpirationAfterWriteStrategy
 import io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager
 import io.lettuce.core.RedisClient
@@ -73,6 +78,36 @@ class RateLimitConfig {
         }
         log.info("Public-order rate limiter: in-memory ({}/{}s per IP)", props.capacity, props.refillPeriodSeconds)
         return InMemoryLoginRateLimiter(props)
+    }
+
+    /**
+     * Rate limiter do Copiloto de IA por TENANT (Fase 4.2). Distinto do Bucket4j (que e
+     * por usuario): impede que um restaurante consuma toda a capacidade do LiteLLM.
+     *  - backend=redis -> contador compartilhado (INCR+EXPIRE) via StringRedisTemplate;
+     *  - qualquer outro (default) -> contador em memoria (dev/test, zero dependencia).
+     * StringRedisTemplate vem por ObjectProvider para nao forcar a criacao do bean (e
+     * do Redis) quando o backend e memory.
+     */
+    @Bean
+    fun aiTenantRateLimiter(
+        stringRedisTemplate: ObjectProvider<StringRedisTemplate>,
+        @org.springframework.beans.factory.annotation.Value("\${menuflow.ai.rate-limit.backend:memory}")
+        backend: String,
+        @org.springframework.beans.factory.annotation.Value("\${menuflow.ai.rate-limit.tenant-limit:20}")
+        limit: Int,
+        @org.springframework.beans.factory.annotation.Value("\${menuflow.ai.rate-limit.window-seconds:60}")
+        windowSeconds: Long,
+    ): AiTenantRateLimiter {
+        if (backend.equals("redis", ignoreCase = true)) {
+            val redis = stringRedisTemplate.ifAvailable
+            if (redis != null) {
+                log.info("AI tenant rate limiter: redis ({}/{}s per tenant)", limit, windowSeconds)
+                return RedisAiTenantRateLimiter(redis, limit, windowSeconds)
+            }
+            log.warn("AI tenant rate limiter: StringRedisTemplate ausente, usando in-memory")
+        }
+        log.info("AI tenant rate limiter: in-memory ({}/{}s per tenant)", limit, windowSeconds)
+        return InMemoryAiTenantRateLimiter(limit, windowSeconds)
     }
 
     private fun redisLimiter(props: RateLimitProperties, redisProps: RedisProperties): LoginRateLimiter {

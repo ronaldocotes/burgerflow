@@ -53,6 +53,9 @@ data class TenantConfigResponse(
     val aiEnabled: Boolean,
     val aiSystemPrompt: String?,
     val aiDailyLimit: Int,
+    // Hardening do Copiloto (Fase 4.2).
+    val aiMaxMessageLength: Int,
+    val aiBlockedPatterns: String?,
 ) {
     companion object {
         fun from(c: TenantConfig) =
@@ -90,6 +93,8 @@ data class TenantConfigResponse(
                 aiEnabled                 = c.aiEnabled,
                 aiSystemPrompt            = c.aiSystemPrompt,
                 aiDailyLimit              = c.aiDailyLimit,
+                aiMaxMessageLength        = c.aiMaxMessageLength,
+                aiBlockedPatterns         = c.aiBlockedPatterns,
             )
     }
 }
@@ -168,4 +173,9 @@ data class TenantConfigUpdateRequest(
     val aiSystemPrompt: String? = null,
     @field:Min(1) @field:Max(1000)
     val aiDailyLimit: Int? = null,
+    // Hardening do Copiloto (Fase 4.2): omitido (null) = preservar valor atual.
+    @field:Min(100) @field:Max(10000)
+    val aiMaxMessageLength: Int? = null,
+    @field:Size(max = 4000)
+    val aiBlockedPatterns: String? = null,
 )

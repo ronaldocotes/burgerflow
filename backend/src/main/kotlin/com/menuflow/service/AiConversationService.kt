@@ -19,7 +19,15 @@ class AiConversationService(
 ) {
 
     @Transactional("tenantTransactionManager")
-    fun save(sessionId: String, role: String, content: String?, toolName: String? = null, toolResult: String? = null): AiConversation =
+    fun save(
+        sessionId: String,
+        role: String,
+        content: String?,
+        toolName: String? = null,
+        toolResult: String? = null,
+        latencyMs: Int? = null,
+        totalTokens: Int? = null,
+    ): AiConversation =
         repository.save(
             AiConversation(
                 sessionId = sessionId,
@@ -27,6 +35,8 @@ class AiConversationService(
                 content = content,
                 toolName = toolName,
                 toolResult = toolResult,
+                latencyMs = latencyMs,
+                totalTokens = totalTokens,
             ),
         )
 

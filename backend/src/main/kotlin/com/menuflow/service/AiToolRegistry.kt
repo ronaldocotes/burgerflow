@@ -14,6 +14,7 @@ import com.menuflow.repository.tenant.LoyaltyRewardRepository
 import com.menuflow.repository.tenant.LoyaltyTransactionRepository
 import com.menuflow.repository.tenant.OrderItemRepository
 import com.menuflow.repository.tenant.OrderRepository
+import com.menuflow.tenant.TenantContext
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -125,24 +126,33 @@ class AiToolRegistry(
      * autenticado (ator das acoes/auditoria); [userRoles] decide a autorizacao das
      * ferramentas de acao. Retorna SEMPRE um JSON-string (resultado ou erro tratado).
      */
-    fun execute(name: String, args: Map<String, Any?>, actorUserId: UUID?, userRoles: List<String>): String = try {
-        when (name) {
-            "get_dre" -> getDre(argStr(args, "period") ?: "current_month")
-            "get_top_products" -> getTopProducts(argInt(args, "limit") ?: 5, argStr(args, "period") ?: "current_month")
-            "get_rfv_summary" -> getRfvSummary()
-            "get_recent_orders" -> getRecentOrders(argInt(args, "limit") ?: 10)
-            "get_loyalty_stats" -> getLoyaltyStats()
-            "get_abandoned_carts" -> getAbandonedCarts()
-            "get_customers_at_risk" -> getCustomersAtRisk(argInt(args, "limit") ?: 10)
-            "create_coupon" -> createCoupon(args, actorUserId, userRoles)
-            "schedule_campaign" -> scheduleCampaign(args, userRoles)
-            else -> json(mapOf("error" to "Ferramenta desconhecida: $name"))
+    fun execute(name: String, args: Map<String, Any?>, actorUserId: UUID?, userRoles: List<String>): String {
+        // Tracing de latencia por ferramenta (Fase 4.2): mede o tempo de execucao e loga
+        // com o tenant corrente (do TenantContext assinado). O latency_ms persistido fica
+        // a cargo do AiCopilotService (que tem a sessao/role da mensagem).
+        val start = System.currentTimeMillis()
+        val tenantSlug = TenantContext.get() ?: "?"
+        val result = try {
+            when (name) {
+                "get_dre" -> getDre(argStr(args, "period") ?: "current_month")
+                "get_top_products" -> getTopProducts(argInt(args, "limit") ?: 5, argStr(args, "period") ?: "current_month")
+                "get_rfv_summary" -> getRfvSummary()
+                "get_recent_orders" -> getRecentOrders(argInt(args, "limit") ?: 10)
+                "get_loyalty_stats" -> getLoyaltyStats()
+                "get_abandoned_carts" -> getAbandonedCarts()
+                "get_customers_at_risk" -> getCustomersAtRisk(argInt(args, "limit") ?: 10)
+                "create_coupon" -> createCoupon(args, actorUserId, userRoles)
+                "schedule_campaign" -> scheduleCampaign(args, userRoles)
+                else -> json(mapOf("error" to "Ferramenta desconhecida: $name"))
+            }
+        } catch (e: Exception) {
+            // Erro de ferramenta NUNCA derruba a conversa: devolve a mensagem ao LLM, que
+            // explica ao dono. (Ex.: cupom duplicado -> BusinessException com texto util.)
+            log.warn("Falha na ferramenta {}: {}", name, e.message)
+            json(mapOf("error" to (e.message ?: "Falha ao executar $name")))
         }
-    } catch (e: Exception) {
-        // Erro de ferramenta NUNCA derruba a conversa: devolve a mensagem ao LLM, que
-        // explica ao dono. (Ex.: cupom duplicado -> BusinessException com texto util.)
-        log.warn("Falha na ferramenta {}: {}", name, e.message)
-        json(mapOf("error" to (e.message ?: "Falha ao executar $name")))
+        log.info("AI tool {} took {}ms for tenant {}", name, System.currentTimeMillis() - start, tenantSlug)
+        return result
     }
 
     // ----------------------------- Ferramentas de consulta -----------------------------

@@ -174,6 +174,19 @@ data class TenantConfig(
     @Column(name = "ai_daily_limit", nullable = false)
     var aiDailyLimit: Int = 30,
 
+    // --- Hardening do Copiloto: guardrails de prompt injection (Fase 4.2) ---
+    /** Teto de caracteres da mensagem do dono; acima disso truncamos silenciosamente. */
+    @Column(name = "ai_max_message_length", nullable = false)
+    var aiMaxMessageLength: Int = 2000,
+
+    /**
+     * JSON array de regexes EXTRAS bloqueados por este restaurante. Os padroes default
+     * (jailbreak classico, injecao de role, extracao de prompt, escalonamento) sao
+     * hardcoded na aplicacao; esta coluna apenas acrescenta. Null/vazio = so os default.
+     */
+    @Column(name = "ai_blocked_patterns", columnDefinition = "text")
+    var aiBlockedPatterns: String? = null,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 
