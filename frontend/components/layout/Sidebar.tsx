@@ -66,6 +66,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/cupons',     label: 'Cupons',         icon: Tag,      roles: ['ADMIN', 'MANAGER'] },
       { href: '/admin/rfv',        label: 'RFV',            icon: Users2,   roles: ['ADMIN', 'MANAGER'] },
       { href: '/admin/campanhas',  label: 'Campanhas',      icon: Megaphone, roles: ['ADMIN', 'MANAGER'] },
+      { href: '/admin/carrinhos', label: 'Carrinhos',      icon: ShoppingCart, roles: ['ADMIN', 'MANAGER'] },
       { href: '/financeiro/dre', label: 'DRE', icon: BarChart2, roles: ['ADMIN', 'MANAGER'] },
       { href: '/configuracoes',       label: 'Configurações',  icon: Settings },
     ],
