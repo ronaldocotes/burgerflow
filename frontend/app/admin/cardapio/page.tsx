@@ -103,10 +103,13 @@ export default function AdminCardapioPage() {
   const [productForm, setProductForm] = useState(EMPTY_PRODUCT);
   const [categoryForm, setCategoryForm] = useState(EMPTY_CATEGORY);
   const [ingredientForm, setIngredientForm] = useState(EMPTY_INGREDIENT);
+  const [categoryFormOpen, setCategoryFormOpen] = useState(false);
+  const [ingredientFormOpen, setIngredientFormOpen] = useState(false);
   const [availability, setAvailability] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [mobileFormOpen, setMobileFormOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ path: string; label: string } | null>(null);
+  const productDialogTitleId = useId();
   const isXl = useSyncExternalStore(subscribeToXl, getIsXlSnapshot, getServerIsXlSnapshot);
 
   const load = useCallback(async () => {
@@ -142,6 +145,15 @@ export default function AdminCardapioPage() {
     });
   }, [load, router]);
 
+  useEffect(() => {
+    if (!mobileFormOpen) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setMobileFormOpen(false);
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [mobileFormOpen]);
+
   const activeProducts = useMemo(() => products.filter((p) => p.active), [products]);
   const activeCategories = useMemo(() => categories.filter((c) => c.active), [categories]);
   const activeIngredients = useMemo(() => ingredients.filter((i) => i.active), [ingredients]);
@@ -149,6 +161,47 @@ export default function AdminCardapioPage() {
   function resetProduct() {
     setProductForm({ ...EMPTY_PRODUCT, categoryId: activeCategories[0]?.id || "" });
     setAvailability([]);
+  }
+
+  function startNewProduct() {
+    resetProduct();
+    if (!isXl) setMobileFormOpen(true);
+  }
+
+  function startNewCategory() {
+    setCategoryForm(EMPTY_CATEGORY);
+    setCategoryFormOpen(true);
+  }
+
+  function editCategory(category: Category) {
+    setCategoryForm({
+      id: category.id,
+      name: category.name,
+      description: category.description,
+      displayOrder: category.displayOrder,
+      colorCode: category.colorCode ?? "",
+      iconUrl: category.iconUrl ?? "",
+    });
+    setCategoryFormOpen(true);
+  }
+
+  function startNewIngredient() {
+    setIngredientForm(EMPTY_INGREDIENT);
+    setIngredientFormOpen(true);
+  }
+
+  function editIngredient(ingredient: Ingredient) {
+    setIngredientForm({
+      id: ingredient.id,
+      name: ingredient.name,
+      description: ingredient.description,
+      unit: ingredient.unit,
+      unitCostCents: ingredient.unitCostCents,
+      stockQuantity: ingredient.stockQuantity,
+      minStock: ingredient.minStock,
+      isAllergen: ingredient.isAllergen,
+    });
+    setIngredientFormOpen(true);
   }
 
   async function editProduct(product: Product) {
@@ -230,6 +283,7 @@ export default function AdminCardapioPage() {
         : await api.post<Category>("/categories", body);
       setNotice({ type: "success", message: "Categoria salva." });
       setCategoryForm(EMPTY_CATEGORY);
+      setCategoryFormOpen(false);
       await load();
     } catch (err) {
       setNotice({ type: "error", message: err instanceof ApiError ? err.message : "Erro ao salvar categoria." });
@@ -256,6 +310,7 @@ export default function AdminCardapioPage() {
         : await api.post<Ingredient>("/ingredients", body);
       setNotice({ type: "success", message: "Insumo salvo." });
       setIngredientForm(EMPTY_INGREDIENT);
+      setIngredientFormOpen(false);
       await load();
     } catch (err) {
       setNotice({ type: "error", message: err instanceof ApiError ? err.message : "Erro ao salvar insumo." });
@@ -343,7 +398,7 @@ export default function AdminCardapioPage() {
           <Metric icon={ImagePlus} label="Com imagem" value={activeProducts.filter((p) => p.imageUrl).length} note={`de ${activeProducts.length}`} />
         </section>
 
-        <div role="tablist" aria-label="Seções do cardápio" className="flex gap-2 overflow-x-auto border-b border-border-light">
+        <div role="tablist" aria-label="Seções do cardápio" className="grid grid-cols-3 gap-1 border-b border-border-light sm:flex sm:gap-2 sm:overflow-x-auto">
           <TabButton active={tab === "products"} onClick={() => setTab("products")} icon={Package} label="Produtos" />
           <TabButton active={tab === "categories"} onClick={() => setTab("categories")} icon={Layers3} label="Categorias" />
           <TabButton active={tab === "ingredients"} onClick={() => setTab("ingredients")} icon={Wheat} label="Insumos" />
@@ -370,137 +425,147 @@ export default function AdminCardapioPage() {
             {tab === "products" && (
               <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
                 <section className="overflow-hidden rounded-lg bg-bg-primary shadow-card">
-                  <TableHeader title="Produtos" actionLabel="Novo produto" onAction={() => { resetProduct(); if (!isXl) setMobileFormOpen(true); }} />
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-bg-secondary text-left text-xs uppercase text-text-muted">
-                        <tr>
-                          <th scope="col" className="px-4 py-3">Produto</th>
-                          <th scope="col" className="px-4 py-3">Categoria</th>
-                          <th scope="col" className="px-4 py-3">Preço</th>
-                          <th scope="col" className="px-4 py-3">Status</th>
-                          <th scope="col" className="px-4 py-3 text-right">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border-light">
-                        {activeProducts.length === 0 && (
-                          <tr>
-                            <td colSpan={5} className="px-4 py-8 text-center text-sm text-text-muted">
-                              Nenhum produto cadastrado. Clique em &ldquo;Novo produto&rdquo; para começar.
-                            </td>
-                          </tr>
-                        )}
+                  <TableHeader title="Produtos" actionLabel="Novo produto" onAction={startNewProduct} />
+                  {activeProducts.length === 0 ? (
+                    <p className="px-4 py-8 text-center text-sm text-text-muted">
+                      Nenhum produto cadastrado. Clique em &ldquo;Novo produto&rdquo; para começar.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="grid gap-3 p-3 md:hidden">
                         {activeProducts.map((product) => (
-                          <tr key={product.id} className="hover:bg-bg-secondary/70">
-                            <td className="px-4 py-3">
-                              <button className="text-left font-semibold text-text-primary hover:text-primary-700 hover:underline" onClick={() => void editProduct(product)}>
-                                {product.name}
-                              </button>
-                              <p className="text-xs text-text-muted">{product.sku}</p>
-                            </td>
-                            <td className="px-4 py-3 text-text-secondary">
-                              {categories.find((c) => c.id === product.categoryId)?.name ?? "-"}
-                            </td>
-                            <td className="px-4 py-3 text-text-primary">{formatBRL(product.effectivePriceCents)}</td>
-                            <td className="px-4 py-3">
-                              {product.isAvailable ? (
-                                <span className="inline-flex items-center gap-1 text-success">
-                                  <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />Disponível
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-error">
-                                  <XCircle className="h-3.5 w-3.5" aria-hidden="true" />Indisponível
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <div className="inline-flex gap-1">
-                                <button className="icon-button" aria-label={`Editar ${product.name}`} onClick={() => void editProduct(product)}>
-                                  <Pencil className="h-4 w-4" aria-hidden="true" />
-                                </button>
-                                <button className="icon-button text-error" aria-label={`Remover ${product.name}`} onClick={() => void remove(`/products/${product.id}`, "produto")}>
-                                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
+                          <ProductMobileCard
+                            key={product.id}
+                            product={product}
+                            categoryName={categories.find((c) => c.id === product.categoryId)?.name ?? "-"}
+                            onEdit={() => void editProduct(product)}
+                            onDelete={() => void remove(`/products/${product.id}`, "produto")}
+                          />
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      </div>
+                      <div className="hidden overflow-x-auto md:block">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-bg-secondary text-left text-xs uppercase text-text-muted">
+                            <tr>
+                              <th scope="col" className="px-4 py-3">Produto</th>
+                              <th scope="col" className="px-4 py-3">Categoria</th>
+                              <th scope="col" className="px-4 py-3">Preço</th>
+                              <th scope="col" className="px-4 py-3">Status</th>
+                              <th scope="col" className="px-4 py-3 text-right">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border-light">
+                            {activeProducts.map((product) => (
+                              <tr key={product.id} className="hover:bg-bg-secondary/70">
+                                <td className="px-4 py-3">
+                                  <button className="text-left font-semibold text-text-primary hover:text-primary-700 hover:underline" onClick={() => void editProduct(product)}>
+                                    {product.name}
+                                  </button>
+                                  <p className="text-xs text-text-muted">{product.sku}</p>
+                                </td>
+                                <td className="px-4 py-3 text-text-secondary">
+                                  {categories.find((c) => c.id === product.categoryId)?.name ?? "-"}
+                                </td>
+                                <td className="px-4 py-3 text-text-primary">{formatBRL(product.effectivePriceCents)}</td>
+                                <td className="px-4 py-3">
+                                  <AvailabilityBadge available={product.isAvailable} />
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <div className="inline-flex gap-1">
+                                    <button className="icon-button" aria-label={`Editar ${product.name}`} onClick={() => void editProduct(product)}>
+                                      <Pencil className="h-4 w-4" aria-hidden="true" />
+                                    </button>
+                                    <button className="icon-button text-error" aria-label={`Remover ${product.name}`} onClick={() => void remove(`/products/${product.id}`, "produto")}>
+                                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
                 </section>
 
-                <ProductForm
-                  form={productForm}
-                  categories={activeCategories}
-                  availability={availability}
-                  saving={saving}
-                  uploading={uploading}
-                  onSubmit={saveProduct}
-                  onUpload={uploadImage}
-                  setForm={setProductForm}
-                  setAvailability={setAvailability}
-                />
+                <div className="hidden xl:block xl:sticky xl:top-6 xl:self-start">
+                  <ProductForm
+                    form={productForm}
+                    categories={activeCategories}
+                    availability={availability}
+                    saving={saving}
+                    uploading={uploading}
+                    onSubmit={saveProduct}
+                    onUpload={uploadImage}
+                    setForm={setProductForm}
+                    setAvailability={setAvailability}
+                  />
+                </div>
               </div>
             )}
 
             {tab === "categories" && (
-              <CrudPanel title="Categorias" actionLabel="Nova categoria" onNew={() => setCategoryForm(EMPTY_CATEGORY)}>
-                <form onSubmit={saveCategory} className="grid gap-3 rounded-lg bg-bg-primary p-4 shadow-card sm:grid-cols-2">
-                  <TextInput label="Nome" value={categoryForm.name} onChange={(v) => setCategoryForm((p) => ({ ...p, name: v }))} required />
-                  <NumberInput label="Ordem" value={categoryForm.displayOrder} onChange={(v) => setCategoryForm((p) => ({ ...p, displayOrder: v }))} />
-                  <label className="grid gap-1 text-sm font-medium text-text-secondary">
-                    Cor
-                    <div className="flex items-center gap-2">
-                      <input type="color" value={categoryForm.colorCode || "#047857"} onChange={(e) => setCategoryForm((p) => ({ ...p, colorCode: e.target.value }))} className="h-10 w-14 cursor-pointer rounded border border-border-medium" />
-                      <span className="text-sm text-text-muted">{categoryForm.colorCode}</span>
-                    </div>
-                  </label>
-                  <TextInput label="Ícone/URL" value={categoryForm.iconUrl} onChange={(v) => setCategoryForm((p) => ({ ...p, iconUrl: v }))} />
-                  <TextArea label="Descrição" value={categoryForm.description} onChange={(v) => setCategoryForm((p) => ({ ...p, description: v }))} />
-                  <SubmitButton saving={saving} editing={!!categoryForm.id} />
-                </form>
+              <CrudPanel title="Categorias" actionLabel="Nova categoria" onNew={startNewCategory}>
+                {categoryFormOpen && (
+                  <form onSubmit={saveCategory} className="grid gap-3 rounded-lg bg-bg-primary p-4 shadow-card sm:grid-cols-2">
+                    <TextInput label="Nome" value={categoryForm.name} onChange={(v) => setCategoryForm((p) => ({ ...p, name: v }))} required />
+                    <NumberInput label="Ordem" value={categoryForm.displayOrder} onChange={(v) => setCategoryForm((p) => ({ ...p, displayOrder: v }))} />
+                    <label className="grid gap-1 text-sm font-medium text-text-secondary">
+                      Cor
+                      <div className="flex items-center gap-2">
+                        <input type="color" value={categoryForm.colorCode || "#047857"} onChange={(e) => setCategoryForm((p) => ({ ...p, colorCode: e.target.value }))} className="h-10 w-14 cursor-pointer rounded border border-border-medium" />
+                        <span className="text-sm text-text-muted">{categoryForm.colorCode}</span>
+                      </div>
+                    </label>
+                    <TextInput label="Ícone/URL" value={categoryForm.iconUrl} onChange={(v) => setCategoryForm((p) => ({ ...p, iconUrl: v }))} />
+                    <TextArea label="Descrição" value={categoryForm.description} onChange={(v) => setCategoryForm((p) => ({ ...p, description: v }))} />
+                    <FormActions saving={saving} editing={!!categoryForm.id} onCancel={() => { setCategoryForm(EMPTY_CATEGORY); setCategoryFormOpen(false); }} />
+                  </form>
+                )}
                 <ListItems
                   items={activeCategories}
                   title={(c) => c.name}
                   subtitle={(c) => c.description || `Ordem ${c.displayOrder}`}
-                  onEdit={(c) => setCategoryForm({ id: c.id, name: c.name, description: c.description, displayOrder: c.displayOrder, colorCode: c.colorCode ?? "", iconUrl: c.iconUrl ?? "" })}
+                  onEdit={editCategory}
                   onDelete={(c) => void remove(`/categories/${c.id}`, "categoria")}
                 />
               </CrudPanel>
             )}
 
             {tab === "ingredients" && (
-              <CrudPanel title="Insumos" actionLabel="Novo insumo" onNew={() => setIngredientForm(EMPTY_INGREDIENT)}>
-                <form onSubmit={saveIngredient} className="grid gap-3 rounded-lg bg-bg-primary p-4 shadow-card sm:grid-cols-2 lg:grid-cols-3">
-                  <TextInput label="Nome" value={ingredientForm.name} onChange={(v) => setIngredientForm((p) => ({ ...p, name: v }))} required />
-                  <label className="grid gap-1 text-sm font-medium text-text-secondary">
-                    Unidade
-                    <select className="input" value={ingredientForm.unit} onChange={(e) => setIngredientForm((p) => ({ ...p, unit: e.target.value }))}>
-                      <option value="UNIT">UN (unidade)</option>
-                      <option value="GRAM">Grama</option>
-                      <option value="KILOGRAM">Kg</option>
-                      <option value="LITER">Litro</option>
-                      <option value="ML">ml</option>
-                      <option value="BOX">Caixa</option>
-                      <option value="PACK">Pacote</option>
-                    </select>
-                  </label>
-                  <MoneyInput label="Custo unitário" cents={ingredientForm.unitCostCents} onChange={(v) => setIngredientForm((p) => ({ ...p, unitCostCents: v }))} />
-                  <DecimalInput label="Estoque" value={ingredientForm.stockQuantity} onChange={(v) => setIngredientForm((p) => ({ ...p, stockQuantity: v }))} />
-                  <DecimalInput label="Estoque mínimo" value={ingredientForm.minStock} onChange={(v) => setIngredientForm((p) => ({ ...p, minStock: v }))} />
-                  <label className="flex min-h-6 items-center gap-2 text-sm leading-5 text-text-secondary">
-                    <input type="checkbox" checked={ingredientForm.isAllergen} onChange={(e) => setIngredientForm((p) => ({ ...p, isAllergen: e.target.checked }))} />
-                    Alérgeno
-                  </label>
-                  <TextArea label="Descrição" value={ingredientForm.description} onChange={(v) => setIngredientForm((p) => ({ ...p, description: v }))} />
-                  <SubmitButton saving={saving} editing={!!ingredientForm.id} />
-                </form>
+              <CrudPanel title="Insumos" actionLabel="Novo insumo" onNew={startNewIngredient}>
+                {ingredientFormOpen && (
+                  <form onSubmit={saveIngredient} className="grid gap-3 rounded-lg bg-bg-primary p-4 shadow-card sm:grid-cols-2 lg:grid-cols-3">
+                    <TextInput label="Nome" value={ingredientForm.name} onChange={(v) => setIngredientForm((p) => ({ ...p, name: v }))} required />
+                    <label className="grid gap-1 text-sm font-medium text-text-secondary">
+                      Unidade
+                      <select className="input" value={ingredientForm.unit} onChange={(e) => setIngredientForm((p) => ({ ...p, unit: e.target.value }))}>
+                        <option value="UNIT">UN (unidade)</option>
+                        <option value="GRAM">Grama</option>
+                        <option value="KILOGRAM">Kg</option>
+                        <option value="LITER">Litro</option>
+                        <option value="ML">ml</option>
+                        <option value="BOX">Caixa</option>
+                        <option value="PACK">Pacote</option>
+                      </select>
+                    </label>
+                    <MoneyInput label="Custo unitário" cents={ingredientForm.unitCostCents} onChange={(v) => setIngredientForm((p) => ({ ...p, unitCostCents: v }))} />
+                    <DecimalInput label="Estoque" value={ingredientForm.stockQuantity} onChange={(v) => setIngredientForm((p) => ({ ...p, stockQuantity: v }))} />
+                    <DecimalInput label="Estoque mínimo" value={ingredientForm.minStock} onChange={(v) => setIngredientForm((p) => ({ ...p, minStock: v }))} />
+                    <label className="flex min-h-6 items-center gap-2 text-sm leading-5 text-text-secondary">
+                      <input type="checkbox" checked={ingredientForm.isAllergen} onChange={(e) => setIngredientForm((p) => ({ ...p, isAllergen: e.target.checked }))} />
+                      Alérgeno
+                    </label>
+                    <TextArea label="Descrição" value={ingredientForm.description} onChange={(v) => setIngredientForm((p) => ({ ...p, description: v }))} />
+                    <FormActions saving={saving} editing={!!ingredientForm.id} onCancel={() => { setIngredientForm(EMPTY_INGREDIENT); setIngredientFormOpen(false); }} />
+                  </form>
+                )}
                 <ListItems
                   items={activeIngredients}
                   title={(i) => i.name}
                   subtitle={(i) => `${i.stockQuantity} ${i.unit} · ${formatBRL(i.unitCostCents)}`}
-                  onEdit={(i) => setIngredientForm({ id: i.id, name: i.name, description: i.description, unit: i.unit, unitCostCents: i.unitCostCents, stockQuantity: i.stockQuantity, minStock: i.minStock, isAllergen: i.isAllergen })}
+                  onEdit={editIngredient}
                   onDelete={(i) => void remove(`/ingredients/${i.id}`, "insumo")}
                 />
               </CrudPanel>
@@ -511,10 +576,15 @@ export default function AdminCardapioPage() {
 
       {/* Overlay de formulário de produto — tablet (<xl) */}
       {mobileFormOpen && (
-        <div className="xl:hidden fixed inset-0 z-50 overflow-y-auto bg-bg-secondary">
-          <div className="mx-auto max-w-lg px-4 py-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-text-primary">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-bg-secondary xl:hidden">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={productDialogTitleId}
+            className="mx-auto min-h-full max-w-lg px-4 py-6"
+          >
+            <div className="sticky top-0 z-10 mb-4 flex items-center justify-between bg-bg-secondary py-2">
+              <h2 id={productDialogTitleId} className="text-lg font-bold text-text-primary">
                 {productForm.id ? "Editar produto" : "Novo produto"}
               </h2>
               <button
@@ -587,10 +657,68 @@ function Metric({ icon: Icon, label, value, note }: { icon: LucideIcon; label: s
 
 function TabButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: LucideIcon; label: string }) {
   return (
-    <button role="tab" aria-selected={active} onClick={onClick} className={["inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold", active ? "border-b-2 border-primary-700 text-primary-700" : "text-text-secondary"].join(" ")}>
+    <button role="tab" aria-selected={active} onClick={onClick} className={["inline-flex min-w-0 items-center justify-center gap-1 px-2 py-3 text-sm font-semibold sm:gap-2 sm:px-4", active ? "border-b-2 border-primary-700 text-primary-700" : "text-text-secondary"].join(" ")}>
       <Icon className="h-4 w-4" aria-hidden="true" />
-      {label}
+      <span className="truncate">{label}</span>
     </button>
+  );
+}
+
+function AvailabilityBadge({ available }: { available: boolean }) {
+  return available ? (
+    <span className="inline-flex items-center gap-1 text-success">
+      <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
+      Disponível
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 text-error">
+      <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
+      Indisponível
+    </span>
+  );
+}
+
+function ProductMobileCard({
+  product,
+  categoryName,
+  onEdit,
+  onDelete,
+}: {
+  product: Product;
+  categoryName: string;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <article className="overflow-hidden rounded-lg border border-border-light bg-bg-primary p-4">
+      <div className="flex flex-col gap-2 min-[360px]:flex-row min-[360px]:items-start min-[360px]:justify-between">
+        <button className="w-full min-w-0 text-left min-[360px]:flex-1" onClick={onEdit}>
+          <h3 className="truncate text-sm font-semibold text-text-primary">{product.name}</h3>
+          <p className="truncate text-xs text-text-muted">{product.sku || "Sem SKU"}</p>
+        </button>
+        <span className="shrink-0 self-start whitespace-nowrap text-xs">
+          <AvailabilityBadge available={product.isAvailable} />
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+        <div className="min-w-0">
+          <p className="text-xs uppercase text-text-muted">Categoria</p>
+          <p className="truncate font-medium text-text-secondary">{categoryName}</p>
+        </div>
+        <div className="min-w-0 text-right">
+          <p className="text-xs uppercase text-text-muted">Preço</p>
+          <p className="truncate font-semibold text-text-primary">{formatBRL(product.effectivePriceCents)}</p>
+        </div>
+      </div>
+      <div className="mt-3 flex justify-end gap-2">
+        <button className="icon-button h-11 w-11" aria-label={`Editar ${product.name}`} onClick={onEdit}>
+          <Pencil className="h-4 w-4" aria-hidden="true" />
+        </button>
+        <button className="icon-button h-11 w-11 text-error" aria-label={`Remover ${product.name}`} onClick={onDelete}>
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -717,6 +845,17 @@ function SubmitButton({ saving, editing }: { saving: boolean; editing: boolean }
       <Save className="h-4 w-4" aria-hidden="true" />
       {saving ? "Salvando..." : editing ? "Salvar alterações" : "Criar"}
     </button>
+  );
+}
+
+function FormActions({ saving, editing, onCancel }: { saving: boolean; editing: boolean; onCancel: () => void }) {
+  return (
+    <div className="flex flex-col gap-2 sm:col-span-full sm:flex-row">
+      <SubmitButton saving={saving} editing={editing} />
+      <button type="button" className="btn-secondary inline-flex items-center justify-center" onClick={onCancel} disabled={saving}>
+        Cancelar
+      </button>
+    </div>
   );
 }
 

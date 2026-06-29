@@ -41,6 +41,8 @@ type Page<T> = {
   totalElements: number
 }
 
+type PageOrList<T> = Page<T> | T[]
+
 // ── Constantes ───────────────────────────────────────────────────────────────
 
 const ROLES = ['ADMIN', 'MANAGER', 'CASHIER', 'STAFF', 'KITCHEN', 'WAITER'] as const
@@ -402,6 +404,107 @@ function ModalEditarPapel({
 
 type Notice = { type: 'success' | 'error'; message: string } | null
 
+function pageContent<T>(value: PageOrList<T>): T[] {
+  return Array.isArray(value) ? value : value.content
+}
+
+function UserMobileCard({
+  user,
+  isMe,
+  isAdmin,
+  onlyAdmin,
+  toggling,
+  onEdit,
+  onToggle,
+}: {
+  user: UserResponse
+  isMe: boolean
+  isAdmin: boolean
+  onlyAdmin: boolean
+  toggling: boolean
+  onEdit: () => void
+  onToggle: () => void
+}) {
+  const disableToggle = onlyAdmin && user.isActive
+
+  return (
+    <article className="rounded-lg border border-border-light bg-bg-primary p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-semibold text-text-primary">
+            {fullName(user)}
+            {isMe && <span className="ml-1 text-xs font-normal text-text-muted">(voce)</span>}
+          </h3>
+          <p className="truncate text-xs text-text-muted">{user.email}</p>
+        </div>
+        <div className="shrink-0">{roleBadge(user.role)}</div>
+      </div>
+
+      <dl className="mt-4 grid gap-3 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-xs font-semibold uppercase text-text-muted">Status</dt>
+          <dd>
+            {user.isActive ? (
+              <span className="inline-flex items-center gap-1 text-success">
+                <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                Ativo
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-text-muted">
+                <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                Inativo
+              </span>
+            )}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-xs font-semibold uppercase text-text-muted">Ultimo acesso</dt>
+          <dd className="text-right text-text-secondary">{formatDate(user.lastLoginAt)}</dd>
+        </div>
+      </dl>
+
+      {isAdmin && (
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <button
+            className="btn-outline inline-flex min-h-11 flex-1 items-center justify-center gap-2 text-sm"
+            onClick={onEdit}
+          >
+            <Pencil className="h-4 w-4" aria-hidden="true" />
+            Editar papel
+          </button>
+          <button
+            className={[
+              'relative inline-flex h-11 w-16 shrink-0 items-center rounded-full px-1 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-700',
+              user.isActive ? 'bg-primary-700' : 'bg-bg-tertiary',
+              disableToggle ? 'cursor-not-allowed opacity-40' : '',
+            ].join(' ')}
+            aria-checked={user.isActive}
+            aria-label={
+              disableToggle
+                ? 'Unico administrador — nao pode ser inativado'
+                : user.isActive
+                ? `Inativar ${fullName(user)}`
+                : `Ativar ${fullName(user)}`
+            }
+            role="switch"
+            disabled={disableToggle || toggling}
+            onClick={onToggle}
+            title={disableToggle ? 'Unico administrador' : undefined}
+          >
+            <span
+              className={[
+                'inline-block h-8 w-8 transform rounded-full bg-white shadow transition-transform',
+                user.isActive ? 'translate-x-6' : 'translate-x-0',
+              ].join(' ')}
+              aria-hidden="true"
+            />
+          </button>
+        </div>
+      )}
+    </article>
+  )
+}
+
 export default function UsuariosPage() {
   const router = useRouter()
 
@@ -417,10 +520,15 @@ export default function UsuariosPage() {
   const [editTarget,       setEditTarget]       = useState<UserResponse | null>(null)
   const [userError,        setUserError]        = useState<string | null>(null)
   const [inviteError,      setInviteError]      = useState<string | null>(null)
+  const [auth,             setAuth]             = useState({
+    ready: false,
+    hasToken: false,
+    role: null as string | null,
+    userId: null as string | null,
+  })
 
-  const token    = typeof window !== 'undefined' ? getToken() : null
-  const myRole   = decodeRole(token)
-  const myUserId = decodeUserId(token)
+  const myRole   = auth.role
+  const myUserId = auth.userId
   const isAdmin  = myRole === 'ADMIN'
 
   const activeAdmins = users.filter((u) => u.role === 'ADMIN' && u.isActive)
@@ -430,8 +538,8 @@ export default function UsuariosPage() {
     setLoadingUsers(true)
     setUserError(null)
     try {
-      const res = await api.get<Page<UserResponse>>('/users?size=200')
-      setUsers(res.content)
+      const res = await api.get<PageOrList<UserResponse>>('/users?size=200')
+      setUsers(pageContent(res))
     } catch (err) {
       setUserError(err instanceof ApiError ? err.message : 'Erro ao carregar usuarios.')
     } finally {
@@ -443,8 +551,8 @@ export default function UsuariosPage() {
     setLoadingInvites(true)
     setInviteError(null)
     try {
-      const res = await api.get<Page<InviteResponse>>('/invitations?size=100')
-      setInvites(res.content.filter((i) => i.status === 'PENDING'))
+      const res = await api.get<PageOrList<InviteResponse>>('/invitations?size=100')
+      setInvites(pageContent(res).filter((i) => i.status === 'PENDING'))
     } catch (err) {
       setInviteError(err instanceof ApiError ? err.message : 'Erro ao carregar convites.')
     } finally {
@@ -453,10 +561,29 @@ export default function UsuariosPage() {
   }, [])
 
   useEffect(() => {
-    if (!getToken()) { router.replace('/login'); return }
-    void loadUsers()
-    if (isAdmin) void loadInvites()
-  }, [loadUsers, loadInvites, router, isAdmin])
+    queueMicrotask(() => {
+      const token = getToken()
+      if (!token) {
+        router.replace('/login')
+        return
+      }
+      setAuth({
+        ready: true,
+        hasToken: true,
+        role: decodeRole(token),
+        userId: decodeUserId(token),
+      })
+    })
+  }, [router])
+
+  useEffect(() => {
+    if (!auth.ready || !auth.hasToken) return
+    queueMicrotask(() => {
+      void loadUsers()
+      if (auth.role === 'ADMIN') void loadInvites()
+      else setLoadingInvites(false)
+    })
+  }, [auth.ready, auth.hasToken, auth.role, loadUsers, loadInvites])
 
   async function toggleStatus(user: UserResponse) {
     if (isOnlyAdmin(user) && user.isActive) return
@@ -543,8 +670,39 @@ export default function UsuariosPage() {
               <button className="btn-outline mt-2" onClick={() => void loadUsers()}>Tentar novamente</button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm" aria-label="Lista de usuarios">
+            <>
+              <div className="grid gap-3 p-4 md:hidden">
+                {loadingUsers ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="h-40 animate-pulse rounded-lg bg-bg-tertiary" />
+                  ))
+                ) : users.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-text-muted">
+                    Nenhum usuario cadastrado.
+                  </p>
+                ) : (
+                  users.map((user) => {
+                    const onlyAdmin = isOnlyAdmin(user)
+                    const isMe = user.id === myUserId
+                    const toggling = togglingId === user.id
+                    return (
+                      <UserMobileCard
+                        key={user.id}
+                        user={user}
+                        isMe={isMe}
+                        isAdmin={isAdmin}
+                        onlyAdmin={onlyAdmin}
+                        toggling={toggling}
+                        onEdit={() => setEditTarget(user)}
+                        onToggle={() => void toggleStatus(user)}
+                      />
+                    )
+                  })
+                )}
+              </div>
+
+              <div className="hidden overflow-x-auto md:block">
+                <table className="min-w-full text-sm" aria-label="Lista de usuarios">
                 <thead className="bg-bg-secondary text-left text-xs uppercase text-text-muted">
                   <tr>
                     <th scope="col" className="px-4 py-3">Nome</th>
@@ -645,8 +803,9 @@ export default function UsuariosPage() {
                     })}
                   </tbody>
                 )}
-              </table>
-            </div>
+                </table>
+              </div>
+            </>
           )}
         </section>
 

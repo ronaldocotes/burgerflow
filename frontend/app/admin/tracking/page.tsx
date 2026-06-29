@@ -46,13 +46,17 @@ function getPeriodRange(
   fromCustom: string,
   toCustom: string,
 ): { from: string; to: string } {
-  if (period === 'custom') return { from: fromCustom, to: toCustom }
+  const startOfDay = (date: string) => new Date(`${date}T00:00:00`).toISOString()
+  const endOfDay = (date: string) => new Date(`${date}T23:59:59.999`).toISOString()
+
+  if (period === 'custom') {
+    return { from: startOfDay(fromCustom), to: endOfDay(toCustom) }
+  }
   const days = period === '7d' ? 7 : period === '30d' ? 30 : 90
   const to = new Date()
   const from = new Date()
   from.setDate(from.getDate() - days)
-  const fmt = (d: Date) => d.toISOString().split('T')[0]
-  return { from: fmt(from), to: fmt(to) }
+  return { from: from.toISOString(), to: to.toISOString() }
 }
 
 // ── Badge ─────────────────────────────────────────────────────────────────────
@@ -371,7 +375,7 @@ export default function TrackingPage() {
     const range = getPeriodRange(p, from, to)
     try {
       const data = await api.get<TrackingSummaryResponse[]>(
-        `/tracking/summary?from=${range.from}&to=${range.to}`,
+        `/tracking/summary?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`,
       )
       const sorted = [...data].sort((a, b) => b.revenueCents - a.revenueCents)
       setSummaryList(sorted)
@@ -382,7 +386,9 @@ export default function TrackingPage() {
   }, [])
 
   useEffect(() => {
-    void loadSummary(period, fromDate, toDate)
+    queueMicrotask(() => {
+      void loadSummary(period, fromDate, toDate)
+    })
   }, [loadSummary, period, fromDate, toDate])
 
   // ── Carregar links ────────────────────────────────────────────────────────
@@ -401,7 +407,9 @@ export default function TrackingPage() {
   }, [])
 
   useEffect(() => {
-    void loadLinks(0)
+    queueMicrotask(() => {
+      void loadLinks(0)
+    })
   }, [loadLinks])
 
   // ── Acoes ─────────────────────────────────────────────────────────────────

@@ -76,6 +76,13 @@ const CHART_COLORS = ['#047857', '#F59E0B', '#3B82F6', '#EF4444', '#8B5CF6', '#E
 type ToastType = 'success' | 'error'
 interface ToastState { id: number; message: string; type: ToastType }
 
+interface OperatingExpensePage {
+  content: OperatingExpenseResponse[]
+  totalElements: number
+  totalPages: number
+  number: number
+}
+
 function useToast() {
   const [toasts, setToasts] = useState<ToastState[]>([])
   const counter = useRef(0)
@@ -628,8 +635,9 @@ function ExpensesSection({ showToast }: { showToast: (msg: string, type: ToastTy
   const load = useCallback(async () => {
     setLoadState('loading')
     try {
-      const data = await api.get<OperatingExpenseResponse[]>('/operating-expenses')
-      setExpenses(data)
+      const data = await api.get<OperatingExpensePage>('/operating-expenses?size=500')
+      setExpenses(data.content)
+      setPage(0)
       setLoadState('ok')
     } catch {
       setLoadState('error')
@@ -637,7 +645,9 @@ function ExpensesSection({ showToast }: { showToast: (msg: string, type: ToastTy
   }, [])
 
   useEffect(() => {
-    void load()
+    queueMicrotask(() => {
+      void load()
+    })
   }, [load])
 
   async function handleDelete(id: string, label: string) {
@@ -851,14 +861,18 @@ export default function DrePage() {
       router.replace('/login')
       return
     }
-    void loadDre(period)
+    if (period === 'custom') {
+      queueMicrotask(() => setLoadState('idle'))
+      return
+    }
+    queueMicrotask(() => {
+      void loadDre(period)
+    })
   }, [period, isAuthenticated, router, loadDre])
 
   function handlePeriodChange(p: DrePeriod) {
     setPeriod(p)
-    if (p !== 'custom') {
-      void loadDre(p)
-    } else {
+    if (p === 'custom') {
       setLoadState('idle')
     }
   }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { api } from './api'
+import { api, TOKEN_KEY } from './api'
 
 interface TenantConfig {
   restaurantName: string | null
@@ -22,6 +22,10 @@ export function useRestaurantInfo(): RestaurantInfo {
   })
 
   useEffect(() => {
+    const token =
+      typeof window !== 'undefined' ? window.localStorage.getItem(TOKEN_KEY) : null
+    if (!token) return
+
     api
       .get<TenantConfig>('/config')
       .then((cfg) =>

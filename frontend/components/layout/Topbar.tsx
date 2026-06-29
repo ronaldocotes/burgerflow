@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { LogOut, ChevronDown, Menu } from 'lucide-react'
 import { logout, getToken } from '@/lib/auth'
@@ -69,13 +69,19 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const router = useRouter()
   const { restaurantName } = useRestaurantInfo()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [payload, setPayload] = useState<JwtPayload | null>(null)
 
-  const token = typeof window !== 'undefined' ? getToken() : null
-  const payload = token ? decodeJwtPayload(token) : null
   const roleLabel = getRoleLabel(payload)
   const email = payload?.email ?? payload?.sub ?? ''
   const title = routeTitle(pathname)
   const initial = (email[0] ?? 'U').toUpperCase()
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      const token = getToken()
+      setPayload(token ? decodeJwtPayload(token) : null)
+    })
+  }, [pathname])
 
   const handleLogout = () => {
     setMenuOpen(false)

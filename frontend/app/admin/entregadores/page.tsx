@@ -270,6 +270,87 @@ function ModalConfigurarRemuneracao({
 
 type Notice = { type: 'success' | 'error'; message: string } | null
 
+function DriverMobileCard({
+  driver,
+  config,
+  settlement,
+  onConfig,
+  onSettlements,
+}: {
+  driver: DeliveryDriverResponse
+  config?: DriverConfigResponse
+  settlement?: DriverSettlementResponse
+  onConfig: () => void
+  onSettlements: () => void
+}) {
+  return (
+    <article className="rounded-lg border border-border-light bg-bg-primary p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-semibold text-text-primary">{driver.name}</h3>
+          <p className="truncate text-xs text-text-muted">{driver.phone ?? 'Sem telefone'}</p>
+        </div>
+        {driver.isActive ? (
+          <span className="shrink-0 rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-semibold text-success">
+            Ativo
+          </span>
+        ) : (
+          <span className="shrink-0 rounded-full bg-bg-tertiary px-2.5 py-0.5 text-xs font-semibold text-text-muted">
+            Inativo
+          </span>
+        )}
+      </div>
+
+      <dl className="mt-4 grid gap-3 text-sm">
+        <div>
+          <dt className="text-xs font-semibold uppercase text-text-muted">Remuneracao</dt>
+          <dd className="mt-1 text-text-secondary">
+            {config ? (
+              <>
+                {centsToDisplay(config.dailyRateCents)}/dia
+                {config.perDeliveryCents > 0 && (
+                  <> · {centsToDisplay(config.perDeliveryCents)}/entrega</>
+                )}
+              </>
+            ) : (
+              'Nao configurado'
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs font-semibold uppercase text-text-muted">Acerto atual</dt>
+          <dd className="mt-1">
+            {settlement ? (
+              <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                Em aberto
+              </span>
+            ) : (
+              <span className="text-text-muted">Sem acerto aberto</span>
+            )}
+          </dd>
+        </div>
+      </dl>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button
+          className="btn-outline inline-flex min-h-11 items-center justify-center gap-2 text-sm"
+          onClick={onConfig}
+        >
+          <Settings2 className="h-4 w-4" aria-hidden="true" />
+          Remuneracao
+        </button>
+        <button
+          className="btn-secondary inline-flex min-h-11 items-center justify-center gap-2 text-sm"
+          onClick={onSettlements}
+        >
+          Acertos
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
+    </article>
+  )
+}
+
 export default function EntregadoresPage() {
   const router = useRouter()
 
@@ -327,7 +408,9 @@ export default function EntregadoresPage() {
 
   useEffect(() => {
     if (!getToken()) { router.replace('/login'); return }
-    void loadDrivers()
+    queueMicrotask(() => {
+      void loadDrivers()
+    })
   }, [loadDrivers, router])
 
   return (
@@ -373,8 +456,32 @@ export default function EntregadoresPage() {
               </button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm" aria-label="Lista de entregadores">
+            <>
+              <div className="grid gap-3 p-4 md:hidden">
+                {loading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="h-36 animate-pulse rounded-lg bg-bg-tertiary" />
+                  ))
+                ) : drivers.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-text-muted">
+                    Nenhum entregador cadastrado.
+                  </p>
+                ) : (
+                  drivers.map((driver) => (
+                    <DriverMobileCard
+                      key={driver.id}
+                      driver={driver}
+                      config={configs[driver.id]}
+                      settlement={settlements[driver.id]}
+                      onConfig={() => setConfigTarget(driver)}
+                      onSettlements={() => router.push(`/admin/entregadores/${driver.id}/acertos`)}
+                    />
+                  ))
+                )}
+              </div>
+
+              <div className="hidden overflow-x-auto md:block">
+                <table className="min-w-full text-sm" aria-label="Lista de entregadores">
                 <thead className="bg-bg-secondary text-left text-xs uppercase text-text-muted">
                   <tr>
                     <th scope="col" className="px-4 py-3">Nome</th>
@@ -464,8 +571,9 @@ export default function EntregadoresPage() {
                     })}
                   </tbody>
                 )}
-              </table>
-            </div>
+                </table>
+              </div>
+            </>
           )}
         </section>
       </main>
