@@ -36,6 +36,11 @@ data class TenantConfigResponse(
     val campaignDailyLimit: Int,
     val campaignDelayMinSeconds: Int,
     val campaignDelayMaxSeconds: Int,
+    // Recuperacao de carrinho abandonado (Fase 3.5).
+    val cartRecoveryEnabled: Boolean,
+    val cartRecoveryDelayMinutes: Int,
+    val cartRecoveryMessage: String?,
+    val cartRecoveryExpiryHours: Int,
 ) {
     companion object {
         fun from(c: TenantConfig) =
@@ -60,6 +65,10 @@ data class TenantConfigResponse(
                 campaignDailyLimit        = c.campaignDailyLimit,
                 campaignDelayMinSeconds   = c.campaignDelayMinSeconds,
                 campaignDelayMaxSeconds   = c.campaignDelayMaxSeconds,
+                cartRecoveryEnabled       = c.cartRecoveryEnabled,
+                cartRecoveryDelayMinutes  = c.cartRecoveryDelayMinutes,
+                cartRecoveryMessage       = c.cartRecoveryMessage,
+                cartRecoveryExpiryHours   = c.cartRecoveryExpiryHours,
             )
     }
 }
@@ -111,4 +120,12 @@ data class TenantConfigUpdateRequest(
     val campaignDelayMinSeconds: Int? = null,
     @field:Min(0) @field:Max(3600)
     val campaignDelayMaxSeconds: Int? = null,
+    // Recuperacao de carrinho abandonado (Fase 3.5): omitido (null) = preservar valor atual.
+    val cartRecoveryEnabled: Boolean? = null,
+    @field:Min(1) @field:Max(1440)
+    val cartRecoveryDelayMinutes: Int? = null,
+    @field:Size(max = 1000)
+    val cartRecoveryMessage: String? = null,
+    @field:Min(1) @field:Max(168)
+    val cartRecoveryExpiryHours: Int? = null,
 )

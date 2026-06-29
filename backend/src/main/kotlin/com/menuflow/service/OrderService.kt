@@ -66,6 +66,7 @@ class OrderService(
     private val realtimePublisher: com.menuflow.service.RealtimePublisher,
     private val auditLogService: AuditLogService,
     private val couponService: CouponService,
+    private val cartRecoveryService: CartRecoveryService,
     private val eventPublisher: org.springframework.context.ApplicationEventPublisher,
 ) {
 
@@ -251,6 +252,10 @@ class OrderService(
                 after = mapOf("discountCents" to req.discountCents),
             )
         }
+        // Recuperacao de carrinho abandonado (Fase 3.5): se o pedido nasceu pendente de
+        // pagamento e tem telefone, cria a comanda de recuperacao. A insercao roda APOS
+        // o commit (FK em orders(id) + nunca pode derrubar o pedido) — o service trata.
+        cartRecoveryService.onOrderCreated(persisted)
         // Com os itens já persistidos (cada um com id), anexa os complementos
         // (snapshot) e salva em cascata — orderItemId só pode ser preenchido aqui.
         if (optionsByIndex.isNotEmpty()) {

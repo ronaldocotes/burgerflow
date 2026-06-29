@@ -52,6 +52,11 @@ class TenantConfigService(
         req.campaignDailyLimit?.let      { config.campaignDailyLimit      = it }
         req.campaignDelayMinSeconds?.let { config.campaignDelayMinSeconds = it }
         req.campaignDelayMaxSeconds?.let { config.campaignDelayMaxSeconds = it }
+        // Recuperacao de carrinho abandonado (Fase 3.5): omitido (null) preserva; enviado sobrescreve.
+        req.cartRecoveryEnabled?.let      { config.cartRecoveryEnabled      = it }
+        req.cartRecoveryDelayMinutes?.let { config.cartRecoveryDelayMinutes = it }
+        req.cartRecoveryMessage?.let      { config.cartRecoveryMessage      = it.trim().ifBlank { null } }
+        req.cartRecoveryExpiryHours?.let  { config.cartRecoveryExpiryHours  = it }
         return TenantConfigResponse.from(repository.save(config))
     }
 }

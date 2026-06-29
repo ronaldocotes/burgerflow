@@ -115,6 +115,24 @@ data class TenantConfig(
     @Column(name = "campaign_delay_max_seconds", nullable = false)
     var campaignDelayMaxSeconds: Int = 45,
 
+    // --- Recuperacao de carrinho abandonado (Fase 3.5) ---
+    /** Liga/desliga a recuperacao de carrinho abandonado. */
+    @Column(name = "cart_recovery_enabled", nullable = false)
+    var cartRecoveryEnabled: Boolean = false,
+
+    /** Atraso (minutos) apos a criacao do pedido antes de mandar a mensagem. */
+    @Column(name = "cart_recovery_delay_minutes", nullable = false)
+    var cartRecoveryDelayMinutes: Int = 30,
+
+    /** Mensagem de recuperacao com placeholders {nome}, {total} e {link}. */
+    @Column(name = "cart_recovery_message", columnDefinition = "text")
+    var cartRecoveryMessage: String? =
+        "🛒 Olá {nome}! Você deixou itens no carrinho. Que tal finalizar seu pedido de {total}? Acesse: {link}",
+
+    /** Prazo (horas) para o carrinho expirar sem pagamento (nao envia mais depois). */
+    @Column(name = "cart_recovery_expiry_hours", nullable = false)
+    var cartRecoveryExpiryHours: Int = 2,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 

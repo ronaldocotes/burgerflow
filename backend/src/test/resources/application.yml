@@ -20,3 +20,9 @@ menuflow:
   asaas:
     reconcile:
       enabled: false
+  # Job de recuperacao de carrinho desligado nos testes (o @Scheduled nao deve disparar
+  # contra o Postgres compartilhado). Delays de envio em 0 -> sem espera no processAbandonedCarts.
+  cart-recovery:
+    enabled: false
+    send-delay-min-seconds: 0
+    send-delay-max-seconds: 0
