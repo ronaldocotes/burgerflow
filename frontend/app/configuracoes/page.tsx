@@ -12,6 +12,11 @@ interface TenantConfig {
   marketplaceFeePct?: number;
   cardFeePct?: number;
   taxPct?: number;
+  wahaPrimaryPhone?: string;
+  wahaFallbackPhone?: string;
+  campaignDailyLimit?: number;
+  campaignDelayMinSeconds?: number;
+  campaignDelayMaxSeconds?: number;
 }
 
 // ── Toast simples ─────────────────────────────────────────────────────────────
@@ -182,6 +187,14 @@ export default function ConfiguracoesPage() {
   const [cardFeePct, setCardFeePct] = useState("");
   const [taxPct, setTaxPct] = useState("");
 
+  // Campos WhatsApp Marketing
+  const [wahaPrimaryPhone,       setWahaPrimaryPhone]       = useState("");
+  const [wahaFallbackPhone,      setWahaFallbackPhone]      = useState("");
+  const [campaignDailyLimit,     setCampaignDailyLimit]     = useState("");
+  const [campaignDelayMin,       setCampaignDelayMin]       = useState("");
+  const [campaignDelayMax,       setCampaignDelayMax]       = useState("");
+  const [savingWaha,             setSavingWaha]             = useState(false);
+
   const isAuthenticated = typeof window === "undefined" || !!getToken();
 
   const load = useCallback(async () => {
@@ -192,6 +205,11 @@ export default function ConfiguracoesPage() {
       setMarketplaceFeePct(data.marketplaceFeePct?.toString() ?? "0");
       setCardFeePct(data.cardFeePct?.toString() ?? "0");
       setTaxPct(data.taxPct?.toString() ?? "0");
+      setWahaPrimaryPhone(data.wahaPrimaryPhone ?? "");
+      setWahaFallbackPhone(data.wahaFallbackPhone ?? "");
+      setCampaignDailyLimit(data.campaignDailyLimit?.toString() ?? "100");
+      setCampaignDelayMin(data.campaignDelayMinSeconds?.toString() ?? "5");
+      setCampaignDelayMax(data.campaignDelayMaxSeconds?.toString() ?? "30");
       setLoadState("ok");
     } catch {
       setLoadState("error");
@@ -224,6 +242,28 @@ export default function ConfiguracoesPage() {
       showToast(msg, "error");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSaveWaha(e: React.FormEvent) {
+    e.preventDefault();
+    if (savingWaha) return;
+    const body = {
+      wahaPrimaryPhone:       wahaPrimaryPhone.trim() || undefined,
+      wahaFallbackPhone:      wahaFallbackPhone.trim() || undefined,
+      campaignDailyLimit:     Number.parseInt(campaignDailyLimit) || 100,
+      campaignDelayMinSeconds: Number.parseInt(campaignDelayMin) || 5,
+      campaignDelayMaxSeconds: Number.parseInt(campaignDelayMax) || 30,
+    };
+    setSavingWaha(true);
+    try {
+      await api.patch<TenantConfig>("/config", body);
+      showToast("WhatsApp salvo", "success");
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Erro ao salvar configuracoes WhatsApp.";
+      showToast(msg, "error");
+    } finally {
+      setSavingWaha(false);
     }
   }
 
@@ -376,6 +416,137 @@ export default function ConfiguracoesPage() {
                         />
                       )}
                       {savingTaxes ? "Salvando..." : "Salvar taxas"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+
+            {/* Secao: WhatsApp Marketing */}
+            <section aria-labelledby="secao-whatsapp">
+              <h3
+                id="secao-whatsapp"
+                className="mb-3 text-sm font-semibold uppercase tracking-wider text-text-secondary"
+              >
+                WhatsApp Marketing
+              </h3>
+
+              <div className="rounded-2xl bg-bg-primary p-6 shadow-card">
+                <p className="mb-5 text-sm text-text-secondary">
+                  Configuracoes do canal WhatsApp usado nas campanhas de marketing.
+                </p>
+
+                <form onSubmit={(e) => void handleSaveWaha(e)} className="space-y-5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <label htmlFor="waha-primary" className="text-sm font-semibold text-text-primary">
+                        Numero principal
+                      </label>
+                      <p className="mt-0.5 text-sm text-text-secondary">Numero usado para enviar as campanhas.</p>
+                    </div>
+                    <input
+                      id="waha-primary"
+                      type="tel"
+                      value={wahaPrimaryPhone}
+                      onChange={(e) => setWahaPrimaryPhone(e.target.value)}
+                      disabled={savingWaha}
+                      placeholder="+55 (91) 99999-9999"
+                      className="input-field w-52 disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div className="border-t border-border-light" role="separator" />
+
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <label htmlFor="waha-fallback" className="text-sm font-semibold text-text-primary">
+                        Numero reserva <span className="font-normal text-text-muted">(opcional)</span>
+                      </label>
+                      <p className="mt-0.5 text-sm text-text-secondary">Usado caso o principal falhe.</p>
+                    </div>
+                    <input
+                      id="waha-fallback"
+                      type="tel"
+                      value={wahaFallbackPhone}
+                      onChange={(e) => setWahaFallbackPhone(e.target.value)}
+                      disabled={savingWaha}
+                      placeholder="+55 (91) 99999-9999"
+                      className="input-field w-52 disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div className="border-t border-border-light" role="separator" />
+
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <label htmlFor="campaign-daily-limit" className="text-sm font-semibold text-text-primary">
+                        Limite diario de envios
+                      </label>
+                      <p className="mt-0.5 text-sm text-text-secondary">Maximo de mensagens por dia.</p>
+                    </div>
+                    <input
+                      id="campaign-daily-limit"
+                      type="number"
+                      min="1"
+                      max="10000"
+                      value={campaignDailyLimit}
+                      onChange={(e) => setCampaignDailyLimit(e.target.value)}
+                      disabled={savingWaha}
+                      className="input-field w-24 text-right disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div className="border-t border-border-light" role="separator" />
+
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <label className="text-sm font-semibold text-text-primary">
+                        Delay entre mensagens (seg)
+                      </label>
+                      <p className="mt-0.5 text-sm text-text-secondary">
+                        Intervalo minimo e maximo entre cada envio.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="campaign-delay-min"
+                        type="number"
+                        min="1"
+                        max="300"
+                        value={campaignDelayMin}
+                        onChange={(e) => setCampaignDelayMin(e.target.value)}
+                        disabled={savingWaha}
+                        aria-label="Delay minimo em segundos"
+                        className="input-field w-20 text-right disabled:opacity-50"
+                      />
+                      <span className="text-sm text-text-muted">a</span>
+                      <input
+                        id="campaign-delay-max"
+                        type="number"
+                        min="1"
+                        max="300"
+                        value={campaignDelayMax}
+                        onChange={(e) => setCampaignDelayMax(e.target.value)}
+                        disabled={savingWaha}
+                        aria-label="Delay maximo em segundos"
+                        className="input-field w-20 text-right disabled:opacity-50"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="submit"
+                      disabled={savingWaha}
+                      className="btn-primary flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {savingWaha && (
+                        <span
+                          className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
+                          aria-hidden="true"
+                        />
+                      )}
+                      {savingWaha ? "Salvando..." : "Salvar WhatsApp"}
                     </button>
                   </div>
                 </form>
