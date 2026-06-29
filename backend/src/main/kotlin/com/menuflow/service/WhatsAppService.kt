@@ -107,6 +107,39 @@ class WhatsAppService(
         }
     }
 
+    /**
+     * Envio de mensagem de CAMPANHA (Fase 3.4). Diferente de [send]/[dispatch]
+     * (fail-open silencioso): aqui RETORNAMOS o resultado (true=enviou, false=falhou)
+     * para o CampaignDispatcher registrar SENT/FAILED por destinatario e acionar o
+     * failover de sessao. Nao lanca — converte qualquer falha em `false`.
+     *
+     * [session] e a sessao WAHA (numero primario/reserva do tenant); null/vazio usa a
+     * sessao "default" do WAHA. Telefone vazio -> false (nao tenta enviar).
+     */
+    fun sendCampaign(toPhone: String, text: String, session: String?): Boolean {
+        val digits = toPhone.replace(Regex("[^0-9]"), "")
+        if (digits.isEmpty()) return false
+        val msisdn = if (digits.startsWith("55")) digits else "55$digits"
+        val chatId = "$msisdn@c.us"
+        val body = buildMap<String, Any> {
+            put("chatId", chatId)
+            put("text", text)
+            session?.takeIf { it.isNotBlank() }?.let { put("session", it) }
+        }
+        return try {
+            client.post()
+                .uri("/api/sendText")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .toBodilessEntity()
+            true
+        } catch (e: Exception) {
+            log.warn("WhatsApp campaign send failed (session={}): {}", session, e.message)
+            false
+        }
+    }
+
     private fun buildMessage(kind: OrderNotificationKind, restaurantName: String): String = when (kind) {
         OrderNotificationKind.PREPARING ->
             "✅ Seu pedido foi aceito! Estamos preparando tudo com carinho. 👨‍🍳"

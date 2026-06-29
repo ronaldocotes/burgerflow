@@ -29,7 +29,7 @@ class PublicOrderRateLimitFilter(
         // sao writes/leituras publicas passiveis de abuso (enumeracao de cupom).
         val isPublicWrite = request.method == "POST" &&
             uri.contains("/public/") &&
-            (uri.endsWith("/orders") || uri.endsWith("/apply-coupon"))
+            (uri.endsWith("/orders") || uri.endsWith("/apply-coupon") || uri.endsWith("/whatsapp-opt-out"))
         return !isPublicWrite
     }
 

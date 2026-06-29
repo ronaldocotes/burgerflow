@@ -39,6 +39,19 @@ data class Customer(
     @Column(name = "loyalty_points", nullable = false)
     var loyaltyPoints: Int = 0,
 
+    // --- Opt-in de marketing (Fase 3.4) ---
+    /** Consentimento explicito para receber campanhas (pre-requisito anti-ban WAHA). */
+    @Column(name = "marketing_opt_in", nullable = false)
+    var marketingOptIn: Boolean = false,
+
+    /** Quando concedeu o opt-in. */
+    @Column(name = "opt_in_at")
+    var optInAt: Instant? = null,
+
+    /** Quando revogou o opt-in (descadastro). */
+    @Column(name = "opt_out_at")
+    var optOutAt: Instant? = null,
+
     @Column(name = "active", nullable = false)
     var active: Boolean = true,
 

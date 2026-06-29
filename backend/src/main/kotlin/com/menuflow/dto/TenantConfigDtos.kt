@@ -30,6 +30,12 @@ data class TenantConfigResponse(
     val loyaltyPointsPerReal: Int,
     val loyaltyRewardThreshold: Int,
     val loyaltyRewardDescription: String?,
+    // Campanhas WhatsApp + WAHA (Fase 3.4).
+    val wahaPrimaryPhone: String?,
+    val wahaFallbackPhone: String?,
+    val campaignDailyLimit: Int,
+    val campaignDelayMinSeconds: Int,
+    val campaignDelayMaxSeconds: Int,
 ) {
     companion object {
         fun from(c: TenantConfig) =
@@ -49,6 +55,11 @@ data class TenantConfigResponse(
                 loyaltyPointsPerReal      = c.loyaltyPointsPerReal,
                 loyaltyRewardThreshold    = c.loyaltyRewardThreshold,
                 loyaltyRewardDescription  = c.loyaltyRewardDescription,
+                wahaPrimaryPhone          = c.wahaPrimaryPhone,
+                wahaFallbackPhone         = c.wahaFallbackPhone,
+                campaignDailyLimit        = c.campaignDailyLimit,
+                campaignDelayMinSeconds   = c.campaignDelayMinSeconds,
+                campaignDelayMaxSeconds   = c.campaignDelayMaxSeconds,
             )
     }
 }
@@ -89,4 +100,15 @@ data class TenantConfigUpdateRequest(
     val loyaltyRewardThreshold: Int? = null,
     @field:Size(max = 200)
     val loyaltyRewardDescription: String? = null,
+    // Campanhas WhatsApp + WAHA (Fase 3.4): omitido (null) = preservar valor atual.
+    @field:Size(max = 20)
+    val wahaPrimaryPhone: String? = null,
+    @field:Size(max = 20)
+    val wahaFallbackPhone: String? = null,
+    @field:Min(0) @field:Max(10000)
+    val campaignDailyLimit: Int? = null,
+    @field:Min(0) @field:Max(3600)
+    val campaignDelayMinSeconds: Int? = null,
+    @field:Min(0) @field:Max(3600)
+    val campaignDelayMaxSeconds: Int? = null,
 )

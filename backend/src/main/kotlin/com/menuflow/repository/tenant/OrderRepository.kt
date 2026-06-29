@@ -160,4 +160,31 @@ interface OrderRepository :
         """,
     )
     fun countByPaymentMethod(@Param("from") from: Instant, @Param("to") to: Instant): List<Array<Any>>
+
+    // --- RFV (Fase 3.4) ---
+
+    /**
+     * Agregado RFV por cliente, sobre os pedidos NAO cancelados. Cada linha e
+     * [customerId, lastOrder(Instant), freq90(Long), sum90(Long), lifetimeCount(Long)]:
+     *  - lastOrder = MAX(createdAt) de TODA a historia (para a recencia);
+     *  - freq90/sum90 = contagem/soma SOMENTE dentro da janela [windowStart, agora]
+     *    (agregacao condicional), para frequencia e ticket medio;
+     *  - lifetimeCount = total de pedidos na vida (NEW = exatamente 1).
+     * So entram clientes identificados (customerId nao nulo). O servico converte e
+     * classifica em memoria (RfvService.classify).
+     */
+    @Query(
+        """
+        SELECT o.customerId,
+               MAX(o.createdAt),
+               COALESCE(SUM(CASE WHEN o.createdAt >= :windowStart THEN 1L ELSE 0L END), 0L),
+               COALESCE(SUM(CASE WHEN o.createdAt >= :windowStart THEN o.totalCents ELSE 0L END), 0L),
+               COUNT(o)
+        FROM Order o
+        WHERE o.customerId IS NOT NULL
+          AND o.status <> com.menuflow.model.OrderStatus.CANCELLED
+        GROUP BY o.customerId
+        """,
+    )
+    fun rfvAggregate(@Param("windowStart") windowStart: Instant): List<Array<Any>>
 }

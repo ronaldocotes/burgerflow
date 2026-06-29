@@ -80,6 +80,7 @@ class PublicMenuController(
     private val productService: ProductService,
     private val orderService: OrderService,
     private val couponService: com.menuflow.service.CouponService,
+    private val campaignService: com.menuflow.service.CampaignService,
     private val tenantConfigRepository: TenantConfigRepository,
     private val orderItemRepository: OrderItemRepository,
 ) {
@@ -162,6 +163,26 @@ class PublicMenuController(
         return try {
             val app = couponService.preview(req.code, req.subtotalCents, req.customerPhone)
             ResponseEntity.ok(ApplyCouponResponse(valid = true, discountCents = app.discountCents, description = app.description))
+        } finally {
+            TenantContext.clear()
+        }
+    }
+
+    /**
+     * Descadastro publico de marketing (Fase 3.4): o cliente clica no link "PARAR" e
+     * cai aqui. Idempotente e silencioso (sempre 204, mesmo sem cliente cadastrado —
+     * nao vaza existencia). Rate-limited por IP (PublicOrderRateLimitFilter).
+     */
+    @PostMapping("/{tenantSlug}/whatsapp-opt-out")
+    fun optOut(
+        @PathVariable tenantSlug: String,
+        @RequestParam phone: String,
+    ): ResponseEntity<Void> {
+        if (!tenantRepository.existsBySlug(tenantSlug)) return ResponseEntity.notFound().build()
+        TenantContext.set(tenantSlug)
+        return try {
+            campaignService.optOutByPhone(phone)
+            ResponseEntity.noContent().build()
         } finally {
             TenantContext.clear()
         }

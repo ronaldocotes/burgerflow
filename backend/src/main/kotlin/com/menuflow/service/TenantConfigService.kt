@@ -46,6 +46,12 @@ class TenantConfigService(
         req.loyaltyPointsPerReal?.let     { config.loyaltyPointsPerReal    = it }
         req.loyaltyRewardThreshold?.let   { config.loyaltyRewardThreshold  = it }
         req.loyaltyRewardDescription?.let { config.loyaltyRewardDescription = it.trim().ifBlank { null } }
+        // Campanhas WhatsApp + WAHA (Fase 3.4): omitido (null) preserva; enviado sobrescreve.
+        req.wahaPrimaryPhone?.let        { config.wahaPrimaryPhone        = it.trim().ifBlank { null } }
+        req.wahaFallbackPhone?.let       { config.wahaFallbackPhone       = it.trim().ifBlank { null } }
+        req.campaignDailyLimit?.let      { config.campaignDailyLimit      = it }
+        req.campaignDelayMinSeconds?.let { config.campaignDelayMinSeconds = it }
+        req.campaignDelayMaxSeconds?.let { config.campaignDelayMaxSeconds = it }
         return TenantConfigResponse.from(repository.save(config))
     }
 }

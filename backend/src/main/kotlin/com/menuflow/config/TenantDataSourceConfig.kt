@@ -1,6 +1,8 @@
 package com.menuflow.config
 
 import com.menuflow.model.AuditLog
+import com.menuflow.model.Campaign
+import com.menuflow.model.CampaignSend
 import com.menuflow.model.CashSession
 import com.menuflow.model.CashSessionEntry
 import com.menuflow.model.Category
@@ -97,6 +99,8 @@ class TenantDataSourceConfig {
                 CouponRedemption::class.java,
                 LoyaltyTransaction::class.java,
                 LoyaltyReward::class.java,
+                Campaign::class.java,
+                CampaignSend::class.java,
             )
             .persistenceUnit("tenant")
             .properties(

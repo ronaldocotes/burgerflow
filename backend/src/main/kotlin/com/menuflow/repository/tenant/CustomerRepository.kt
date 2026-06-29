@@ -11,4 +11,10 @@ import java.util.UUID
  * banco — cada conexão aterrissa no restaurante certo.
  */
 @Repository
-interface CustomerRepository : JpaRepository<Customer, UUID>
+interface CustomerRepository : JpaRepository<Customer, UUID> {
+    /** Clientes ativos com opt-in de marketing (publico-alvo das campanhas, Fase 3.4). */
+    fun findByMarketingOptInTrueAndActiveTrue(): List<Customer>
+
+    /** Busca por telefone (phone_number e UNIQUE) — usado no opt-out por telefone. */
+    fun findByPhoneNumber(phoneNumber: String): Customer?
+}

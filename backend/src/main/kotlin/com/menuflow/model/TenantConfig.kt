@@ -91,6 +91,30 @@ data class TenantConfig(
     @Column(name = "loyalty_reward_description", length = 200)
     var loyaltyRewardDescription: String? = "Recompensa desbloqueada!",
 
+    // --- Campanhas WhatsApp + WAHA (Fase 3.4) ---
+    /**
+     * Sessao WAHA primaria usada para os disparos de campanha (geralmente o numero
+     * principal). Passada como `session` ao WAHA; null = sessao "default".
+     */
+    @Column(name = "waha_primary_phone", length = 20)
+    var wahaPrimaryPhone: String? = null,
+
+    /** Sessao WAHA reserva: usada se o disparo pela primaria falhar (failover anti-ban). */
+    @Column(name = "waha_fallback_phone", length = 20)
+    var wahaFallbackPhone: String? = null,
+
+    /** Teto de destinatarios por campanha/dia (mitiga ban do WAHA). */
+    @Column(name = "campaign_daily_limit", nullable = false)
+    var campaignDailyLimit: Int = 50,
+
+    /** Piso do delay aleatorio entre mensagens, em segundos. */
+    @Column(name = "campaign_delay_min_seconds", nullable = false)
+    var campaignDelayMinSeconds: Int = 15,
+
+    /** Teto do delay aleatorio entre mensagens, em segundos. */
+    @Column(name = "campaign_delay_max_seconds", nullable = false)
+    var campaignDelayMaxSeconds: Int = 45,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 
