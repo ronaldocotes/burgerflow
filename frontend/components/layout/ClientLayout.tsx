@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { CopilotChat } from '@/components/ai/CopilotChat'
 
 // Rotas publicas: sem sidebar/topbar, renderiza children direto
 const PUBLIC_PREFIXES = ['/', '/login', '/cardapio', '/aceitar-convite']
@@ -32,6 +33,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </div>
+      <CopilotChat />
     </div>
   )
 }

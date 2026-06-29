@@ -17,6 +17,9 @@ interface TenantConfig {
   campaignDailyLimit?: number;
   campaignDelayMinSeconds?: number;
   campaignDelayMaxSeconds?: number;
+  aiEnabled?: boolean;
+  aiDailyLimit?: number;
+  aiSystemPrompt?: string;
 }
 
 // ── Toast simples ─────────────────────────────────────────────────────────────
@@ -195,6 +198,12 @@ export default function ConfiguracoesPage() {
   const [campaignDelayMax,       setCampaignDelayMax]       = useState("");
   const [savingWaha,             setSavingWaha]             = useState(false);
 
+  // Campos Copiloto IA
+  const [aiEnabled,      setAiEnabled]      = useState(false);
+  const [aiDailyLimit,   setAiDailyLimit]   = useState("50000");
+  const [aiSystemPrompt, setAiSystemPrompt] = useState("");
+  const [savingAi,       setSavingAi]       = useState(false);
+
   const isAuthenticated = typeof window === "undefined" || !!getToken();
 
   const load = useCallback(async () => {
@@ -210,6 +219,9 @@ export default function ConfiguracoesPage() {
       setCampaignDailyLimit(data.campaignDailyLimit?.toString() ?? "100");
       setCampaignDelayMin(data.campaignDelayMinSeconds?.toString() ?? "5");
       setCampaignDelayMax(data.campaignDelayMaxSeconds?.toString() ?? "30");
+      setAiEnabled(data.aiEnabled ?? false);
+      setAiDailyLimit(data.aiDailyLimit?.toString() ?? "50000");
+      setAiSystemPrompt(data.aiSystemPrompt ?? "");
       setLoadState("ok");
     } catch {
       setLoadState("error");
@@ -285,6 +297,27 @@ export default function ConfiguracoesPage() {
       showToast(msg, "error");
     } finally {
       setSavingTaxes(false);
+    }
+  }
+
+  async function handleSaveAi(e: React.FormEvent) {
+    e.preventDefault();
+    if (savingAi) return;
+    const body = {
+      aiEnabled,
+      aiDailyLimit: Number.parseInt(aiDailyLimit) || 50000,
+      aiSystemPrompt: aiSystemPrompt.trim() || undefined,
+    };
+    setSavingAi(true);
+    try {
+      await api.patch<TenantConfig>("/config", body);
+      showToast("Copiloto IA salvo", "success");
+    } catch (err) {
+      const msg =
+        err instanceof ApiError ? err.message : "Erro ao salvar configuracoes de IA.";
+      showToast(msg, "error");
+    } finally {
+      setSavingAi(false);
     }
   }
 
@@ -547,6 +580,111 @@ export default function ConfiguracoesPage() {
                         />
                       )}
                       {savingWaha ? "Salvando..." : "Salvar WhatsApp"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+
+            {/* Secao: Copiloto IA */}
+            <section aria-labelledby="secao-ia">
+              <h3
+                id="secao-ia"
+                className="mb-3 text-sm font-semibold uppercase tracking-wider text-text-secondary"
+              >
+                Copiloto IA
+              </h3>
+
+              <div className="rounded-2xl bg-bg-primary p-6 shadow-card">
+                <p className="mb-5 text-sm text-text-secondary">
+                  Configure o assistente de IA integrado ao painel de gestao.
+                </p>
+
+                <form onSubmit={(e) => void handleSaveAi(e)} className="space-y-5">
+                  {/* Toggle ativar */}
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-text-primary">
+                        Ativar Copiloto IA
+                      </p>
+                      <p className="mt-0.5 text-sm text-text-secondary">
+                        Habilita o chat flutuante de IA no painel administrativo.
+                      </p>
+                    </div>
+                    <Toggle
+                      id="toggle-ai-enabled"
+                      checked={aiEnabled}
+                      disabled={savingAi}
+                      onChange={setAiEnabled}
+                      label={aiEnabled ? "Copiloto IA ativado" : "Copiloto IA desativado"}
+                    />
+                  </div>
+
+                  <div className="border-t border-border-light" role="separator" />
+
+                  {/* Limite diario de tokens */}
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <label
+                        htmlFor="ai-daily-limit"
+                        className="text-sm font-semibold text-text-primary"
+                      >
+                        Limite diario de tokens
+                      </label>
+                      <p className="mt-0.5 text-sm text-text-secondary">
+                        Padrao: 50.000 tokens/dia.
+                      </p>
+                    </div>
+                    <input
+                      id="ai-daily-limit"
+                      type="number"
+                      min="1000"
+                      max="1000000"
+                      step="1000"
+                      value={aiDailyLimit}
+                      onChange={(e) => setAiDailyLimit(e.target.value)}
+                      disabled={savingAi}
+                      className="input-field w-32 text-right disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div className="border-t border-border-light" role="separator" />
+
+                  {/* Instrucao personalizada */}
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="ai-system-prompt"
+                      className="text-sm font-semibold text-text-primary"
+                    >
+                      Instrucao personalizada
+                    </label>
+                    <p className="text-sm text-text-secondary">
+                      Define o comportamento do assistente. Ex: Responda sempre de forma resumida.
+                    </p>
+                    <textarea
+                      id="ai-system-prompt"
+                      rows={3}
+                      value={aiSystemPrompt}
+                      onChange={(e) => setAiSystemPrompt(e.target.value)}
+                      disabled={savingAi}
+                      placeholder="Ex: Responda sempre de forma resumida e em portugues."
+                      className="input-field resize-none disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="submit"
+                      disabled={savingAi}
+                      className="btn-primary flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {savingAi && (
+                        <span
+                          className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
+                          aria-hidden="true"
+                        />
+                      )}
+                      {savingAi ? "Salvando..." : "Salvar IA"}
                     </button>
                   </div>
                 </form>
