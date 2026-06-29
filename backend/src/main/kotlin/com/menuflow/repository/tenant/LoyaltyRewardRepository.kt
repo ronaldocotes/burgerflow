@@ -14,4 +14,7 @@ interface LoyaltyRewardRepository : JpaRepository<LoyaltyReward, UUID> {
 
     /** Primeiro punch disponível do cliente (para o frontend usar no resgate). */
     fun findFirstByCustomerIdAndRedeemedAtIsNull(customerId: UUID): LoyaltyReward?
+
+    /** Total de recompensas ainda não resgatadas (tool get_loyalty_stats). */
+    fun countByRedeemedAtIsNull(): Long
 }

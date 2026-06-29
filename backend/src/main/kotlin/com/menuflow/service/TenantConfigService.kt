@@ -65,6 +65,10 @@ class TenantConfigService(
         req.googleSgtmUrl?.let         { config.googleSgtmUrl       = it.trim().ifBlank { null } }
         req.googleMeasurementId?.let   { config.googleMeasurementId = it.trim().ifBlank { null } }
         req.conversionTrackingEnabled?.let { config.conversionTrackingEnabled = it }
+        // Copiloto do dono: IA (Fase 4.1): omitido (null) preserva; enviado sobrescreve.
+        req.aiEnabled?.let      { config.aiEnabled      = it }
+        req.aiSystemPrompt?.let { config.aiSystemPrompt = it.trim().ifBlank { null } }
+        req.aiDailyLimit?.let   { config.aiDailyLimit   = it }
         return TenantConfigResponse.from(repository.save(config))
     }
 }

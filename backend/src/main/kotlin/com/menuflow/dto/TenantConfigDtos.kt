@@ -49,6 +49,10 @@ data class TenantConfigResponse(
     val googleSgtmUrl: String?,
     val googleMeasurementId: String?,
     val conversionTrackingEnabled: Boolean,
+    // Copiloto do dono: IA (Fase 4.1).
+    val aiEnabled: Boolean,
+    val aiSystemPrompt: String?,
+    val aiDailyLimit: Int,
 ) {
     companion object {
         fun from(c: TenantConfig) =
@@ -83,6 +87,9 @@ data class TenantConfigResponse(
                 googleSgtmUrl             = c.googleSgtmUrl,
                 googleMeasurementId       = c.googleMeasurementId,
                 conversionTrackingEnabled = c.conversionTrackingEnabled,
+                aiEnabled                 = c.aiEnabled,
+                aiSystemPrompt            = c.aiSystemPrompt,
+                aiDailyLimit              = c.aiDailyLimit,
             )
     }
 }
@@ -155,4 +162,10 @@ data class TenantConfigUpdateRequest(
     @field:Size(max = 50)
     val googleMeasurementId: String? = null,
     val conversionTrackingEnabled: Boolean? = null,
+    // Copiloto do dono: IA (Fase 4.1). Omitido (null) = preservar valor atual.
+    val aiEnabled: Boolean? = null,
+    @field:Size(max = 4000)
+    val aiSystemPrompt: String? = null,
+    @field:Min(1) @field:Max(1000)
+    val aiDailyLimit: Int? = null,
 )

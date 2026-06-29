@@ -31,4 +31,7 @@ interface CartSessionRepository : JpaRepository<CartSession, UUID> {
 
     /** Listagem do admin filtrada por status. */
     fun findByStatus(status: CartSessionStatus, pageable: Pageable): Page<CartSession>
+
+    /** Contagem por status desde [from] (usada pela tool get_abandoned_carts: hoje). */
+    fun countByStatusAndCreatedAtGreaterThanEqual(status: CartSessionStatus, from: Instant): Long
 }

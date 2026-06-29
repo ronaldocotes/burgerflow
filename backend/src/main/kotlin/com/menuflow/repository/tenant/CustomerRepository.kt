@@ -17,4 +17,7 @@ interface CustomerRepository : JpaRepository<Customer, UUID> {
 
     /** Busca por telefone (phone_number e UNIQUE) — usado no opt-out por telefone. */
     fun findByPhoneNumber(phoneNumber: String): Customer?
+
+    /** Clientes com pontos (no programa de fidelidade) — tool get_loyalty_stats. */
+    fun countByLoyaltyPointsGreaterThan(points: Int): Long
 }

@@ -9,6 +9,16 @@ class BusinessException(message: String) : RuntimeException(message)
 /** 401 — authentication failed (bad credentials / invalid token / tenant). */
 class UnauthorizedException(message: String) : RuntimeException(message)
 
+/**
+ * 403 — usuario autenticado, mas a funcionalidade esta indisponivel/desativada para
+ * ele com uma mensagem propria (ex.: Copiloto de IA desligado). Diferente do 403 do
+ * Spring Security (@PreAuthorize), aqui a mensagem chega ao cliente.
+ */
+class ForbiddenException(message: String) : RuntimeException(message)
+
+/** 429 — limite de uso atingido (ex.: teto diario de perguntas ao copiloto de IA). */
+class TooManyRequestsException(message: String) : RuntimeException(message)
+
 /** 409 — conflict (duplicate unique key, optimistic lock, idempotency-key reuse with different payload). */
 class ConflictException(message: String) : RuntimeException(message)
 

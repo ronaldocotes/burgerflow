@@ -2,6 +2,7 @@ package com.menuflow.repository.tenant
 
 import com.menuflow.model.Order
 import com.menuflow.model.OrderStatus
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor
 import org.springframework.data.jpa.repository.Query
@@ -16,6 +17,9 @@ interface OrderRepository :
     JpaSpecificationExecutor<Order> {
 
     fun findByOrderNumber(orderNumber: String): Order?
+
+    /** Pedidos mais recentes (qualquer status), para a tool get_recent_orders do Copiloto. */
+    fun findAllByOrderByCreatedAtDesc(pageable: Pageable): List<Order>
 
     /**
      * Há pedido da comanda ainda em produção (PENDING/PREPARING)? Usado por

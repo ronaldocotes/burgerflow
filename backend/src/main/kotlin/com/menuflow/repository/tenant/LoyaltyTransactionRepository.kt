@@ -2,6 +2,7 @@ package com.menuflow.repository.tenant
 
 import com.menuflow.model.LoyaltyTransaction
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
 import org.springframework.stereotype.Repository
 import java.util.UUID
 
@@ -20,4 +21,8 @@ interface LoyaltyTransactionRepository : JpaRepository<LoyaltyTransaction, UUID>
 
     /** Últimas 10 movimentações do cliente (extrato exibido no app/painel). */
     fun findTop10ByCustomerIdOrderByCreatedAtDesc(customerId: UUID): List<LoyaltyTransaction>
+
+    /** Total de pontos creditados (deltas positivos) — tool get_loyalty_stats. */
+    @Query("SELECT COALESCE(SUM(t.pointsDelta), 0) FROM LoyaltyTransaction t WHERE t.pointsDelta > 0")
+    fun sumPointsCredited(): Long
 }

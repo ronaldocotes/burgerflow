@@ -64,6 +64,16 @@ class GlobalExceptionHandler {
         ResponseEntity.status(HttpStatus.CONFLICT)
             .body(body(HttpStatus.CONFLICT, "CONFLICT", ex.message, req))
 
+    @ExceptionHandler(ForbiddenException::class)
+    fun forbidden(ex: ForbiddenException, req: WebRequest) =
+        ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(body(HttpStatus.FORBIDDEN, "FORBIDDEN", ex.message, req))
+
+    @ExceptionHandler(TooManyRequestsException::class)
+    fun tooManyRequests(ex: TooManyRequestsException, req: WebRequest) =
+        ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+            .body(body(HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED", ex.message, req))
+
     @ExceptionHandler(ObjectOptimisticLockingFailureException::class)
     fun optimisticLock(ex: ObjectOptimisticLockingFailureException, req: WebRequest) =
         ResponseEntity.status(HttpStatus.CONFLICT)

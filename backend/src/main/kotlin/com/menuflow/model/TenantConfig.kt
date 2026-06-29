@@ -161,6 +161,19 @@ data class TenantConfig(
     @Column(name = "conversion_tracking_enabled", nullable = false)
     var conversionTrackingEnabled: Boolean = false,
 
+    // --- Copiloto do dono: IA (Fase 4.1) ---
+    /** Liga/desliga o Copiloto de IA do restaurante. */
+    @Column(name = "ai_enabled", nullable = false)
+    var aiEnabled: Boolean = false,
+
+    /** Personalizacao opcional do prompt de sistema do copiloto (tom, regras do dono). */
+    @Column(name = "ai_system_prompt", columnDefinition = "text")
+    var aiSystemPrompt: String? = null,
+
+    /** Teto de perguntas/dia ao copiloto por tenant (anti-abuso/custo). */
+    @Column(name = "ai_daily_limit", nullable = false)
+    var aiDailyLimit: Int = 30,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 
