@@ -1,5 +1,6 @@
 package com.menuflow.model
 
+import com.menuflow.channels.ChannelType
 import jakarta.persistence.*
 import java.time.Instant
 import java.util.UUID
@@ -160,11 +161,35 @@ data class Order(
      */
     @Column(name = "coupon_discount_cents", nullable = false)
     var couponDiscountCents: Long = 0,
+
+    // --- Multicanal (Fase 5.0) — plataforma de ORIGEM do pedido ---
+    /**
+     * Plataforma de origem (ChannelType.name): OWN/IFOOD/RAPPI. Default 'OWN' para
+     * todo pedido nascido no MenuFlow (PDV, cardápio público, app). Não confundir
+     * com [salesChannel] (recorte interno do DRE).
+     */
+    @Column(name = "external_origin", nullable = false)
+    var externalOrigin: String = ChannelType.OWN.name,
+
+    /** Id do pedido na plataforma externa (iFood/Rappi); null para canal próprio. */
+    @Column(name = "external_order_id")
+    var externalOrderId: String? = null,
+
+    /** Número exibido ao cliente na plataforma externa (ex.: "#4502" do iFood). */
+    @Column(name = "external_display_id")
+    var externalDisplayId: String? = null,
 ) {
     @PreUpdate
     fun preUpdate() {
         updatedAt = Instant.now()
     }
+
+    /**
+     * Plataforma de origem como enum. Tolerante a valor desconhecido em
+     * external_origin (cai em OWN) para nunca quebrar o fluxo de pedido.
+     */
+    fun channelType(): ChannelType =
+        runCatching { ChannelType.valueOf(externalOrigin) }.getOrDefault(ChannelType.OWN)
 
     fun canBeCancelled(): Boolean =
         status in listOf(OrderStatus.PENDING, OrderStatus.PREPARING)

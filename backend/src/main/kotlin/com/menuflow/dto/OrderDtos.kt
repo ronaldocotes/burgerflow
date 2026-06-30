@@ -191,6 +191,10 @@ data class OrderResponse(
     val notes: String?,
     val couponCode: String? = null,
     val couponDiscountCents: Long = 0,
+    /** Plataforma de origem (Fase 5.0): "OWN", "IFOOD", "RAPPI". */
+    val externalOrigin: String,
+    /** Número exibido ao cliente na plataforma externa (ex.: "#4502" do iFood); null no canal próprio. */
+    val externalDisplayId: String? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
     val completedAt: Instant?,
@@ -216,6 +220,8 @@ data class OrderResponse(
             notes = o.notes,
             couponCode = o.couponCode,
             couponDiscountCents = o.couponDiscountCents,
+            externalOrigin = o.externalOrigin,
+            externalDisplayId = o.externalDisplayId,
             createdAt = o.createdAt,
             updatedAt = o.updatedAt,
             completedAt = o.completedAt,
