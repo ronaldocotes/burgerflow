@@ -1,0 +1,559 @@
+{
+  "baseUrl": "http://localhost:3011",
+  "login": {
+    "tenant": "audit",
+    "email": "audit@menuflow.local"
+  },
+  "viewports": [
+    {
+      "name": "pc",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "name": "tablet",
+      "width": 768,
+      "height": 1024
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "flows": [
+    {
+      "name": "sidebar-mobile-open-close",
+      "route": "/pdv",
+      "auth": true
+    },
+    {
+      "name": "admin-cardapio-new-product",
+      "route": "/admin/cardapio",
+      "auth": true
+    },
+    {
+      "name": "admin-usuarios-invite",
+      "route": "/admin/usuarios",
+      "auth": true
+    },
+    {
+      "name": "financeiro-dre-new-expense",
+      "route": "/financeiro/dre",
+      "auth": true
+    },
+    {
+      "name": "admin-cupons-new-coupon",
+      "route": "/admin/cupons",
+      "auth": true
+    },
+    {
+      "name": "cardapio-public-product-and-cart",
+      "route": "/cardapio",
+      "auth": false
+    },
+    {
+      "name": "pdv-add-item-local-cart",
+      "route": "/pdv",
+      "auth": true
+    },
+    {
+      "name": "copilot-open-close",
+      "route": "/pdv",
+      "auth": true
+    },
+    {
+      "name": "admin-bot-schedule-view",
+      "route": "/admin/bot",
+      "auth": true
+    }
+  ],
+  "results": [
+    {
+      "flow": "sidebar-mobile-open-close",
+      "route": "/pdv",
+      "viewport": "pc",
+      "status": "warning",
+      "steps": [
+        {
+          "status": "skipped",
+          "message": "Botao de menu mobile nao visivel neste viewport."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/sidebar-mobile-open-close-pc-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/sidebar-mobile-open-close-pc-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "MenuFlow Demo OPERAÇÃO PDV Cozinha Mesas Caixa Fidelidade SISTEMA Cardápio admin Usuários Entregadores Cupons RFV Campanhas Rastreamento Conversoes Carrinhos Bot WhatsApp DRE Configurações Recolher MenuFlow Demo / PDV 5 Administrador Todos Lanches Pizzas Combos da Casa Hamburgueres Artesanais Smash Burgers Frango e Vegetarianos Porcoes e Entradas Batatas e Acompanhamentos Molhos Extras Bebidas Sobremesas Promocoes Pizza Tradicional R$ 29,90 Combo Classic R$ 33,90 R$ 36,90 Combo Duplo Cheddar R$ 45,90 R$ 49,90 Petit Gateau R$ 28,00 Pizza Especial R$ 49,90 Combo Familia MenuFlow R$ 149,90 Milk-Shake Morango R$ 22,00 Combo Kids R$ 29,90 Combo Pizza + 2 Refris R$ 79,90 Cerveja Long Neck R$ 16,00 Hot Dog Gourmet R$ 28,00 MenuFlow Classic R$ 28,90 Bacon BBQ R$ 34,90 Duplo Cheddar R$ 42,90 Blue Cheese R$ 38,90 Jalapeno Fire R$ 36,90 Costela Desfiada R$ 44,90 Smash Simples R$ 19,90 Smash Duplo R$ 24,90 R$ 27,90 Smash Triplo R$ 36,90 Oklahoma Smash R$ 29,90 Chicken Crispy R$ 29,90 Veggie Grao-de-bico R$ 31,90 Dadinho de Tapioca R$ 24,90 Nuggets Artesanais R$ 26,90 Batata Frita Pequena R$ 14,90 Batata Frita Grande R$ 23,90 Batata Cheddar e Bacon R$ 31,90 Onion Rings R$ 22,90 Aioli da Casa R$"
+    },
+    {
+      "flow": "admin-cardapio-new-product",
+      "route": "/admin/cardapio",
+      "viewport": "pc",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Abriu formulario/estado intermediario seguro."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-cardapio-new-product-pc-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-cardapio-new-product-pc-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "MenuFlow Demo OPERAÇÃO PDV Cozinha Mesas Caixa Fidelidade SISTEMA Cardápio admin Usuários Entregadores Cupons RFV Campanhas Rastreamento Conversoes Carrinhos Bot WhatsApp DRE Configurações Recolher MenuFlow Demo / Cardápio admin 5 Administrador Administração do cardápio Produtos, categorias, insumos, imagens e canais de venda. Atualizar 40 Produtos ativos 12 Categorias 12 Insumos 6de 40 Com imagem Produtos Categorias Insumos Produtos Novo produto PRODUTO CATEGORIA PREÇO STATUS AÇÕES Pizza Tradicional PIZZA-TRAD Pizzas R$ 29,90 Disponível Combo Classic COMBO-CLASSIC Combos da Casa R$ 33,90 Disponível Combo Duplo Cheddar COMBO-DUPLO Combos da Casa R$ 45,90 Disponível Petit Gateau PTG001 Sobremesas R$ 28,00 Disponível Pizza Especial PIZZA-ESPEC Pizzas R$ 49,90 Disponível Combo Familia MenuFlow COMBO-FAMILIA Combos da Casa R$ 149,90 Disponível Milk-Shake Morango MSM001 Bebidas R$ 22,00 Disponível Combo Kids COMBO-KIDS Combos da Casa R$ 29,90 Disponível Combo Pizza + 2 Refris COMBO-PIZZA-REFRI Combos da Casa R$ 79,90 Disponível Cerveja Long Neck CLN001 Bebidas R$ 16,00 Disponível Hot Dog Gourmet HDG001 Lanches R$ 28,00 Disponível MenuFlow Classic BURGER-CLASSIC Hamburgueres Artesanais R"
+    },
+    {
+      "flow": "admin-usuarios-invite",
+      "route": "/admin/usuarios",
+      "viewport": "pc",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Abriu dialog/sheet seguro."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-usuarios-invite-pc-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-usuarios-invite-pc-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "MenuFlow Demo OPERAÇÃO PDV Cozinha Mesas Caixa Fidelidade SISTEMA Cardápio admin Usuários Entregadores Cupons RFV Campanhas Rastreamento Conversoes Carrinhos Bot WhatsApp DRE Configurações Recolher MenuFlow Demo / Usuários 5 Administrador Usuarios Gerencie os colaboradores e acessos do restaurante. Convidar usuario Colaboradores NOME E-MAIL PAPEL STATUS ULTIMO ACESSO ACOES Admin Auditoria(voce) audit@menuflow.local Administrador Ativo 30/06/2026, 07:14 Convites pendentes Nenhum convite pendente."
+    },
+    {
+      "flow": "financeiro-dre-new-expense",
+      "route": "/financeiro/dre",
+      "viewport": "pc",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Abriu dialog/sheet seguro."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/financeiro-dre-new-expense-pc-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/financeiro-dre-new-expense-pc-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "MenuFlow Demo OPERAÇÃO PDV Cozinha Mesas Caixa Fidelidade SISTEMA Cardápio admin Usuários Entregadores Cupons RFV Campanhas Rastreamento Conversoes Carrinhos Bot WhatsApp DRE Configurações Recolher MenuFlow Demo 5 Administrador DRE - Demonstrativo de Resultado 01/06/2026 ate 30/06/2026 Hoje Esta semana Este mes Personalizado RECEITA BRUTA R$ 0,00 LUCRO BRUTO R$ 0,00 0.0% LUCRO LIQUIDO R$ 0,00 0.0% TICKET MEDIO R$ 0,00 0 pedidos DEMONSTRATIVO DE RESULTADO Receita Bruta R$ 0,00 (-) Taxas marketplace R$ 0,00 (-) Taxas cartao R$ 0,00 (-) Impostos R$ 0,00 = Receita Liquida R$ 0,00 (-) CMV (custo de mercadoria) R$ 0,00 = Lucro Bruto R$ 0,00 (-) Despesas operacionais R$ 0,00 = Lucro Liquido R$ 0,00 PEDIDOS POR CANAL Nenhum pedido no periodo PEDIDOS POR FORMA DE PAGAMENTO Nenhum pedido no periodo DESPESAS OPERACIONAIS Nova despesa Nenhuma despesa registrada."
+    },
+    {
+      "flow": "admin-cupons-new-coupon",
+      "route": "/admin/cupons",
+      "viewport": "pc",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Abriu dialog/sheet seguro."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-cupons-new-coupon-pc-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-cupons-new-coupon-pc-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "MenuFlow Demo OPERAÇÃO PDV Cozinha Mesas Caixa Fidelidade SISTEMA Cardápio admin Usuários Entregadores Cupons RFV Campanhas Rastreamento Conversoes Carrinhos Bot WhatsApp DRE Configurações Recolher MenuFlow Demo 5 Administrador Cupons & Descontos Novo Cupom Nenhum cupom cadastrado Crie o primeiro cupom de desconto para seus clientes. Criar primeiro cupom"
+    },
+    {
+      "flow": "cardapio-public-product-and-cart",
+      "route": "/cardapio",
+      "viewport": "pc",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Produto abriu em estado intermediario."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/cardapio-public-product-and-cart-pc-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/cardapio-public-product-and-cart-pc-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "🍔 Cardápio MenuFlow Demo Rua das Palmeiras, 120 - Centro Aberto hoje ate 23h Lanches Pizzas Combos da Casa Hamburgueres Artesanais Smash Burgers Frango e Vegetarianos Porcoes e Entradas Batatas e Acompanhamentos Molhos Extras Bebidas Sobremesas Promocoes Lanches Hot Dog Gourmet Salsicha artesanal defumada, cebola crispy, queijo derretido, mostarda dijon e ketchup artesanal R$ 28,00 Pizzas DESTAQUE Pizza Tradicional Inteira ou meia a meia. Escolha tamanho, sabor(es) e borda. R$ 29,90 Pizza Especial Ingredientes premium. Meia a meia disponivel. Bordas exclusivas. R$ 49,90 Combos da Casa 🍽️ PROMO DESTAQUE Combo Classic Burger Classic + batata P + refrigerante lata. R$ 33,90 R$ 36,90 🍽️ PROMO DESTAQUE Combo Duplo Cheddar Duplo cheddar + batata bacon cheddar + bebida. R$ 45,90 R$ 49,90 🍽️ DESTAQUE Combo Familia MenuFlow 4 burgers, 2 batatas grandes, onion rings e 4 bebidas. R$ 149,90 🍽️ Combo Kids Mini burger, batata pequena e suco. R$ 29,90 DESTAQUE Combo Pizza + 2 Refris Pizza Media Tradicional (sabor a escolha) + 2 Coca-Cola Lata. Economia garantida! R$ 79,90 Hamburgueres Artesanais 🍽️ DESTAQUE MenuFlow Classic Blend 160g, cheddar, alface, tomate, picles e molho especial no bri"
+    },
+    {
+      "flow": "pdv-add-item-local-cart",
+      "route": "/pdv",
+      "viewport": "pc",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Item foi para estado local de carrinho sem fechar pedido."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/pdv-add-item-local-cart-pc-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/pdv-add-item-local-cart-pc-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "MenuFlow Demo OPERAÇÃO PDV Cozinha Mesas Caixa Fidelidade SISTEMA Cardápio admin Usuários Entregadores Cupons RFV Campanhas Rastreamento Conversoes Carrinhos Bot WhatsApp DRE Configurações Recolher MenuFlow Demo / PDV 5 Administrador Todos Lanches Pizzas Combos da Casa Hamburgueres Artesanais Smash Burgers Frango e Vegetarianos Porcoes e Entradas Batatas e Acompanhamentos Molhos Extras Bebidas Sobremesas Promocoes Pizza Tradicional R$ 29,90 Pizza Especial R$ 49,90 Carrinho Balcão Retirada Entrega Toque num produto para adicionar. Subtotal — Total — Finalizar"
+    },
+    {
+      "flow": "copilot-open-close",
+      "route": "/pdv",
+      "viewport": "pc",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Copiloto abriu."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/copilot-open-close-pc-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/copilot-open-close-pc-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "MenuFlow Demo OPERAÇÃO PDV Cozinha Mesas Caixa Fidelidade SISTEMA Cardápio admin Usuários Entregadores Cupons RFV Campanhas Rastreamento Conversoes Carrinhos Bot WhatsApp DRE Configurações Recolher MenuFlow Demo / PDV 5 Administrador Todos Lanches Pizzas Combos da Casa Hamburgueres Artesanais Smash Burgers Frango e Vegetarianos Porcoes e Entradas Batatas e Acompanhamentos Molhos Extras Bebidas Sobremesas Promocoes Pizza Tradicional R$ 29,90 Combo Classic R$ 33,90 R$ 36,90 Combo Duplo Cheddar R$ 45,90 R$ 49,90 Petit Gateau R$ 28,00 Pizza Especial R$ 49,90 Combo Familia MenuFlow R$ 149,90 Milk-Shake Morango R$ 22,00 Combo Kids R$ 29,90 Combo Pizza + 2 Refris R$ 79,90 Cerveja Long Neck R$ 16,00 Hot Dog Gourmet R$ 28,00 MenuFlow Classic R$ 28,90 Bacon BBQ R$ 34,90 Duplo Cheddar R$ 42,90 Blue Cheese R$ 38,90 Jalapeno Fire R$ 36,90 Costela Desfiada R$ 44,90 Smash Simples R$ 19,90 Smash Duplo R$ 24,90 R$ 27,90 Smash Triplo R$ 36,90 Oklahoma Smash R$ 29,90 Chicken Crispy R$ 29,90 Veggie Grao-de-bico R$ 31,90 Dadinho de Tapioca R$ 24,90 Nuggets Artesanais R$ 26,90 Batata Frita Pequena R$ 14,90 Batata Frita Grande R$ 23,90 Batata Cheddar e Bacon R$ 31,90 Onion Rings R$ 22,90 Aioli da Casa R$"
+    },
+    {
+      "flow": "admin-bot-schedule-view",
+      "route": "/admin/bot",
+      "viewport": "pc",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Bot WhatsApp mostra agenda/estado operacional."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-bot-schedule-view-pc-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-bot-schedule-view-pc-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "MenuFlow Demo OPERAÇÃO PDV Cozinha Mesas Caixa Fidelidade SISTEMA Cardápio admin Usuários Entregadores Cupons RFV Campanhas Rastreamento Conversoes Carrinhos Bot WhatsApp DRE Configurações Recolher MenuFlow Demo 5 Administrador Bot WhatsApp Handoffs Pendentes Resolvidos Nenhum cliente aguardando atendimento Quando um cliente solicitar atendente, aparecera aqui. Configuracao do Bot Ativar Bot WhatsApp Palavra-chave de handoff Cliente digita esta palavra para falar com um humano Mensagem de boas-vindas Mensagem de handoff Enviada automaticamente quando o cliente solicita atendimento humano Instrucao personalizada (system prompt) Horario de funcionamento DIA ABERTO ABERTURA FECHAMENTO Segunda Terca Quarta Quinta Sexta Sabado Domingo Salvar configuracoes"
+    },
+    {
+      "flow": "sidebar-mobile-open-close",
+      "route": "/pdv",
+      "viewport": "tablet",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Drawer mobile abriu."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/sidebar-mobile-open-close-tablet-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/sidebar-mobile-open-close-tablet-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "MenuFlow Demo / PDV 5 Administrador Todos Lanches Pizzas Combos da Casa Hamburgueres Artesanais Smash Burgers Frango e Vegetarianos Porcoes e Entradas Batatas e Acompanhamentos Molhos Extras Bebidas Sobremesas Promocoes Pizza Tradicional R$ 29,90 Combo Classic R$ 33,90 R$ 36,90 Combo Duplo Cheddar R$ 45,90 R$ 49,90 Petit Gateau R$ 28,00 Pizza Especial R$ 49,90 Combo Familia MenuFlow R$ 149,90 Milk-Shake Morango R$ 22,00 Combo Kids R$ 29,90 Combo Pizza + 2 Refris R$ 79,90 Cerveja Long Neck R$ 16,00 Hot Dog Gourmet R$ 28,00 MenuFlow Classic R$ 28,90 Bacon BBQ R$ 34,90 Duplo Cheddar R$ 42,90 Blue Cheese R$ 38,90 Jalapeno Fire R$ 36,90 Costela Desfiada R$ 44,90 Smash Simples R$ 19,90 Smash Duplo R$ 24,90 R$ 27,90 Smash Triplo R$ 36,90 Oklahoma Smash R$ 29,90 Chicken Crispy R$ 29,90 Veggie Grao-de-bico R$ 31,90 Dadinho de Tapioca R$ 24,90 Nuggets Artesanais R$ 26,90 Batata Frita Pequena R$ 14,90 Batata Frita Grande R$ 23,90 Batata Cheddar e Bacon R$ 31,90 Onion Rings R$ 22,90 Aioli da Casa R$ 3,90 Barbecue Defumado R$ 3,90 Cheddar Cremoso R$ 5,90 Coca-Cola Lata 350ml R$ 6,90 Guarana Lata 350ml R$ 6,50 Agua Mineral 500ml R$ 4,90 Suco Natural de Laranja R$ 11,90 Milkshake Chocolate R$ 18,"
+    },
+    {
+      "flow": "admin-cardapio-new-product",
+      "route": "/admin/cardapio",
+      "viewport": "tablet",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Abriu dialog/sheet seguro."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-cardapio-new-product-tablet-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-cardapio-new-product-tablet-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "MenuFlow Demo / Cardápio admin 5 Administrador Administração do cardápio Produtos, categorias, insumos, imagens e canais de venda. Atualizar 40 Produtos ativos 12 Categorias 12 Insumos 6de 40 Com imagem Produtos Categorias Insumos Produtos Novo produto PRODUTO CATEGORIA PREÇO STATUS AÇÕES Pizza Tradicional PIZZA-TRAD Pizzas R$ 29,90 Disponível Combo Classic COMBO-CLASSIC Combos da Casa R$ 33,90 Disponível Combo Duplo Cheddar COMBO-DUPLO Combos da Casa R$ 45,90 Disponível Petit Gateau PTG001 Sobremesas R$ 28,00 Disponível Pizza Especial PIZZA-ESPEC Pizzas R$ 49,90 Disponível Combo Familia MenuFlow COMBO-FAMILIA Combos da Casa R$ 149,90 Disponível Milk-Shake Morango MSM001 Bebidas R$ 22,00 Disponível Combo Kids COMBO-KIDS Combos da Casa R$ 29,90 Disponível Combo Pizza + 2 Refris COMBO-PIZZA-REFRI Combos da Casa R$ 79,90 Disponível Cerveja Long Neck CLN001 Bebidas R$ 16,00 Disponível Hot Dog Gourmet HDG001 Lanches R$ 28,00 Disponível MenuFlow Classic BURGER-CLASSIC Hamburgueres Artesanais R$ 28,90 Disponível Bacon BBQ BURGER-BACON-BBQ Hamburgueres Artesanais R$ 34,90 Disponível Duplo Cheddar BURGER-DUPLO-CHEDDAR Hamburgueres Artesanais R$ 42,90 Disponível Blue Cheese BURGER-BLUE Hambu"
+    },
+    {
+      "flow": "admin-usuarios-invite",
+      "route": "/admin/usuarios",
+      "viewport": "tablet",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Abriu dialog/sheet seguro."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-usuarios-invite-tablet-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-usuarios-invite-tablet-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "MenuFlow Demo / Usuários 5 Administrador Usuarios Gerencie os colaboradores e acessos do restaurante. Convidar usuario Colaboradores Admin Auditoria(voce) audit@menuflow.local Administrador STATUS Ativo ULTIMO ACESSO 30/06/2026, 07:15 Editar papel Convites pendentes Nenhum convite pendente."
+    },
+    {
+      "flow": "financeiro-dre-new-expense",
+      "route": "/financeiro/dre",
+      "viewport": "tablet",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Abriu dialog/sheet seguro."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/financeiro-dre-new-expense-tablet-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/financeiro-dre-new-expense-tablet-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "MenuFlow Demo 5 Administrador DRE - Demonstrativo de Resultado 01/06/2026 ate 30/06/2026 Hoje Esta semana Este mes Personalizado RECEITA BRUTA R$ 0,00 LUCRO BRUTO R$ 0,00 0.0% LUCRO LIQUIDO R$ 0,00 0.0% TICKET MEDIO R$ 0,00 0 pedidos DEMONSTRATIVO DE RESULTADO Receita Bruta R$ 0,00 (-) Taxas marketplace R$ 0,00 (-) Taxas cartao R$ 0,00 (-) Impostos R$ 0,00 = Receita Liquida R$ 0,00 (-) CMV (custo de mercadoria) R$ 0,00 = Lucro Bruto R$ 0,00 (-) Despesas operacionais R$ 0,00 = Lucro Liquido R$ 0,00 PEDIDOS POR CANAL Nenhum pedido no periodo PEDIDOS POR FORMA DE PAGAMENTO Nenhum pedido no periodo DESPESAS OPERACIONAIS Nova despesa Nenhuma despesa registrada."
+    },
+    {
+      "flow": "admin-cupons-new-coupon",
+      "route": "/admin/cupons",
+      "viewport": "tablet",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Abriu dialog/sheet seguro."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-cupons-new-coupon-tablet-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-cupons-new-coupon-tablet-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "MenuFlow Demo 5 Administrador Cupons & Descontos Novo Cupom Nenhum cupom cadastrado Crie o primeiro cupom de desconto para seus clientes. Criar primeiro cupom"
+    },
+    {
+      "flow": "cardapio-public-product-and-cart",
+      "route": "/cardapio",
+      "viewport": "tablet",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Produto abriu em estado intermediario."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/cardapio-public-product-and-cart-tablet-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/cardapio-public-product-and-cart-tablet-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "🍔 Cardápio MenuFlow Demo Rua das Palmeiras, 120 - Centro Aberto hoje ate 23h Lanches Pizzas Combos da Casa Hamburgueres Artesanais Smash Burgers Frango e Vegetarianos Porcoes e Entradas Batatas e Acompanhamentos Molhos Extras Bebidas Sobremesas Promocoes Lanches Hot Dog Gourmet Salsicha artesanal defumada, cebola crispy, queijo derretido, mostarda dijon e ketchup artesanal R$ 28,00 Pizzas DESTAQUE Pizza Tradicional Inteira ou meia a meia. Escolha tamanho, sabor(es) e borda. R$ 29,90 Pizza Especial Ingredientes premium. Meia a meia disponivel. Bordas exclusivas. R$ 49,90 Combos da Casa 🍽️ PROMO DESTAQUE Combo Classic Burger Classic + batata P + refrigerante lata. R$ 33,90 R$ 36,90 🍽️ PROMO DESTAQUE Combo Duplo Cheddar Duplo cheddar + batata bacon cheddar + bebida. R$ 45,90 R$ 49,90 🍽️ DESTAQUE Combo Familia MenuFlow 4 burgers, 2 batatas grandes, onion rings e 4 bebidas. R$ 149,90 🍽️ Combo Kids Mini burger, batata pequena e suco. R$ 29,90 DESTAQUE Combo Pizza + 2 Refris Pizza Media Tradicional (sabor a escolha) + 2 Coca-Cola Lata. Economia garantida! R$ 79,90 Hamburgueres Artesanais 🍽️ DESTAQUE MenuFlow Classic Blend 160g, cheddar, alface, tomate, picles e molho especial no bri"
+    },
+    {
+      "flow": "pdv-add-item-local-cart",
+      "route": "/pdv",
+      "viewport": "tablet",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Item foi para estado local de carrinho sem fechar pedido."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/pdv-add-item-local-cart-tablet-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/pdv-add-item-local-cart-tablet-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "MenuFlow Demo / PDV 5 Administrador Todos Lanches Pizzas Combos da Casa Hamburgueres Artesanais Smash Burgers Frango e Vegetarianos Porcoes e Entradas Batatas e Acompanhamentos Molhos Extras Bebidas Sobremesas Promocoes Pizza Tradicional R$ 29,90 Pizza Especial R$ 49,90 0 Ver pedido"
+    },
+    {
+      "flow": "copilot-open-close",
+      "route": "/pdv",
+      "viewport": "tablet",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Copiloto abriu."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/copilot-open-close-tablet-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/copilot-open-close-tablet-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "MenuFlow Demo / PDV 5 Administrador Todos Lanches Pizzas Combos da Casa Hamburgueres Artesanais Smash Burgers Frango e Vegetarianos Porcoes e Entradas Batatas e Acompanhamentos Molhos Extras Bebidas Sobremesas Promocoes Pizza Tradicional R$ 29,90 Combo Classic R$ 33,90 R$ 36,90 Combo Duplo Cheddar R$ 45,90 R$ 49,90 Petit Gateau R$ 28,00 Pizza Especial R$ 49,90 Combo Familia MenuFlow R$ 149,90 Milk-Shake Morango R$ 22,00 Combo Kids R$ 29,90 Combo Pizza + 2 Refris R$ 79,90 Cerveja Long Neck R$ 16,00 Hot Dog Gourmet R$ 28,00 MenuFlow Classic R$ 28,90 Bacon BBQ R$ 34,90 Duplo Cheddar R$ 42,90 Blue Cheese R$ 38,90 Jalapeno Fire R$ 36,90 Costela Desfiada R$ 44,90 Smash Simples R$ 19,90 Smash Duplo R$ 24,90 R$ 27,90 Smash Triplo R$ 36,90 Oklahoma Smash R$ 29,90 Chicken Crispy R$ 29,90 Veggie Grao-de-bico R$ 31,90 Dadinho de Tapioca R$ 24,90 Nuggets Artesanais R$ 26,90 Batata Frita Pequena R$ 14,90 Batata Frita Grande R$ 23,90 Batata Cheddar e Bacon R$ 31,90 Onion Rings R$ 22,90 Aioli da Casa R$ 3,90 Barbecue Defumado R$ 3,90 Cheddar Cremoso R$ 5,90 Coca-Cola Lata 350ml R$ 6,90 Guarana Lata 350ml R$ 6,50 Agua Mineral 500ml R$ 4,90 Suco Natural de Laranja R$ 11,90 Milkshake Chocolate R$ 18,"
+    },
+    {
+      "flow": "admin-bot-schedule-view",
+      "route": "/admin/bot",
+      "viewport": "tablet",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Bot WhatsApp mostra agenda/estado operacional."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-bot-schedule-view-tablet-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-bot-schedule-view-tablet-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "MenuFlow Demo 5 Administrador Bot WhatsApp Handoffs Pendentes Resolvidos Nenhum cliente aguardando atendimento Quando um cliente solicitar atendente, aparecera aqui. Configuracao do Bot Ativar Bot WhatsApp Palavra-chave de handoff Cliente digita esta palavra para falar com um humano Mensagem de boas-vindas Mensagem de handoff Enviada automaticamente quando o cliente solicita atendimento humano Instrucao personalizada (system prompt) Horario de funcionamento DIA ABERTO ABERTURA FECHAMENTO Segunda Terca Quarta Quinta Sexta Sabado Domingo Salvar configuracoes"
+    },
+    {
+      "flow": "sidebar-mobile-open-close",
+      "route": "/pdv",
+      "viewport": "mobile",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Drawer mobile abriu."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/sidebar-mobile-open-close-mobile-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/sidebar-mobile-open-close-mobile-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "PDV 5 Todos Lanches Pizzas Combos da Casa Hamburgueres Artesanais Smash Burgers Frango e Vegetarianos Porcoes e Entradas Batatas e Acompanhamentos Molhos Extras Bebidas Sobremesas Promocoes Pizza Tradicional R$ 29,90 Combo Classic R$ 33,90 R$ 36,90 Combo Duplo Cheddar R$ 45,90 R$ 49,90 Petit Gateau R$ 28,00 Pizza Especial R$ 49,90 Combo Familia MenuFlow R$ 149,90 Milk-Shake Morango R$ 22,00 Combo Kids R$ 29,90 Combo Pizza + 2 Refris R$ 79,90 Cerveja Long Neck R$ 16,00 Hot Dog Gourmet R$ 28,00 MenuFlow Classic R$ 28,90 Bacon BBQ R$ 34,90 Duplo Cheddar R$ 42,90 Blue Cheese R$ 38,90 Jalapeno Fire R$ 36,90 Costela Desfiada R$ 44,90 Smash Simples R$ 19,90 Smash Duplo R$ 24,90 R$ 27,90 Smash Triplo R$ 36,90 Oklahoma Smash R$ 29,90 Chicken Crispy R$ 29,90 Veggie Grao-de-bico R$ 31,90 Dadinho de Tapioca R$ 24,90 Nuggets Artesanais R$ 26,90 Batata Frita Pequena R$ 14,90 Batata Frita Grande R$ 23,90 Batata Cheddar e Bacon R$ 31,90 Onion Rings R$ 22,90 Aioli da Casa R$ 3,90 Barbecue Defumado R$ 3,90 Cheddar Cremoso R$ 5,90 Coca-Cola Lata 350ml R$ 6,90 Guarana Lata 350ml R$ 6,50 Agua Mineral 500ml R$ 4,90 Suco Natural de Laranja R$ 11,90 Milkshake Chocolate R$ 18,90 Brownie com Sorvete R$ 21,9"
+    },
+    {
+      "flow": "admin-cardapio-new-product",
+      "route": "/admin/cardapio",
+      "viewport": "mobile",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Abriu dialog/sheet seguro."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-cardapio-new-product-mobile-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-cardapio-new-product-mobile-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "Cardápio admin 5 Administração do cardápio Produtos, categorias, insumos, imagens e canais de venda. Atualizar 40 Produtos ativos 12 Categorias 12 Insumos 6de 40 Com imagem Produtos Categorias Insumos Produtos Novo produto Pizza Tradicional PIZZA-TRAD Disponível CATEGORIA Pizzas PREÇO R$ 29,90 Combo Classic COMBO-CLASSIC Disponível CATEGORIA Combos da Casa PREÇO R$ 33,90 Combo Duplo Cheddar COMBO-DUPLO Disponível CATEGORIA Combos da Casa PREÇO R$ 45,90 Petit Gateau PTG001 Disponível CATEGORIA Sobremesas PREÇO R$ 28,00 Pizza Especial PIZZA-ESPEC Disponível CATEGORIA Pizzas PREÇO R$ 49,90 Combo Familia MenuFlow COMBO-FAMILIA Disponível CATEGORIA Combos da Casa PREÇO R$ 149,90 Milk-Shake Morango MSM001 Disponível CATEGORIA Bebidas PREÇO R$ 22,00 Combo Kids COMBO-KIDS Disponível CATEGORIA Combos da Casa PREÇO R$ 29,90 Combo Pizza + 2 Refris COMBO-PIZZA-REFRI Disponível CATEGORIA Combos da Casa PREÇO R$ 79,90 Cerveja Long Neck CLN001 Disponível CATEGORIA Bebidas PREÇO R$ 16,00 Hot Dog Gourmet HDG001 Disponível CATEGORIA Lanches PREÇO R$ 28,00 MenuFlow Classic BURGER-CLASSIC Disponível CATEGORIA Hamburgueres Artesanais PREÇO R$ 28,90 Bacon BBQ BURGER-BACON-BBQ Disponível CATEGORIA Hambur"
+    },
+    {
+      "flow": "admin-usuarios-invite",
+      "route": "/admin/usuarios",
+      "viewport": "mobile",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Abriu dialog/sheet seguro."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-usuarios-invite-mobile-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-usuarios-invite-mobile-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "Usuários 5 Usuarios Gerencie os colaboradores e acessos do restaurante. Convidar usuario Colaboradores Admin Auditoria(voce) audit@menuflow.local Administrador STATUS Ativo ULTIMO ACESSO 30/06/2026, 07:16 Editar papel Convites pendentes Nenhum convite pendente."
+    },
+    {
+      "flow": "financeiro-dre-new-expense",
+      "route": "/financeiro/dre",
+      "viewport": "mobile",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Abriu dialog/sheet seguro."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/financeiro-dre-new-expense-mobile-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/financeiro-dre-new-expense-mobile-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "5 DRE - Demonstrativo de Resultado 01/06/2026 ate 30/06/2026 Hoje Esta semana Este mes Personalizado RECEITA BRUTA R$ 0,00 LUCRO BRUTO R$ 0,00 0.0% LUCRO LIQUIDO R$ 0,00 0.0% TICKET MEDIO R$ 0,00 0 pedidos DEMONSTRATIVO DE RESULTADO Receita Bruta R$ 0,00 (-) Taxas marketplace R$ 0,00 (-) Taxas cartao R$ 0,00 (-) Impostos R$ 0,00 = Receita Liquida R$ 0,00 (-) CMV (custo de mercadoria) R$ 0,00 = Lucro Bruto R$ 0,00 (-) Despesas operacionais R$ 0,00 = Lucro Liquido R$ 0,00 PEDIDOS POR CANAL Nenhum pedido no periodo PEDIDOS POR FORMA DE PAGAMENTO Nenhum pedido no periodo DESPESAS OPERACIONAIS Nova despesa Nenhuma despesa registrada."
+    },
+    {
+      "flow": "admin-cupons-new-coupon",
+      "route": "/admin/cupons",
+      "viewport": "mobile",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Abriu dialog/sheet seguro."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-cupons-new-coupon-mobile-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-cupons-new-coupon-mobile-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "5 Cupons & Descontos Novo Cupom Nenhum cupom cadastrado Crie o primeiro cupom de desconto para seus clientes. Criar primeiro cupom"
+    },
+    {
+      "flow": "cardapio-public-product-and-cart",
+      "route": "/cardapio",
+      "viewport": "mobile",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Produto abriu em estado intermediario."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/cardapio-public-product-and-cart-mobile-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/cardapio-public-product-and-cart-mobile-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "🍔 Cardápio MenuFlow Demo Rua das Palmeiras, 120 - Centro Aberto hoje ate 23h Lanches Pizzas Combos da Casa Hamburgueres Artesanais Smash Burgers Frango e Vegetarianos Porcoes e Entradas Batatas e Acompanhamentos Molhos Extras Bebidas Sobremesas Promocoes Lanches Hot Dog Gourmet Salsicha artesanal defumada, cebola crispy, queijo derretido, mostarda dijon e ketchup artesanal R$ 28,00 Pizzas DESTAQUE Pizza Tradicional Inteira ou meia a meia. Escolha tamanho, sabor(es) e borda. R$ 29,90 Pizza Especial Ingredientes premium. Meia a meia disponivel. Bordas exclusivas. R$ 49,90 Combos da Casa 🍽️ PROMO DESTAQUE Combo Classic Burger Classic + batata P + refrigerante lata. R$ 33,90 R$ 36,90 🍽️ PROMO DESTAQUE Combo Duplo Cheddar Duplo cheddar + batata bacon cheddar + bebida. R$ 45,90 R$ 49,90 🍽️ DESTAQUE Combo Familia MenuFlow 4 burgers, 2 batatas grandes, onion rings e 4 bebidas. R$ 149,90 🍽️ Combo Kids Mini burger, batata pequena e suco. R$ 29,90 DESTAQUE Combo Pizza + 2 Refris Pizza Media Tradicional (sabor a escolha) + 2 Coca-Cola Lata. Economia garantida! R$ 79,90 Hamburgueres Artesanais 🍽️ DESTAQUE MenuFlow Classic Blend 160g, cheddar, alface, tomate, picles e molho especial no bri"
+    },
+    {
+      "flow": "pdv-add-item-local-cart",
+      "route": "/pdv",
+      "viewport": "mobile",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Item foi para estado local de carrinho sem fechar pedido."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/pdv-add-item-local-cart-mobile-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/pdv-add-item-local-cart-mobile-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "PDV 5 Todos Lanches Pizzas Combos da Casa Hamburgueres Artesanais Smash Burgers Frango e Vegetarianos Porcoes e Entradas Batatas e Acompanhamentos Molhos Extras Bebidas Sobremesas Promocoes Pizza Tradicional R$ 29,90 Pizza Especial R$ 49,90 0 Ver pedido"
+    },
+    {
+      "flow": "copilot-open-close",
+      "route": "/pdv",
+      "viewport": "mobile",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Copiloto abriu."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/copilot-open-close-mobile-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/copilot-open-close-mobile-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "PDV 5 Todos Lanches Pizzas Combos da Casa Hamburgueres Artesanais Smash Burgers Frango e Vegetarianos Porcoes e Entradas Batatas e Acompanhamentos Molhos Extras Bebidas Sobremesas Promocoes Pizza Tradicional R$ 29,90 Combo Classic R$ 33,90 R$ 36,90 Combo Duplo Cheddar R$ 45,90 R$ 49,90 Petit Gateau R$ 28,00 Pizza Especial R$ 49,90 Combo Familia MenuFlow R$ 149,90 Milk-Shake Morango R$ 22,00 Combo Kids R$ 29,90 Combo Pizza + 2 Refris R$ 79,90 Cerveja Long Neck R$ 16,00 Hot Dog Gourmet R$ 28,00 MenuFlow Classic R$ 28,90 Bacon BBQ R$ 34,90 Duplo Cheddar R$ 42,90 Blue Cheese R$ 38,90 Jalapeno Fire R$ 36,90 Costela Desfiada R$ 44,90 Smash Simples R$ 19,90 Smash Duplo R$ 24,90 R$ 27,90 Smash Triplo R$ 36,90 Oklahoma Smash R$ 29,90 Chicken Crispy R$ 29,90 Veggie Grao-de-bico R$ 31,90 Dadinho de Tapioca R$ 24,90 Nuggets Artesanais R$ 26,90 Batata Frita Pequena R$ 14,90 Batata Frita Grande R$ 23,90 Batata Cheddar e Bacon R$ 31,90 Onion Rings R$ 22,90 Aioli da Casa R$ 3,90 Barbecue Defumado R$ 3,90 Cheddar Cremoso R$ 5,90 Coca-Cola Lata 350ml R$ 6,90 Guarana Lata 350ml R$ 6,50 Agua Mineral 500ml R$ 4,90 Suco Natural de Laranja R$ 11,90 Milkshake Chocolate R$ 18,90 Brownie com Sorvete R$ 21,9"
+    },
+    {
+      "flow": "admin-bot-schedule-view",
+      "route": "/admin/bot",
+      "viewport": "mobile",
+      "status": "passed",
+      "steps": [
+        {
+          "status": "passed",
+          "message": "Bot WhatsApp mostra agenda/estado operacional."
+        }
+      ],
+      "error": null,
+      "before": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-bot-schedule-view-mobile-before.png",
+      "after": "/home/ronaldo/menuflow/docs/outputs/menuflow-phase2-safe-flows/admin-bot-schedule-view-mobile-after.png",
+      "consoleMessages": [],
+      "failedResponses": [],
+      "bodySample": "5 Bot WhatsApp Handoffs Pendentes Resolvidos Nenhum cliente aguardando atendimento Quando um cliente solicitar atendente, aparecera aqui. Configuracao do Bot Ativar Bot WhatsApp Palavra-chave de handoff Cliente digita esta palavra para falar com um humano Mensagem de boas-vindas Mensagem de handoff Enviada automaticamente quando o cliente solicita atendimento humano Instrucao personalizada (system prompt) Horario de funcionamento Segunda Abertura Fechamento Terca Abertura Fechamento Quarta Abertura Fechamento Quinta Abertura Fechamento Sexta Abertura Fechamento Sabado Abertura Fechamento Domingo Abertura Fechamento Salvar configuracoes"
+    }
+  ]
+}

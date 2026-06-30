@@ -274,16 +274,18 @@ Cada achado deve conter:
 | 2026-06-29 | Corrigir responsividade administrativa | Concluida | `frontend/app/admin/usuarios/page.tsx`, `frontend/components/layout/Topbar.tsx`, `frontend/components/layout/Sidebar.tsx` | Usuarios em tablet usa cards em vez de tabela; topbar/sidebar ganharam alvos de toque de pelo menos 44px. |
 | 2026-06-29 | Corrigir base de hitbox do frontend | Concluida | `frontend/app/globals.css`, `frontend/app/cardapio/page.tsx`, `frontend/app/pdv/page.tsx` | Botoes/inputs/icon-buttons padrao e chips de categoria ganharam altura minima de 44px. |
 | 2026-06-29 | Revalidar auditoria apos hitboxes globais | Concluida | `npm run type-check`, `scripts/run-frontend-audit-local.sh` | Type-check verde. Auditoria final: 75 achados brutos, 60 screenshots; 404 zero; overflows restantes apenas em barras horizontais mobile de `/cardapio` e `/pdv`. |
+| 2026-06-30 | Criar script da Fase 2 | Concluida | `docs/auditorias/2026-06-30-menuflow-phase2-safe-flows.cjs`, `scripts/run-phase2-safe-flows-local.sh` | Script abre fluxos intermediarios seguros sem salvar formularios, fechar pedido, alterar configuracao ou executar acao destrutiva. |
+| 2026-06-30 | Executar Fase 2 - Fluxos Operacionais Seguros | Concluida | `docs/outputs/menuflow-phase2-safe-flows/REPORT.md`, `docs/outputs/menuflow-phase2-safe-flows/results.json` | 27 cenarios em PC/tablet/mobile: 26 passed, 1 warning esperado no PC porque menu mobile nao aparece em desktop, 0 failed. |
 
 ## Proxima Etapa
 
-Avancar para a **Fase 2 - Fluxos Operacionais Seguros** contra o tenant `audit`, usando o usuario admin:
+Avancar para a **Fase 3 - Mutacao Controlada** contra o tenant `audit`, usando o usuario admin:
 
 - Tenant: `audit`
 - Email: `audit@menuflow.local`
 - Senha: `Audit@1234`
 
-O tenant ja esta populado no QA local com dados ricos e migrations aplicadas ate a versao 31. A Fase 1 read-only ja foi executada, registrada e reexecutada apos correcoes imediatas.
+O tenant ja esta populado no QA local com dados ricos e migrations aplicadas ate a versao 31. A Fase 1 read-only e a Fase 2 de fluxos seguros ja foram executadas, registradas e validadas.
 
 Comando para revalidar a Fase 1 quando necessario:
 
