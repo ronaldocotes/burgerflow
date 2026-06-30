@@ -182,7 +182,7 @@ function OrderCard({ order, now, onAdvance, onCancel }: OrderCardProps) {
               #{order.orderNumber}
             </span>
           </div>
-          <div className="mt-0.5 flex items-center gap-2 text-xs text-text-secondary">
+          <div className="mt-0.5 flex items-center gap-2 text-sm text-text-secondary">
             <span>{ORDER_TYPE_LABEL[order.orderType] ?? order.orderType}</span>
             {order.tableNumber && <span>· Mesa {order.tableNumber}</span>}
           </div>
@@ -200,7 +200,7 @@ function OrderCard({ order, now, onAdvance, onCancel }: OrderCardProps) {
           </span>
           <button
             onClick={() => onCancel(order)}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg px-2 text-xs text-text-muted underline underline-offset-2 hover:bg-bg-tertiary hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-error"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg px-2 text-sm text-text-muted underline underline-offset-2 hover:bg-bg-tertiary hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-error"
             aria-label="Cancelar pedido"
           >
             Cancelar
@@ -216,7 +216,7 @@ function OrderCard({ order, now, onAdvance, onCancel }: OrderCardProps) {
               {item.quantity}× {item.productName}
             </span>
             {item.notes && (
-              <p className="mt-0.5 flex items-start gap-1 text-xs text-warning-dark">
+              <p className="mt-0.5 flex items-start gap-1 text-sm text-warning-dark">
                 <span aria-hidden="true" className="mt-px shrink-0">⚠</span>
                 <span className="font-medium">{item.notes}</span>
               </p>

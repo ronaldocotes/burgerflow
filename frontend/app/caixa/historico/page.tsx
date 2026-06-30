@@ -126,7 +126,7 @@ export default function CaixaHistoricoPage() {
         {/* Conteúdo */}
         <div className="rounded-xl border border-border-light bg-bg-primary overflow-hidden">
           {/* Cabeçalho da tabela */}
-          <div className="hidden grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-4 border-b border-border-light bg-bg-tertiary px-4 py-3 text-xs font-semibold uppercase tracking-wide text-text-muted md:grid">
+          <div className="hidden grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-4 border-b border-border-light bg-bg-tertiary px-4 py-3 text-sm font-semibold uppercase tracking-wide text-text-muted md:grid">
             <span>Abertura</span>
             <span>Fechamento</span>
             <span className="text-right">Fundo</span>

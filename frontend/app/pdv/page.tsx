@@ -419,13 +419,13 @@ export default function PdvPage() {
                           {formatBRL(p.effectivePriceCents)}
                         </span>
                         {p.onPromo && (
-                          <span className="text-xs text-text-muted line-through">
+                          <span className="text-sm text-text-muted line-through">
                             {formatBRL(p.priceCents)}
                           </span>
                         )}
                       </div>
                       {loadingThis && (
-                        <span className="mt-2 inline-block text-xs text-text-muted">
+                        <span className="mt-2 inline-block text-sm text-text-muted">
                           Carregando…
                         </span>
                       )}
@@ -558,7 +558,7 @@ export default function PdvPage() {
                           {line.label}
                         </p>
                       )}
-                      <p className="text-xs text-text-muted mt-0.5">
+                      <p className="mt-0.5 text-sm text-text-muted">
                         {q ? formatBRL(q.unitPriceCents) : quoting ? "…" : "—"}
                       </p>
                     </div>

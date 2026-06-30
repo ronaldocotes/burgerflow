@@ -152,16 +152,19 @@ async function probe(page) {
       .filter(visible)
       .map((el) => {
         const r = el.getBoundingClientRect();
+        const cs = getComputedStyle(el);
         return {
           tag: el.tagName,
           role: el.getAttribute('role'),
           text: clean(el.textContent).slice(0, 90),
+          className: typeof el.className === 'string' ? el.className : '',
+          ariaHidden: el.getAttribute('aria-hidden') === 'true',
           left: Math.round(r.left),
           right: Math.round(r.right),
           top: Math.round(r.top),
           width: Math.round(r.width),
           height: Math.round(r.height),
-          fontSize: Number.parseFloat(getComputedStyle(el).fontSize || '0'),
+          fontSize: Number.parseFloat(cs.fontSize || '0'),
         };
       });
     const buttons = [...document.querySelectorAll('button, a, input, select, textarea, [role="button"], [role="tab"]')]
@@ -176,6 +179,13 @@ async function probe(page) {
           height: Math.round(r.height),
         };
       });
+    const isSecondarySmallText = (r) => {
+      const text = r.text.trim();
+      if (r.ariaHidden) return true;
+      if (text.length <= 2 && r.width <= 44 && r.height <= 44) return true;
+      if (/(rounded-full|badge|uppercase|tracking-wider|font-mono)/.test(r.className) && text.length <= 24) return true;
+      return false;
+    };
     const textNodes = rects.filter((r) => r.text && r.fontSize > 0);
     const svgs = [...document.querySelectorAll('svg')].filter(visible).map((svg) => {
       const r = svg.getBoundingClientRect();
@@ -193,7 +203,7 @@ async function probe(page) {
       clientWidth: document.documentElement.clientWidth,
       clippedRight: rects.filter((r) => r.right > viewportWidth + 1).slice(0, 12),
       tinyTargets: buttons.filter((b) => b.width < 44 || b.height < 44).slice(0, 20),
-      tinyText: textNodes.filter((r) => r.fontSize > 0 && r.fontSize < 14).slice(0, 20),
+      tinyText: textNodes.filter((r) => r.fontSize > 0 && r.fontSize < 14 && !isSecondarySmallText(r)).slice(0, 20),
       tableCount: document.querySelectorAll('table').length,
       formCount: document.querySelectorAll('form').length,
       dialogCount: document.querySelectorAll('[role="dialog"], dialog').length,

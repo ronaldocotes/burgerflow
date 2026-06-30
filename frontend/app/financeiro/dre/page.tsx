@@ -211,7 +211,7 @@ function MarginBadge({ pct }: { pct: number }) {
   return (
     <span
       className={[
-        'ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold',
+        'ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-sm font-semibold',
         pct >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700',
       ].join(' ')}
     >
@@ -242,7 +242,7 @@ function KpiCard({ label, value, sub, accent }: KpiCardProps) {
     >
       <p
         className={[
-          'text-xs font-semibold uppercase tracking-wider',
+          'text-sm font-semibold uppercase tracking-wider',
           accent ? 'text-white/70' : 'text-text-muted',
         ].join(' ')}
       >
@@ -420,7 +420,7 @@ function DreCharts({
                 ))}
               </Pie>
               <Tooltip formatter={(v) => [String(v) + ' pedidos', '']} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 14 }} />
             </PieChart>
           </ResponsiveContainer>
         )}
@@ -449,7 +449,7 @@ function DreCharts({
                 ))}
               </Pie>
               <Tooltip formatter={(v) => [String(v) + ' pedidos', '']} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 14 }} />
             </PieChart>
           </ResponsiveContainer>
         )}
@@ -761,19 +761,19 @@ function ExpensesSection({ showToast }: { showToast: (msg: string, type: ToastTy
             <table className="w-full text-sm" role="table">
               <thead>
                 <tr className="border-b border-border-light text-left">
-                  <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  <th className="pb-2 pr-4 text-sm font-semibold uppercase tracking-wider text-text-muted">
                     Descricao
                   </th>
-                  <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  <th className="pb-2 pr-4 text-sm font-semibold uppercase tracking-wider text-text-muted">
                     Categoria
                   </th>
-                  <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  <th className="pb-2 pr-4 text-sm font-semibold uppercase tracking-wider text-text-muted">
                     Data
                   </th>
-                  <th className="pb-2 pr-4 text-right text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  <th className="pb-2 pr-4 text-right text-sm font-semibold uppercase tracking-wider text-text-muted">
                     Valor
                   </th>
-                  <th className="pb-2 text-right text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  <th className="pb-2 text-right text-sm font-semibold uppercase tracking-wider text-text-muted">
                     Acoes
                   </th>
                 </tr>
@@ -1024,7 +1024,7 @@ export default function DrePage() {
                 label="Ticket Medio"
                 value={formatCents(dreData.averageTicketCents)}
                 sub={
-                  <p className="mt-1 flex items-center gap-1 text-xs text-text-muted">
+                  <p className="mt-1 flex items-center gap-1 text-sm text-text-muted">
                     <ShoppingBag className="h-3 w-3" aria-hidden="true" />
                     {dreData.orderCount} pedidos
                   </p>

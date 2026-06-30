@@ -88,7 +88,7 @@ function TableSkeleton() {
             {TABLE_HEADERS.map((h) => (
               <th
                 key={h}
-                className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted whitespace-nowrap"
+                className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider text-text-muted whitespace-nowrap"
               >
                 {h}
               </th>
@@ -268,13 +268,13 @@ function ConfigPanel() {
             {RECOVERY_VARS.map((v) => (
               <span
                 key={v}
-                className="rounded-full border border-border-medium bg-bg-secondary px-2 py-0.5 font-mono text-xs text-text-muted"
+                className="rounded-full border border-border-medium bg-bg-secondary px-2 py-0.5 font-mono text-sm text-text-muted"
               >
                 {v}
               </span>
             ))}
           </div>
-          <p className="mt-1.5 text-xs text-text-muted">
+          <p className="mt-1.5 text-sm text-text-muted">
             Variaveis: {RECOVERY_VARS.join(', ')}
           </p>
         </div>
@@ -478,7 +478,7 @@ export default function CarrinhosPage() {
                         {TABLE_HEADERS.map((h) => (
                           <th
                             key={h}
-                            className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted whitespace-nowrap"
+                            className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider text-text-muted whitespace-nowrap"
                           >
                             {h}
                           </th>

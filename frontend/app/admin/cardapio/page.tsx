@@ -445,7 +445,7 @@ export default function AdminCardapioPage() {
                       </div>
                       <div className="hidden overflow-x-auto md:block">
                         <table className="min-w-full text-sm">
-                          <thead className="bg-bg-secondary text-left text-xs uppercase text-text-muted">
+                          <thead className="bg-bg-secondary text-left text-sm uppercase text-text-muted">
                             <tr>
                               <th scope="col" className="px-4 py-3">Produto</th>
                               <th scope="col" className="px-4 py-3">Categoria</th>
@@ -461,7 +461,7 @@ export default function AdminCardapioPage() {
 	                                  <button className="inline-flex min-h-11 items-center text-left font-semibold text-text-primary hover:text-primary-700 hover:underline" onClick={() => void editProduct(product)}>
                                     {product.name}
                                   </button>
-                                  <p className="text-xs text-text-muted">{product.sku}</p>
+                                  <p className="text-sm text-text-muted">{product.sku}</p>
                                 </td>
                                 <td className="px-4 py-3 text-text-secondary">
                                   {categories.find((c) => c.id === product.categoryId)?.name ?? "-"}
@@ -650,7 +650,7 @@ function Metric({ icon: Icon, label, value, note }: { icon: LucideIcon; label: s
         {value}
         {note && <span className="ml-1 text-sm font-normal text-text-muted">{note}</span>}
       </p>
-      <p className="text-xs text-text-secondary">{label}</p>
+      <p className="text-sm text-text-secondary">{label}</p>
     </div>
   );
 }
@@ -694,19 +694,19 @@ function ProductMobileCard({
       <div className="flex flex-col gap-2 min-[360px]:flex-row min-[360px]:items-start min-[360px]:justify-between">
 	        <button className="min-h-11 w-full min-w-0 text-left min-[360px]:flex-1" onClick={onEdit}>
           <h3 className="truncate text-sm font-semibold text-text-primary">{product.name}</h3>
-          <p className="truncate text-xs text-text-muted">{product.sku || "Sem SKU"}</p>
+          <p className="truncate text-sm text-text-muted">{product.sku || "Sem SKU"}</p>
         </button>
-        <span className="shrink-0 self-start whitespace-nowrap text-xs">
+        <span className="shrink-0 self-start whitespace-nowrap text-sm">
           <AvailabilityBadge available={product.isAvailable} />
         </span>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
         <div className="min-w-0">
-          <p className="text-xs uppercase text-text-muted">Categoria</p>
+          <p className="text-sm uppercase text-text-muted">Categoria</p>
           <p className="truncate font-medium text-text-secondary">{categoryName}</p>
         </div>
         <div className="min-w-0 text-right">
-          <p className="text-xs uppercase text-text-muted">Preço</p>
+          <p className="text-sm uppercase text-text-muted">Preço</p>
           <p className="truncate font-semibold text-text-primary">{formatBRL(product.effectivePriceCents)}</p>
         </div>
       </div>
@@ -829,7 +829,7 @@ function ListItems<T extends { id: string }>({ items, title, subtitle, onEdit, o
         <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg bg-bg-primary p-4 shadow-card">
           <button className="min-w-0 text-left" onClick={() => onEdit(item)}>
             <p className="truncate text-sm font-semibold text-text-primary">{title(item)}</p>
-            <p className="truncate text-xs text-text-secondary">{subtitle(item)}</p>
+            <p className="truncate text-sm text-text-secondary">{subtitle(item)}</p>
           </button>
           <button className="icon-button" aria-label={`Remover ${title(item)}`} onClick={() => onDelete(item)}>
             <Trash2 className="h-4 w-4" aria-hidden="true" />

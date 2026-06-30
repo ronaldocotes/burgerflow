@@ -711,23 +711,23 @@ export default function CuponsPage() {
 
                   <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <dt className="text-xs font-semibold uppercase tracking-wider text-text-muted">Tipo</dt>
+                      <dt className="text-sm font-semibold uppercase tracking-wider text-text-muted">Tipo</dt>
                       <dd className="mt-1 text-text-primary">
                         {c.discountType === 'FIXED' ? 'Valor fixo' : 'Percentual'}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-xs font-semibold uppercase tracking-wider text-text-muted">Desconto</dt>
+                      <dt className="text-sm font-semibold uppercase tracking-wider text-text-muted">Desconto</dt>
                       <dd className="mt-1 font-semibold text-text-primary">{formatDiscount(c)}</dd>
                     </div>
                     <div>
-                      <dt className="text-xs font-semibold uppercase tracking-wider text-text-muted">Validade</dt>
+                      <dt className="text-sm font-semibold uppercase tracking-wider text-text-muted">Validade</dt>
                       <dd className="mt-1 text-text-primary">
                         {fmtDate(c.validFrom)} ate {fmtDate(c.validUntil)}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-xs font-semibold uppercase tracking-wider text-text-muted">Usos</dt>
+                      <dt className="text-sm font-semibold uppercase tracking-wider text-text-muted">Usos</dt>
                       <dd className="mt-1 text-text-primary">
                         {c.maxUses != null ? c.maxUses : <span aria-label="Ilimitado">Ilimitado</span>}
                       </dd>

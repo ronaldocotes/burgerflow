@@ -566,7 +566,7 @@ function BestsellerCard({
 
         <div className="mt-auto pt-1">
           {unavailable ? (
-            <span className="text-xs text-text-muted">Indisponivel</span>
+            <span className="text-sm text-text-muted">Indisponivel</span>
           ) : cartQuantity > 0 ? (
             <div className="flex items-center gap-1.5">
               <button
@@ -576,7 +576,7 @@ function BestsellerCard({
               >
                 −
               </button>
-              <span className="text-xs font-semibold text-text-primary w-4 text-center">
+              <span className="w-4 text-center text-sm font-semibold text-text-primary">
                 {cartQuantity}
               </span>
               <button
@@ -590,7 +590,7 @@ function BestsellerCard({
           ) : (
             <button
               onClick={(e) => { e.stopPropagation(); onOpen(); }}
-              className="text-xs bg-primary-700 text-white px-2 py-1 rounded-lg hover:bg-primary-800 transition-colors"
+              className="rounded-lg bg-primary-700 px-2 py-1 text-sm text-white hover:bg-primary-800 transition-colors"
               aria-label={`Adicionar ${product.name} ao carrinho`}
             >
               Adicionar
@@ -688,14 +688,14 @@ function ProductCard({
       <div className="p-3 flex flex-col gap-0.5">
         <h3 className="font-semibold text-text-primary leading-tight">{product.name}</h3>
         {product.description && (
-          <p className="text-xs text-text-secondary line-clamp-2">{product.description}</p>
+          <p className="line-clamp-2 text-sm text-text-secondary">{product.description}</p>
         )}
         <div className="mt-1.5 flex items-baseline gap-1.5">
           <span className="text-base font-bold text-text-primary">
             {formatBRL(product.effectivePriceCents)}
           </span>
           {product.onPromo && (
-            <span className="text-xs text-text-muted line-through">
+            <span className="text-sm text-text-muted line-through">
               {formatBRL(product.priceCents)}
             </span>
           )}

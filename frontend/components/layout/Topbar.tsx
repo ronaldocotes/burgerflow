@@ -131,12 +131,12 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           className="flex min-h-11 items-center gap-2 rounded-lg px-2 py-1.5 text-text-secondary hover:bg-bg-tertiary"
         >
           <div
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-700 text-xs font-bold text-white select-none"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-700 text-sm font-bold text-white select-none"
             aria-hidden="true"
           >
             {initial}
           </div>
-          <span className="hidden max-w-[120px] truncate text-xs font-medium text-text-primary sm:block">
+          <span className="hidden max-w-[120px] truncate text-sm font-medium text-text-primary sm:block">
             {roleLabel || email}
           </span>
           <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />

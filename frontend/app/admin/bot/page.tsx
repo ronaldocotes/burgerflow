@@ -139,7 +139,7 @@ function HandoffCard({ handoff, resolving, onResolve }: HandoffCardProps) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-mono text-sm font-semibold text-text-primary">{handoff.customerPhone}</p>
-          <p className="mt-0.5 text-xs text-text-muted">{timeAgo(handoff.createdAt)}</p>
+          <p className="mt-0.5 text-sm text-text-muted">{timeAgo(handoff.createdAt)}</p>
         </div>
         {handoff.resolved ? (
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
@@ -466,7 +466,7 @@ function ConfigSection() {
               className="input-field w-full sm:max-w-xs"
               placeholder="atendente"
             />
-            <p className="mt-1 text-xs text-text-muted">
+            <p className="mt-1 text-sm text-text-muted">
               Cliente digita esta palavra para falar com um humano
             </p>
           </div>
@@ -503,7 +503,7 @@ function ConfigSection() {
               className="input-field w-full resize-none"
               placeholder="Aguarde, um atendente entrara em contato em breve."
             />
-            <p className="mt-1 text-xs text-text-muted">
+            <p className="mt-1 text-sm text-text-muted">
               Enviada automaticamente quando o cliente solicita atendimento humano
             </p>
           </div>
@@ -560,7 +560,7 @@ function ConfigSection() {
                       </button>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <label className="grid gap-1 text-xs font-medium text-text-muted">
+                      <label className="grid gap-1 text-sm font-medium text-text-muted">
                         Abertura
                         <input
                           type="time"
@@ -571,7 +571,7 @@ function ConfigSection() {
                           className="input-field disabled:opacity-40"
                         />
                       </label>
-                      <label className="grid gap-1 text-xs font-medium text-text-muted">
+                      <label className="grid gap-1 text-sm font-medium text-text-muted">
                         Fechamento
                         <input
                           type="time"
@@ -591,16 +591,16 @@ function ConfigSection() {
               <table className="w-full min-w-[400px] text-sm">
                 <thead>
                   <tr className="border-b border-border-light">
-                    <th className="py-2 pr-4 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    <th className="py-2 pr-4 text-left text-sm font-semibold uppercase tracking-wider text-text-muted">
                       Dia
                     </th>
-                    <th className="py-2 pr-4 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    <th className="py-2 pr-4 text-left text-sm font-semibold uppercase tracking-wider text-text-muted">
                       Aberto
                     </th>
-                    <th className="py-2 pr-4 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    <th className="py-2 pr-4 text-left text-sm font-semibold uppercase tracking-wider text-text-muted">
                       Abertura
                     </th>
-                    <th className="py-2 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    <th className="py-2 text-left text-sm font-semibold uppercase tracking-wider text-text-muted">
                       Fechamento
                     </th>
                   </tr>

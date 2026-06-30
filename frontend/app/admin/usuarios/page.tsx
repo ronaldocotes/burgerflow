@@ -433,16 +433,16 @@ function UserMobileCard({
         <div className="min-w-0">
           <h3 className="truncate text-sm font-semibold text-text-primary">
             {fullName(user)}
-            {isMe && <span className="ml-1 text-xs font-normal text-text-muted">(voce)</span>}
+            {isMe && <span className="ml-1 text-sm font-normal text-text-muted">(voce)</span>}
           </h3>
-          <p className="truncate text-xs text-text-muted">{user.email}</p>
+          <p className="truncate text-sm text-text-muted">{user.email}</p>
         </div>
         <div className="shrink-0">{roleBadge(user.role)}</div>
       </div>
 
       <dl className="mt-4 grid gap-3 text-sm">
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-xs font-semibold uppercase text-text-muted">Status</dt>
+          <dt className="text-sm font-semibold uppercase text-text-muted">Status</dt>
           <dd>
             {user.isActive ? (
               <span className="inline-flex items-center gap-1 text-success">
@@ -458,7 +458,7 @@ function UserMobileCard({
           </dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-xs font-semibold uppercase text-text-muted">Ultimo acesso</dt>
+          <dt className="text-sm font-semibold uppercase text-text-muted">Ultimo acesso</dt>
           <dd className="text-right text-text-secondary">{formatDate(user.lastLoginAt)}</dd>
         </div>
       </dl>

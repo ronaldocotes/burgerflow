@@ -301,7 +301,7 @@ function CustomerPanel({ customerId, showToast }: CustomerPanelProps) {
       <div className="rounded-2xl bg-bg-primary p-6 shadow-card space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">Saldo</p>
+            <p className="text-sm font-semibold uppercase tracking-wider text-text-muted">Saldo</p>
             <p className="text-3xl font-bold text-text-primary">{data.loyaltyPoints}</p>
             <p className="text-sm text-text-secondary">pontos acumulados</p>
           </div>
@@ -320,7 +320,7 @@ function CustomerPanel({ customerId, showToast }: CustomerPanelProps) {
           </div>
         </div>
         <div>
-          <p className="mb-2 text-xs text-text-muted">
+          <p className="mb-2 text-sm text-text-muted">
             Progresso para o proximo punch ({clampedProgress}/{dots})
           </p>
           <PunchCard progress={clampedProgress} threshold={dots} />
@@ -362,7 +362,7 @@ function CustomerPanel({ customerId, showToast }: CustomerPanelProps) {
                   <p className="truncate text-sm font-medium text-text-primary">
                     {tx.description ?? reasonLabel(tx.reason)}
                   </p>
-                  <p className="text-xs text-text-muted">{timeAgo(tx.createdAt)}</p>
+                  <p className="text-sm text-text-muted">{timeAgo(tx.createdAt)}</p>
                 </div>
                 <span className={[
                   'text-sm font-semibold tabular-nums',
@@ -492,7 +492,7 @@ function ConfigCard() {
               <label htmlFor={toggleId} className="cursor-pointer text-sm font-medium text-text-primary">
                 Programa ativo
               </label>
-              <p className="text-xs text-text-muted">Clientes acumulam pontos a cada pedido pago</p>
+              <p className="text-sm text-text-muted">Clientes acumulam pontos a cada pedido pago</p>
             </div>
             <Toggle id={toggleId} checked={config.loyaltyEnabled}
               onChange={v => patch('loyaltyEnabled', v)} disabled={saving} />
@@ -559,7 +559,7 @@ function CustomerSearch({ onSelect }: { onSelect: (id: string) => void }) {
   return (
     <div className="rounded-2xl bg-bg-primary p-6 shadow-card">
       <h2 className="mb-1 text-base font-semibold text-text-primary">Consultar cliente</h2>
-      <p className="mb-4 text-xs text-text-muted">
+      <p className="mb-4 text-sm text-text-muted">
         Cole o ID do cliente (UUID) para consultar o saldo e historico de fidelidade.
       </p>
       <form onSubmit={handleSubmit} className="flex items-start gap-3">
@@ -613,7 +613,7 @@ export default function FidelidadePage() {
       <CustomerSearch onSelect={id => setCustomerId(id)} />
       {customerId && (
         <section aria-label="Dados de fidelidade do cliente">
-          <p className="mb-3 font-mono text-xs text-text-muted">Cliente: {customerId}</p>
+          <p className="mb-3 font-mono text-sm text-text-muted">Cliente: {customerId}</p>
           <div className="space-y-4">
             <CustomerPanel key={customerId} customerId={customerId} showToast={showToast} />
           </div>

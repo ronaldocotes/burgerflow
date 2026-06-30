@@ -76,7 +76,7 @@ function TableSkeleton() {
         <thead>
           <tr className="border-b border-border-light">
             {['Pedido', 'Plataforma', 'Status', 'Tentativas', 'Cod. resp.', 'Enviado em', 'Criado em', 'Acoes'].map((h) => (
-              <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">{h}</th>
+              <th key={h} className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider text-text-muted">{h}</th>
             ))}
           </tr>
         </thead>
@@ -249,7 +249,7 @@ function ConfigSection({ config, onSaved }: ConfigSectionProps) {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="meta-pixel-id" className="text-xs font-medium text-text-secondary">
+            <label htmlFor="meta-pixel-id" className="text-sm font-medium text-text-secondary">
               Pixel ID
             </label>
             <input
@@ -263,7 +263,7 @@ function ConfigSection({ config, onSaved }: ConfigSectionProps) {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="meta-access-token" className="text-xs font-medium text-text-secondary">
+            <label htmlFor="meta-access-token" className="text-sm font-medium text-text-secondary">
               Access Token{' '}
               <span className="text-text-muted">(write-only)</span>
             </label>
@@ -279,11 +279,11 @@ function ConfigSection({ config, onSaved }: ConfigSectionProps) {
                   Token configurado
                 </span>
               ) : (
-                <span className="inline-flex rounded-full bg-bg-tertiary px-2.5 py-0.5 text-xs font-medium text-text-secondary">
+                <span className="inline-flex rounded-full bg-bg-tertiary px-2.5 py-0.5 text-sm font-medium text-text-secondary">
                   Nao configurado
                 </span>
               )}
-              <span className="text-xs text-text-muted">
+              <span className="text-sm text-text-muted">
                 Deixe em branco para manter o token atual
               </span>
             </div>
@@ -291,7 +291,7 @@ function ConfigSection({ config, onSaved }: ConfigSectionProps) {
         </div>
 
         <div className="flex flex-col gap-1.5 sm:max-w-sm">
-          <label htmlFor="meta-test-code" className="text-xs font-medium text-text-secondary">
+          <label htmlFor="meta-test-code" className="text-sm font-medium text-text-secondary">
             Codigo de teste
           </label>
           <input
@@ -302,12 +302,12 @@ function ConfigSection({ config, onSaved }: ConfigSectionProps) {
             onChange={(e) => setTestCode(e.target.value)}
             placeholder="TEST12345"
           />
-          <p className="text-xs text-text-muted">
+          <p className="text-sm text-text-muted">
             Preencha para testar sem afetar dados reais. Deixe vazio em producao.
           </p>
         </div>
 
-        <p className="text-xs text-text-muted">
+        <p className="text-sm text-text-muted">
           Como obter o token: acesse o Events Manager do Meta &gt; Configuracoes &gt; API de
           Conversoes &gt; Gerar token de acesso.
         </p>
@@ -318,7 +318,7 @@ function ConfigSection({ config, onSaved }: ConfigSectionProps) {
         <h3 className="text-sm font-semibold text-text-primary">Google sGTM</h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="google-sgtm-url" className="text-xs font-medium text-text-secondary">
+            <label htmlFor="google-sgtm-url" className="text-sm font-medium text-text-secondary">
               URL do sGTM
             </label>
             <input
@@ -331,7 +331,7 @@ function ConfigSection({ config, onSaved }: ConfigSectionProps) {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="google-measurement-id" className="text-xs font-medium text-text-secondary">
+            <label htmlFor="google-measurement-id" className="text-sm font-medium text-text-secondary">
               Measurement ID
             </label>
             <input
@@ -436,7 +436,7 @@ function DispatchRow({
             disabled={retrying}
             title="Tentar novamente"
             aria-label="Tentar novamente"
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-tertiary disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-tertiary disabled:opacity-50 transition-colors"
           >
             <RefreshCw className={['h-3.5 w-3.5', retrying ? 'animate-spin' : ''].join(' ')} aria-hidden="true" />
             {retrying ? 'Reenviando...' : 'Reenviar'}
@@ -575,7 +575,7 @@ function DispatchesSection() {
               <thead>
                 <tr className="border-b border-border-light">
                   {['Pedido', 'Plataforma', 'Status', 'Tentativas', 'Cod. resp.', 'Enviado em', 'Criado em', 'Acoes'].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted whitespace-nowrap">
+                    <th key={h} className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider text-text-muted whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -589,7 +589,7 @@ function DispatchesSection() {
             </table>
           </div>
           <Pagination page={page} totalPages={data.totalPages} onPage={setPage} />
-          <p className="text-center text-xs text-text-muted">
+          <p className="text-center text-sm text-text-muted">
             {data.totalElements} registro{data.totalElements !== 1 ? 's' : ''} no total
           </p>
         </>
