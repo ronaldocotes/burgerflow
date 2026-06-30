@@ -120,7 +120,7 @@ function Toggle({
   id: string
 }) {
   return (
-    <label htmlFor={id} className="flex cursor-pointer items-center gap-3">
+    <label htmlFor={id} className="flex min-h-11 cursor-pointer items-center gap-3">
       <div className="relative">
         <input
           id={id}
@@ -131,14 +131,14 @@ function Toggle({
         />
         <div
           className={[
-            'h-6 w-11 rounded-full transition-colors duration-200',
+            'h-11 w-12 rounded-full transition-colors duration-200',
             checked ? 'bg-primary-700' : 'bg-bg-tertiary',
           ].join(' ')}
         />
         <div
           className={[
-            'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200',
-            checked ? 'translate-x-5' : 'translate-x-0',
+            'absolute top-1.5 left-1 h-8 w-8 rounded-full bg-white shadow transition-transform duration-200',
+            checked ? 'translate-x-2' : 'translate-x-0',
           ].join(' ')}
         />
       </div>

@@ -934,8 +934,8 @@
           "Em preparo",
           "Prontos"
         ],
-        "bodySample": "MenuFlow Demo OPERAÇÃO PDV Cozinha Mesas Caixa Fidelidade SISTEMA Cardápio admin Usuários Entregadores Cupons RFV Campanhas Rastreamento Conversoes Carrinhos Bot WhatsApp DRE Configurações Recolher MenuFlow Demo / Cozinha — KDS 5 Administrador Atualizar Novos 0 Nenhum pedido Em preparo 1 #MF-260630-005070 Mesa · Mesa AUDIT 62:36 Cancelar 2× AUDIT-20260630105721 Produto ⚠ Item AUDIT Marcar pronto Prontos 0 Nenhum pedido pronto",
-        "bodyLength": 429,
+        "bodySample": "MenuFlow Demo OPERAÇÃO PDV Cozinha Mesas Caixa Fidelidade SISTEMA Cardápio admin Usuários Entregadores Cupons RFV Campanhas Rastreamento Conversoes Carrinhos Bot WhatsApp DRE Configurações Recolher MenuFlow Demo / Cozinha — KDS 5 Administrador Atualizar Novos 0 Nenhum pedido Em preparo 1 #MF-260630-005070 Mesa · Mesa AUDIT 100:49 Cancelar 2× AUDIT-20260630105721 Produto ⚠ Item AUDIT Marcar pronto Prontos 0 Nenhum pedido pronto",
+        "bodyLength": 430,
         "overflowX": false,
         "scrollWidth": 1920,
         "clientWidth": 1920,
@@ -1762,57 +1762,7 @@
         "scrollWidth": 1920,
         "clientWidth": 1920,
         "clippedRight": [],
-        "tinyTargets": [
-          {
-            "tag": "INPUT",
-            "role": null,
-            "label": "",
-            "width": 1,
-            "height": 1
-          },
-          {
-            "tag": "INPUT",
-            "role": null,
-            "label": "",
-            "width": 13,
-            "height": 13
-          },
-          {
-            "tag": "INPUT",
-            "role": null,
-            "label": "",
-            "width": 13,
-            "height": 13
-          },
-          {
-            "tag": "INPUT",
-            "role": null,
-            "label": "",
-            "width": 13,
-            "height": 13
-          },
-          {
-            "tag": "INPUT",
-            "role": null,
-            "label": "",
-            "width": 13,
-            "height": 13
-          },
-          {
-            "tag": "INPUT",
-            "role": null,
-            "label": "",
-            "width": 13,
-            "height": 13
-          },
-          {
-            "tag": "INPUT",
-            "role": null,
-            "label": "",
-            "width": 13,
-            "height": 13
-          }
-        ],
+        "tinyTargets": [],
         "tinyText": [
           {
             "tag": "P",
@@ -2121,7 +2071,7 @@
           "Colaboradores",
           "Convites pendentes"
         ],
-        "bodySample": "MenuFlow Demo OPERAÇÃO PDV Cozinha Mesas Caixa Fidelidade SISTEMA Cardápio admin Usuários Entregadores Cupons RFV Campanhas Rastreamento Conversoes Carrinhos Bot WhatsApp DRE Configurações Recolher MenuFlow Demo / Usuários 5 Administrador Usuarios Gerencie os colaboradores e acessos do restaurante. Convidar usuario Colaboradores NOME E-MAIL PAPEL STATUS ULTIMO ACESSO ACOES Admin Auditoria(voce) audit@menuflow.local Administrador Ativo 30/06/2026, 08:59 Operador Auditoria audit.operator@menuflow.local OPERATOR Ativo 30/06/2026, 08:07 Atendente Auditoria audit.staff@menuflow.local Colaborador Ativo 30/06/2026, 08:07 Convites pendentes Nenhum convite pendente.",
+        "bodySample": "MenuFlow Demo OPERAÇÃO PDV Cozinha Mesas Caixa Fidelidade SISTEMA Cardápio admin Usuários Entregadores Cupons RFV Campanhas Rastreamento Conversoes Carrinhos Bot WhatsApp DRE Configurações Recolher MenuFlow Demo / Usuários 5 Administrador Usuarios Gerencie os colaboradores e acessos do restaurante. Convidar usuario Colaboradores NOME E-MAIL PAPEL STATUS ULTIMO ACESSO ACOES Admin Auditoria(voce) audit@menuflow.local Administrador Ativo 30/06/2026, 09:38 Operador Auditoria audit.operator@menuflow.local OPERATOR Ativo 30/06/2026, 08:07 Atendente Auditoria audit.staff@menuflow.local Colaborador Ativo 30/06/2026, 08:07 Convites pendentes Nenhum convite pendente.",
         "bodyLength": 665,
         "overflowX": false,
         "scrollWidth": 1920,
@@ -2233,7 +2183,7 @@
             "role": null,
             "text": "E-mail",
             "left": 757,
-            "right": 1007,
+            "right": 1006,
             "top": 201,
             "width": 250,
             "height": 40,
@@ -2243,8 +2193,8 @@
             "tag": "TH",
             "role": null,
             "text": "Papel",
-            "left": 1007,
-            "right": 1148,
+            "left": 1006,
+            "right": 1147,
             "top": 201,
             "width": 141,
             "height": 40,
@@ -2254,7 +2204,7 @@
             "tag": "TH",
             "role": null,
             "text": "Status",
-            "left": 1148,
+            "left": 1147,
             "right": 1235,
             "top": 201,
             "width": 87,
@@ -2268,7 +2218,7 @@
             "left": 1235,
             "right": 1401,
             "top": 201,
-            "width": 165,
+            "width": 166,
             "height": 40,
             "fontSize": 12
           },
@@ -2298,7 +2248,7 @@
             "tag": "SPAN",
             "role": null,
             "text": "Administrador",
-            "left": 1023,
+            "left": 1022,
             "right": 1125,
             "top": 266,
             "width": 102,
@@ -2309,7 +2259,7 @@
             "tag": "SPAN",
             "role": null,
             "text": "OPERATOR",
-            "left": 1023,
+            "left": 1022,
             "right": 1107,
             "top": 335,
             "width": 84,
@@ -2320,7 +2270,7 @@
             "tag": "SPAN",
             "role": null,
             "text": "Colaborador",
-            "left": 1023,
+            "left": 1022,
             "right": 1115,
             "top": 404,
             "width": 92,
@@ -3804,15 +3754,7 @@
         "scrollWidth": 1920,
         "clientWidth": 1920,
         "clippedRight": [],
-        "tinyTargets": [
-          {
-            "tag": "INPUT",
-            "role": null,
-            "label": "",
-            "width": 1,
-            "height": 1
-          }
-        ],
+        "tinyTargets": [],
         "tinyText": [
           {
             "tag": "P",
@@ -3886,7 +3828,7 @@
             "text": "Pixel ID",
             "left": 304,
             "right": 1052,
-            "top": 293,
+            "top": 313,
             "width": 748,
             "height": 16,
             "fontSize": 12
@@ -3897,7 +3839,7 @@
             "text": "Access Token (write-only)",
             "left": 1068,
             "right": 1816,
-            "top": 293,
+            "top": 313,
             "width": 748,
             "height": 16,
             "fontSize": 12
@@ -3908,7 +3850,7 @@
             "text": "(write-only)",
             "left": 1152,
             "right": 1219,
-            "top": 293,
+            "top": 313,
             "width": 68,
             "height": 15,
             "fontSize": 12
@@ -3919,7 +3861,7 @@
             "text": "Nao configurado",
             "left": 1068,
             "right": 1184,
-            "top": 367,
+            "top": 387,
             "width": 116,
             "height": 20,
             "fontSize": 12
@@ -3930,7 +3872,7 @@
             "text": "Deixe em branco para manter o token atual",
             "left": 1192,
             "right": 1436,
-            "top": 369,
+            "top": 389,
             "width": 244,
             "height": 16,
             "fontSize": 12
@@ -3941,7 +3883,7 @@
             "text": "Codigo de teste",
             "left": 304,
             "right": 688,
-            "top": 403,
+            "top": 423,
             "width": 384,
             "height": 16,
             "fontSize": 12
@@ -3952,7 +3894,7 @@
             "text": "Preencha para testar sem afetar dados reais. Deixe vazio em producao.",
             "left": 304,
             "right": 688,
-            "top": 475,
+            "top": 495,
             "width": 384,
             "height": 32,
             "fontSize": 12
@@ -3963,7 +3905,7 @@
             "text": "Como obter o token: acesse o Events Manager do Meta > Configuracoes > API de Conversoes > ",
             "left": 304,
             "right": 1816,
-            "top": 523,
+            "top": 543,
             "width": 1512,
             "height": 16,
             "fontSize": 12
@@ -3974,7 +3916,7 @@
             "text": "URL do sGTM",
             "left": 304,
             "right": 1052,
-            "top": 620,
+            "top": 640,
             "width": 748,
             "height": 16,
             "fontSize": 12
@@ -3985,7 +3927,7 @@
             "text": "Measurement ID",
             "left": 1068,
             "right": 1816,
-            "top": 620,
+            "top": 640,
             "width": 748,
             "height": 16,
             "fontSize": 12
@@ -3996,7 +3938,7 @@
             "text": "Todos",
             "left": 1471,
             "right": 1530,
-            "top": 827,
+            "top": 847,
             "width": 59,
             "height": 44,
             "fontSize": 12
@@ -4007,7 +3949,7 @@
             "text": "Pendente",
             "left": 1536,
             "right": 1615,
-            "top": 827,
+            "top": 847,
             "width": 79,
             "height": 44,
             "fontSize": 12
@@ -4018,7 +3960,7 @@
             "text": "Enviado",
             "left": 1621,
             "right": 1690,
-            "top": 827,
+            "top": 847,
             "width": 70,
             "height": 44,
             "fontSize": 12
@@ -4029,7 +3971,7 @@
             "text": "Falhou",
             "left": 1696,
             "right": 1759,
-            "top": 827,
+            "top": 847,
             "width": 62,
             "height": 44,
             "fontSize": 12
@@ -4914,8 +4856,8 @@
           "Em preparo",
           "Prontos"
         ],
-        "bodySample": "MenuFlow Demo / Cozinha — KDS 5 Administrador Atualizar Novos 0 Nenhum pedido Em preparo 1 #MF-260630-005070 Mesa · Mesa AUDIT 63:26 Cancelar 2× AUDIT-20260630105721 Produto ⚠ Item AUDIT Marcar pronto Prontos 0 Nenhum pedido pronto",
-        "bodyLength": 231,
+        "bodySample": "MenuFlow Demo / Cozinha — KDS 5 Administrador Atualizar Novos 0 Nenhum pedido Em preparo 1 #MF-260630-005070 Mesa · Mesa AUDIT 101:38 Cancelar 2× AUDIT-20260630105721 Produto ⚠ Item AUDIT Marcar pronto Prontos 0 Nenhum pedido pronto",
+        "bodyLength": 232,
         "overflowX": false,
         "scrollWidth": 768,
         "clientWidth": 768,
@@ -5750,7 +5692,7 @@
           "Colaboradores",
           "Convites pendentes"
         ],
-        "bodySample": "MenuFlow Demo / Usuários 5 Administrador Usuarios Gerencie os colaboradores e acessos do restaurante. Convidar usuario Colaboradores Admin Auditoria(voce) audit@menuflow.local Administrador STATUS Ativo ULTIMO ACESSO 30/06/2026, 09:00 Editar papel Operador Auditoria audit.operator@menuflow.local OPERATOR STATUS Ativo ULTIMO ACESSO 30/06/2026, 08:07 Editar papel Atendente Auditoria audit.staff@menuflow.local Colaborador STATUS Ativo ULTIMO ACESSO 30/06/2026, 08:07 Editar papel Convites pendentes Nenhum convite pendente.",
+        "bodySample": "MenuFlow Demo / Usuários 5 Administrador Usuarios Gerencie os colaboradores e acessos do restaurante. Convidar usuario Colaboradores Admin Auditoria(voce) audit@menuflow.local Administrador STATUS Ativo ULTIMO ACESSO 30/06/2026, 09:38 Editar papel Operador Auditoria audit.operator@menuflow.local OPERATOR STATUS Ativo ULTIMO ACESSO 30/06/2026, 08:07 Editar papel Atendente Auditoria audit.staff@menuflow.local Colaborador STATUS Ativo ULTIMO ACESSO 30/06/2026, 08:07 Editar papel Convites pendentes Nenhum convite pendente.",
         "bodyLength": 524,
         "overflowX": false,
         "scrollWidth": 768,
@@ -7047,15 +6989,7 @@
         "scrollWidth": 768,
         "clientWidth": 768,
         "clippedRight": [],
-        "tinyTargets": [
-          {
-            "tag": "INPUT",
-            "role": null,
-            "label": "",
-            "width": 1,
-            "height": 1
-          }
-        ],
+        "tinyTargets": [],
         "tinyText": [
           {
             "tag": "DIV",
@@ -7085,7 +7019,7 @@
             "text": "Pixel ID",
             "left": 48,
             "right": 348,
-            "top": 293,
+            "top": 313,
             "width": 300,
             "height": 16,
             "fontSize": 12
@@ -7096,7 +7030,7 @@
             "text": "Access Token (write-only)",
             "left": 364,
             "right": 664,
-            "top": 293,
+            "top": 313,
             "width": 300,
             "height": 16,
             "fontSize": 12
@@ -7107,7 +7041,7 @@
             "text": "(write-only)",
             "left": 448,
             "right": 515,
-            "top": 293,
+            "top": 313,
             "width": 68,
             "height": 15,
             "fontSize": 12
@@ -7118,7 +7052,7 @@
             "text": "Nao configurado",
             "left": 364,
             "right": 461,
-            "top": 367,
+            "top": 387,
             "width": 97,
             "height": 36,
             "fontSize": 12
@@ -7129,7 +7063,7 @@
             "text": "Deixe em branco para manter o token atual",
             "left": 469,
             "right": 664,
-            "top": 369,
+            "top": 389,
             "width": 195,
             "height": 32,
             "fontSize": 12
@@ -7140,7 +7074,7 @@
             "text": "Codigo de teste",
             "left": 48,
             "right": 432,
-            "top": 419,
+            "top": 439,
             "width": 384,
             "height": 16,
             "fontSize": 12
@@ -7151,7 +7085,7 @@
             "text": "Preencha para testar sem afetar dados reais. Deixe vazio em producao.",
             "left": 48,
             "right": 432,
-            "top": 491,
+            "top": 511,
             "width": 384,
             "height": 32,
             "fontSize": 12
@@ -7162,7 +7096,7 @@
             "text": "Como obter o token: acesse o Events Manager do Meta > Configuracoes > API de Conversoes > ",
             "left": 48,
             "right": 664,
-            "top": 539,
+            "top": 559,
             "width": 616,
             "height": 32,
             "fontSize": 12
@@ -7173,7 +7107,7 @@
             "text": "URL do sGTM",
             "left": 48,
             "right": 348,
-            "top": 652,
+            "top": 672,
             "width": 300,
             "height": 16,
             "fontSize": 12
@@ -7184,7 +7118,7 @@
             "text": "Measurement ID",
             "left": 364,
             "right": 664,
-            "top": 652,
+            "top": 672,
             "width": 300,
             "height": 16,
             "fontSize": 12
@@ -7195,7 +7129,7 @@
             "text": "Todos",
             "left": 319,
             "right": 378,
-            "top": 859,
+            "top": 879,
             "width": 59,
             "height": 44,
             "fontSize": 12
@@ -7206,7 +7140,7 @@
             "text": "Pendente",
             "left": 384,
             "right": 463,
-            "top": 859,
+            "top": 879,
             "width": 79,
             "height": 44,
             "fontSize": 12
@@ -7217,7 +7151,7 @@
             "text": "Enviado",
             "left": 469,
             "right": 538,
-            "top": 859,
+            "top": 879,
             "width": 70,
             "height": 44,
             "fontSize": 12
@@ -7228,7 +7162,7 @@
             "text": "Falhou",
             "left": 544,
             "right": 607,
-            "top": 859,
+            "top": 879,
             "width": 62,
             "height": 44,
             "fontSize": 12
@@ -7239,7 +7173,7 @@
             "text": "Ignorado",
             "left": 613,
             "right": 688,
-            "top": 859,
+            "top": 879,
             "width": 75,
             "height": 44,
             "fontSize": 12
@@ -8195,8 +8129,8 @@
           "Em preparo",
           "Prontos"
         ],
-        "bodySample": "Cozinha — KDS 5 Atualizar Novos 0 Nenhum pedido Em preparo 1 #MF-260630-005070 Mesa · Mesa AUDIT 64:08 Cancelar 2× AUDIT-20260630105721 Produto ⚠ Item AUDIT Marcar pronto Prontos 0 Nenhum pedido pronto",
-        "bodyLength": 201,
+        "bodySample": "Cozinha — KDS 5 Atualizar Novos 0 Nenhum pedido Em preparo 1 #MF-260630-005070 Mesa · Mesa AUDIT 102:20 Cancelar 2× AUDIT-20260630105721 Produto ⚠ Item AUDIT Marcar pronto Prontos 0 Nenhum pedido pronto",
+        "bodyLength": 202,
         "overflowX": false,
         "scrollWidth": 390,
         "clientWidth": 390,
@@ -8910,7 +8844,7 @@
           "Colaboradores",
           "Convites pendentes"
         ],
-        "bodySample": "Usuários 5 Usuarios Gerencie os colaboradores e acessos do restaurante. Convidar usuario Colaboradores Admin Auditoria(voce) audit@menuflow.local Administrador STATUS Ativo ULTIMO ACESSO 30/06/2026, 09:01 Editar papel Operador Auditoria audit.operator@menuflow.local OPERATOR STATUS Ativo ULTIMO ACESSO 30/06/2026, 08:07 Editar papel Atendente Auditoria audit.staff@menuflow.local Colaborador STATUS Ativo ULTIMO ACESSO 30/06/2026, 08:07 Editar papel Convites pendentes Nenhum convite pendente.",
+        "bodySample": "Usuários 5 Usuarios Gerencie os colaboradores e acessos do restaurante. Convidar usuario Colaboradores Operador Auditoria audit.operator@menuflow.local OPERATOR STATUS Ativo ULTIMO ACESSO 30/06/2026, 08:07 Editar papel Atendente Auditoria audit.staff@menuflow.local Colaborador STATUS Ativo ULTIMO ACESSO 30/06/2026, 08:07 Editar papel Admin Auditoria(voce) audit@menuflow.local Administrador STATUS Ativo ULTIMO ACESSO 30/06/2026, 09:39 Editar papel Convites pendentes Nenhum convite pendente.",
         "bodyLength": 494,
         "overflowX": false,
         "scrollWidth": 390,
@@ -8930,35 +8864,24 @@
             "fontSize": 12
           },
           {
-            "tag": "SPAN",
-            "role": null,
-            "text": "(voce)",
-            "left": 162,
-            "right": 198,
-            "top": 313,
-            "width": 36,
-            "height": 15,
-            "fontSize": 12
-          },
-          {
             "tag": "P",
             "role": null,
-            "text": "audit@menuflow.local",
+            "text": "audit.operator@menuflow.local",
             "left": 49,
-            "right": 198,
+            "right": 226,
             "top": 330,
-            "width": 149,
+            "width": 177,
             "height": 16,
             "fontSize": 12
           },
           {
             "tag": "SPAN",
             "role": null,
-            "text": "Administrador",
-            "left": 219,
+            "text": "OPERATOR",
+            "left": 238,
             "right": 322,
             "top": 314,
-            "width": 102,
+            "width": 84,
             "height": 20,
             "fontSize": 12
           },
@@ -8987,22 +8910,22 @@
           {
             "tag": "P",
             "role": null,
-            "text": "audit.operator@menuflow.local",
+            "text": "audit.staff@menuflow.local",
             "left": 49,
-            "right": 226,
+            "right": 203,
             "top": 542,
-            "width": 177,
+            "width": 154,
             "height": 16,
             "fontSize": 12
           },
           {
             "tag": "SPAN",
             "role": null,
-            "text": "OPERATOR",
-            "left": 238,
+            "text": "Colaborador",
+            "left": 230,
             "right": 322,
             "top": 526,
-            "width": 84,
+            "width": 92,
             "height": 20,
             "fontSize": 12
           },
@@ -9029,24 +8952,35 @@
             "fontSize": 12
           },
           {
+            "tag": "SPAN",
+            "role": null,
+            "text": "(voce)",
+            "left": 162,
+            "right": 198,
+            "top": 737,
+            "width": 36,
+            "height": 15,
+            "fontSize": 12
+          },
+          {
             "tag": "P",
             "role": null,
-            "text": "audit.staff@menuflow.local",
+            "text": "audit@menuflow.local",
             "left": 49,
-            "right": 203,
+            "right": 198,
             "top": 754,
-            "width": 154,
+            "width": 149,
             "height": 16,
             "fontSize": 12
           },
           {
             "tag": "SPAN",
             "role": null,
-            "text": "Colaborador",
-            "left": 230,
+            "text": "Administrador",
+            "left": 219,
             "right": 322,
             "top": 738,
-            "width": 92,
+            "width": 102,
             "height": 20,
             "fontSize": 12
           },
@@ -10119,15 +10053,7 @@
         "scrollWidth": 390,
         "clientWidth": 390,
         "clippedRight": [],
-        "tinyTargets": [
-          {
-            "tag": "INPUT",
-            "role": null,
-            "label": "",
-            "width": 1,
-            "height": 1
-          }
-        ],
+        "tinyTargets": [],
         "tinyText": [
           {
             "tag": "DIV",
@@ -10677,24 +10603,6 @@
   ],
   "findings": [
     {
-      "severity": "Importante",
-      "device": "pc",
-      "path": "/admin/cardapio",
-      "title": "Alvos de toque abaixo de 44px",
-      "observed": "[{\"tag\":\"INPUT\",\"role\":null,\"label\":\"\",\"width\":1,\"height\":1},{\"tag\":\"INPUT\",\"role\":null,\"label\":\"\",\"width\":13,\"height\":13},{\"tag\":\"INPUT\",\"role\":null,\"label\":\"\",\"width\":13,\"height\":13},{\"tag\":\"INPUT\",\"role\":null,\"label\":\"\",\"width\":13,\"height\":13},{\"tag\":\"INPUT\",\"role\":null,\"label\":\"\",\"width\":13,\"height\":13}]",
-      "expected": "Botoes/inputs/tabs devem ter area clicavel minima de 44x44px.",
-      "evidence": "/home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-cardapio-pc.png"
-    },
-    {
-      "severity": "Importante",
-      "device": "pc",
-      "path": "/admin/conversoes",
-      "title": "Alvos de toque abaixo de 44px",
-      "observed": "[{\"tag\":\"INPUT\",\"role\":null,\"label\":\"\",\"width\":1,\"height\":1}]",
-      "expected": "Botoes/inputs/tabs devem ter area clicavel minima de 44x44px.",
-      "evidence": "/home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-conversoes-pc.png"
-    },
-    {
       "severity": "Melhoria",
       "device": "tablet",
       "path": "/cardapio",
@@ -10830,20 +10738,11 @@
       "evidence": "/home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-tracking-tablet.png"
     },
     {
-      "severity": "Importante",
-      "device": "tablet",
-      "path": "/admin/conversoes",
-      "title": "Alvos de toque abaixo de 44px",
-      "observed": "[{\"tag\":\"INPUT\",\"role\":null,\"label\":\"\",\"width\":1,\"height\":1}]",
-      "expected": "Botoes/inputs/tabs devem ter area clicavel minima de 44x44px.",
-      "evidence": "/home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-conversoes-tablet.png"
-    },
-    {
       "severity": "Melhoria",
       "device": "tablet",
       "path": "/admin/conversoes",
       "title": "Texto abaixo de 14px em tablet/mobile",
-      "observed": "[{\"tag\":\"DIV\",\"role\":null,\"text\":\"5\",\"left\":543,\"right\":575,\"top\":12,\"width\":32,\"height\":32,\"fontSize\":12},{\"tag\":\"SPAN\",\"role\":null,\"text\":\"Administrador\",\"left\":583,\"right\":664,\"top\":20,\"width\":81,\"height\":16,\"fontSize\":12},{\"tag\":\"LABEL\",\"role\":null,\"text\":\"Pixel ID\",\"left\":48,\"right\":348,\"top\":293,\"width\":300,\"height\":16,\"fontSize\":12},{\"tag\":\"LABEL\",\"role\":null,\"text\":\"Access Token (write-only)\",\"left\":364,\"right\":664,\"top\":293,\"width\":300,\"height\":16,\"fontSize\":12},{\"tag\":\"SPAN\",\"role\":null,\"text\":\"(write-only)\",\"left\":448,\"right\":515,\"top\":293,\"width\":68,\"height\":15,\"fontSize\":12}]",
+      "observed": "[{\"tag\":\"DIV\",\"role\":null,\"text\":\"5\",\"left\":543,\"right\":575,\"top\":12,\"width\":32,\"height\":32,\"fontSize\":12},{\"tag\":\"SPAN\",\"role\":null,\"text\":\"Administrador\",\"left\":583,\"right\":664,\"top\":20,\"width\":81,\"height\":16,\"fontSize\":12},{\"tag\":\"LABEL\",\"role\":null,\"text\":\"Pixel ID\",\"left\":48,\"right\":348,\"top\":313,\"width\":300,\"height\":16,\"fontSize\":12},{\"tag\":\"LABEL\",\"role\":null,\"text\":\"Access Token (write-only)\",\"left\":364,\"right\":664,\"top\":313,\"width\":300,\"height\":16,\"fontSize\":12},{\"tag\":\"SPAN\",\"role\":null,\"text\":\"(write-only)\",\"left\":448,\"right\":515,\"top\":313,\"width\":68,\"height\":15,\"fontSize\":12}]",
       "expected": "Texto operacional deve manter legibilidade minima de 14px.",
       "evidence": "/home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-conversoes-tablet.png"
     },
@@ -10951,7 +10850,7 @@
       "device": "mobile",
       "path": "/admin/usuarios",
       "title": "Texto abaixo de 14px em tablet/mobile",
-      "observed": "[{\"tag\":\"DIV\",\"role\":null,\"text\":\"5\",\"left\":254,\"right\":286,\"top\":12,\"width\":32,\"height\":32,\"fontSize\":12},{\"tag\":\"SPAN\",\"role\":null,\"text\":\"(voce)\",\"left\":162,\"right\":198,\"top\":313,\"width\":36,\"height\":15,\"fontSize\":12},{\"tag\":\"P\",\"role\":null,\"text\":\"audit@menuflow.local\",\"left\":49,\"right\":198,\"top\":330,\"width\":149,\"height\":16,\"fontSize\":12},{\"tag\":\"SPAN\",\"role\":null,\"text\":\"Administrador\",\"left\":219,\"right\":322,\"top\":314,\"width\":102,\"height\":20,\"fontSize\":12},{\"tag\":\"DT\",\"role\":null,\"text\":\"Status\",\"left\":49,\"right\":96,\"top\":365,\"width\":47,\"height\":16,\"fontSize\":12}]",
+      "observed": "[{\"tag\":\"DIV\",\"role\":null,\"text\":\"5\",\"left\":254,\"right\":286,\"top\":12,\"width\":32,\"height\":32,\"fontSize\":12},{\"tag\":\"P\",\"role\":null,\"text\":\"audit.operator@menuflow.local\",\"left\":49,\"right\":226,\"top\":330,\"width\":177,\"height\":16,\"fontSize\":12},{\"tag\":\"SPAN\",\"role\":null,\"text\":\"OPERATOR\",\"left\":238,\"right\":322,\"top\":314,\"width\":84,\"height\":20,\"fontSize\":12},{\"tag\":\"DT\",\"role\":null,\"text\":\"Status\",\"left\":49,\"right\":96,\"top\":365,\"width\":47,\"height\":16,\"fontSize\":12},{\"tag\":\"DT\",\"role\":null,\"text\":\"Ultimo acesso\",\"left\":49,\"right\":147,\"top\":398,\"width\":98,\"height\":16,\"fontSize\":12}]",
       "expected": "Texto operacional deve manter legibilidade minima de 14px.",
       "evidence": "/home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-usuarios-mobile.png"
     },
@@ -11017,15 +10916,6 @@
       "observed": "[{\"tag\":\"DIV\",\"role\":null,\"text\":\"5\",\"left\":254,\"right\":286,\"top\":12,\"width\":32,\"height\":32,\"fontSize\":12},{\"tag\":\"BUTTON\",\"role\":null,\"text\":\"7 dias\",\"left\":16,\"right\":76,\"top\":188,\"width\":60,\"height\":44,\"fontSize\":12},{\"tag\":\"BUTTON\",\"role\":null,\"text\":\"30 dias\",\"left\":84,\"right\":152,\"top\":188,\"width\":68,\"height\":44,\"fontSize\":12},{\"tag\":\"BUTTON\",\"role\":null,\"text\":\"90 dias\",\"left\":160,\"right\":228,\"top\":188,\"width\":68,\"height\":44,\"fontSize\":12},{\"tag\":\"BUTTON\",\"role\":null,\"text\":\"Personalizado\",\"left\":16,\"right\":123,\"top\":240,\"width\":107,\"height\":44,\"fontSize\":12}]",
       "expected": "Texto operacional deve manter legibilidade minima de 14px.",
       "evidence": "/home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-tracking-mobile.png"
-    },
-    {
-      "severity": "Importante",
-      "device": "mobile",
-      "path": "/admin/conversoes",
-      "title": "Alvos de toque abaixo de 44px",
-      "observed": "[{\"tag\":\"INPUT\",\"role\":null,\"label\":\"\",\"width\":1,\"height\":1}]",
-      "expected": "Botoes/inputs/tabs devem ter area clicavel minima de 44x44px.",
-      "evidence": "/home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-conversoes-mobile.png"
     },
     {
       "severity": "Melhoria",

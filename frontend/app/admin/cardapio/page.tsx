@@ -553,8 +553,8 @@ export default function AdminCardapioPage() {
                     <MoneyInput label="Custo unitário" cents={ingredientForm.unitCostCents} onChange={(v) => setIngredientForm((p) => ({ ...p, unitCostCents: v }))} />
                     <DecimalInput label="Estoque" value={ingredientForm.stockQuantity} onChange={(v) => setIngredientForm((p) => ({ ...p, stockQuantity: v }))} />
                     <DecimalInput label="Estoque mínimo" value={ingredientForm.minStock} onChange={(v) => setIngredientForm((p) => ({ ...p, minStock: v }))} />
-                    <label className="flex min-h-6 items-center gap-2 text-sm leading-5 text-text-secondary">
-                      <input type="checkbox" checked={ingredientForm.isAllergen} onChange={(e) => setIngredientForm((p) => ({ ...p, isAllergen: e.target.checked }))} />
+                    <label className="flex min-h-11 items-center gap-2 text-sm leading-5 text-text-secondary">
+                      <input className="h-5 w-5" type="checkbox" checked={ingredientForm.isAllergen} onChange={(e) => setIngredientForm((p) => ({ ...p, isAllergen: e.target.checked }))} />
                       Alérgeno
                     </label>
                     <TextArea label="Descrição" value={ingredientForm.description} onChange={(v) => setIngredientForm((p) => ({ ...p, description: v }))} />
@@ -772,7 +772,7 @@ function ProductForm(props: {
         <NumberInput label="Ordem" value={form.displayOrder} onChange={(v) => setForm((p) => ({ ...p, displayOrder: v }))} />
         <TextInput label="URL da imagem" value={form.imageUrl} onChange={(v) => setForm((p) => ({ ...p, imageUrl: v }))} />
         <p className="text-center text-xs text-text-muted">— ou —</p>
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border-medium px-3 py-2 text-sm text-text-secondary hover:bg-bg-secondary">
+        <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border-medium px-3 py-2 text-sm text-text-secondary hover:bg-bg-secondary">
           <ImagePlus className="h-4 w-4" aria-hidden="true" />
           {uploading ? "Enviando..." : "Enviar imagem"}
           <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="sr-only" onChange={onUpload} disabled={uploading} />
@@ -781,8 +781,9 @@ function ProductForm(props: {
           <p className="text-sm font-medium text-text-secondary">Canais de venda</p>
           <div className="grid gap-2">
             {CHANNELS.map((channel) => (
-              <label key={channel.value} className="flex min-h-6 items-center gap-2 text-sm leading-5 text-text-secondary">
+              <label key={channel.value} className="flex min-h-11 items-center gap-2 text-sm leading-5 text-text-secondary">
                 <input
+                  className="h-5 w-5"
                   type="checkbox"
                   checked={availability.includes(channel.value)}
                   onChange={(e) => setAvailability((prev) => selectedChannels(prev, channel.value, e.target.checked))}
@@ -794,12 +795,12 @@ function ProductForm(props: {
           <p className="text-xs text-text-muted">Nenhum canal marcado significa disponível em todos.</p>
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-2">
-          <label className="flex min-h-6 items-center gap-2 text-sm leading-5 text-text-secondary">
-            <input type="checkbox" checked={form.isAvailable} onChange={(e) => setForm((p) => ({ ...p, isAvailable: e.target.checked }))} />
+          <label className="flex min-h-11 items-center gap-2 text-sm leading-5 text-text-secondary">
+            <input className="h-5 w-5" type="checkbox" checked={form.isAvailable} onChange={(e) => setForm((p) => ({ ...p, isAvailable: e.target.checked }))} />
             Disponível
           </label>
-          <label className="flex min-h-6 items-center gap-2 text-sm leading-5 text-text-secondary">
-            <input type="checkbox" checked={form.isFeatured} onChange={(e) => setForm((p) => ({ ...p, isFeatured: e.target.checked }))} />
+          <label className="flex min-h-11 items-center gap-2 text-sm leading-5 text-text-secondary">
+            <input className="h-5 w-5" type="checkbox" checked={form.isFeatured} onChange={(e) => setForm((p) => ({ ...p, isFeatured: e.target.checked }))} />
             Destaque
           </label>
         </div>

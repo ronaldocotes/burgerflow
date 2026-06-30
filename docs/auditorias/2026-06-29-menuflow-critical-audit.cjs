@@ -138,6 +138,15 @@ async function probe(page) {
       const cs = getComputedStyle(el);
       return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none';
     };
+    const interactiveRect = (el) => {
+      const type = (el.getAttribute('type') || '').toLowerCase();
+      if (el.tagName === 'INPUT' && ['checkbox', 'radio', 'file'].includes(type)) {
+        const id = el.getAttribute('id');
+        const label = el.closest('label') || (id ? document.querySelector(`label[for="${CSS.escape(id)}"]`) : null);
+        if (label && visible(label)) return label.getBoundingClientRect();
+      }
+      return el.getBoundingClientRect();
+    };
     const viewportWidth = document.documentElement.clientWidth;
     const rects = [...document.querySelectorAll('body *')]
       .filter(visible)
@@ -158,7 +167,7 @@ async function probe(page) {
     const buttons = [...document.querySelectorAll('button, a, input, select, textarea, [role="button"], [role="tab"]')]
       .filter(visible)
       .map((el) => {
-        const r = el.getBoundingClientRect();
+        const r = interactiveRect(el);
         return {
           tag: el.tagName,
           role: el.getAttribute('role'),

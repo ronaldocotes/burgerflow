@@ -1,35 +1,17 @@
 # Auditoria critica MenuFlow
 
 Base: http://localhost:3011
-Data: 2026-06-30T12:02:04.790Z
+Data: 2026-06-30T12:40:14.748Z
 Dispositivos: pc 1920x1080, tablet 768x1024, mobile 390x844
 
 ## Sumario executivo
 
-Foram auditadas 18 areas em 3 viewports, com login, captura de screenshots, leitura de DOM, erros HTTP/console, overflow, alvos de toque e texto pequeno. Encontrados 42 achados automatizados. Esta rodada e uma auditoria operacional read-only: nao finalizou pedido nem gravou entidades para nao poluir a demo de producao.
+Foram auditadas 18 areas em 3 viewports, com login, captura de screenshots, leitura de DOM, erros HTTP/console, overflow, alvos de toque e texto pequeno. Encontrados 38 achados automatizados. Esta rodada e uma auditoria operacional read-only: nao finalizou pedido nem gravou entidades para nao poluir a demo de producao.
 
 ## Achados por severidade
 
 ### Importante
 
-- **Alvos de toque abaixo de 44px**
-  - Dispositivo: pc
-  - Tela: /admin/cardapio
-  - O que acontece: [{"tag":"INPUT","role":null,"label":"","width":1,"height":1},{"tag":"INPUT","role":null,"label":"","width":13,"height":13},{"tag":"INPUT","role":null,"label":"","width":13,"height":13},{"tag":"INPUT","role":null,"label":"","width":13,"height":13},{"tag":"INPUT","role":null,"label":"","width":13,"height":13}]
-  - O que deveria acontecer: Botoes/inputs/tabs devem ter area clicavel minima de 44x44px.
-  - Evidencia: /home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-cardapio-pc.png
-- **Alvos de toque abaixo de 44px**
-  - Dispositivo: pc
-  - Tela: /admin/conversoes
-  - O que acontece: [{"tag":"INPUT","role":null,"label":"","width":1,"height":1}]
-  - O que deveria acontecer: Botoes/inputs/tabs devem ter area clicavel minima de 44x44px.
-  - Evidencia: /home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-conversoes-pc.png
-- **Alvos de toque abaixo de 44px**
-  - Dispositivo: tablet
-  - Tela: /admin/conversoes
-  - O que acontece: [{"tag":"INPUT","role":null,"label":"","width":1,"height":1}]
-  - O que deveria acontecer: Botoes/inputs/tabs devem ter area clicavel minima de 44x44px.
-  - Evidencia: /home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-conversoes-tablet.png
 - **Conteudo corta horizontalmente**
   - Dispositivo: mobile
   - Tela: /cardapio
@@ -42,12 +24,6 @@ Foram auditadas 18 areas em 3 viewports, com login, captura de screenshots, leit
   - O que acontece: scrollWidth=390, clientWidth=390, clipped=[{"tag":"BUTTON","role":null,"text":"Combos da Casa","left":281,"right":429,"top":128,"width":148,"height":44,"fontSize":14},{"tag":"BUTTON","role":null,"text":"Hamburgueres Artesanais","left":437,"right":645,"top":128,"width":208,"height":44,"fontSize":14},{"tag":"BUTTON","role":null,"text":"Smash Burgers","left":653,"right":789,"top":128,"width":136,"height":44,"fontSize":14}]
   - O que deveria acontecer: Nao deve haver overflow horizontal em PC/tablet/mobile.
   - Evidencia: /home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/pdv-mobile.png
-- **Alvos de toque abaixo de 44px**
-  - Dispositivo: mobile
-  - Tela: /admin/conversoes
-  - O que acontece: [{"tag":"INPUT","role":null,"label":"","width":1,"height":1}]
-  - O que deveria acontecer: Botoes/inputs/tabs devem ter area clicavel minima de 44x44px.
-  - Evidencia: /home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-conversoes-mobile.png
 
 ### Melhoria
 
@@ -144,7 +120,7 @@ Foram auditadas 18 areas em 3 viewports, com login, captura de screenshots, leit
 - **Texto abaixo de 14px em tablet/mobile**
   - Dispositivo: tablet
   - Tela: /admin/conversoes
-  - O que acontece: [{"tag":"DIV","role":null,"text":"5","left":543,"right":575,"top":12,"width":32,"height":32,"fontSize":12},{"tag":"SPAN","role":null,"text":"Administrador","left":583,"right":664,"top":20,"width":81,"height":16,"fontSize":12},{"tag":"LABEL","role":null,"text":"Pixel ID","left":48,"right":348,"top":293,"width":300,"height":16,"fontSize":12},{"tag":"LABEL","role":null,"text":"Access Token (write-only)","left":364,"right":664,"top":293,"width":300,"height":16,"fontSize":12},{"tag":"SPAN","role":null,"text":"(write-only)","left":448,"right":515,"top":293,"width":68,"height":15,"fontSize":12}]
+  - O que acontece: [{"tag":"DIV","role":null,"text":"5","left":543,"right":575,"top":12,"width":32,"height":32,"fontSize":12},{"tag":"SPAN","role":null,"text":"Administrador","left":583,"right":664,"top":20,"width":81,"height":16,"fontSize":12},{"tag":"LABEL","role":null,"text":"Pixel ID","left":48,"right":348,"top":313,"width":300,"height":16,"fontSize":12},{"tag":"LABEL","role":null,"text":"Access Token (write-only)","left":364,"right":664,"top":313,"width":300,"height":16,"fontSize":12},{"tag":"SPAN","role":null,"text":"(write-only)","left":448,"right":515,"top":313,"width":68,"height":15,"fontSize":12}]
   - O que deveria acontecer: Texto operacional deve manter legibilidade minima de 14px.
   - Evidencia: /home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-conversoes-tablet.png
 - **Texto abaixo de 14px em tablet/mobile**
@@ -204,7 +180,7 @@ Foram auditadas 18 areas em 3 viewports, com login, captura de screenshots, leit
 - **Texto abaixo de 14px em tablet/mobile**
   - Dispositivo: mobile
   - Tela: /admin/usuarios
-  - O que acontece: [{"tag":"DIV","role":null,"text":"5","left":254,"right":286,"top":12,"width":32,"height":32,"fontSize":12},{"tag":"SPAN","role":null,"text":"(voce)","left":162,"right":198,"top":313,"width":36,"height":15,"fontSize":12},{"tag":"P","role":null,"text":"audit@menuflow.local","left":49,"right":198,"top":330,"width":149,"height":16,"fontSize":12},{"tag":"SPAN","role":null,"text":"Administrador","left":219,"right":322,"top":314,"width":102,"height":20,"fontSize":12},{"tag":"DT","role":null,"text":"Status","left":49,"right":96,"top":365,"width":47,"height":16,"fontSize":12}]
+  - O que acontece: [{"tag":"DIV","role":null,"text":"5","left":254,"right":286,"top":12,"width":32,"height":32,"fontSize":12},{"tag":"P","role":null,"text":"audit.operator@menuflow.local","left":49,"right":226,"top":330,"width":177,"height":16,"fontSize":12},{"tag":"SPAN","role":null,"text":"OPERATOR","left":238,"right":322,"top":314,"width":84,"height":20,"fontSize":12},{"tag":"DT","role":null,"text":"Status","left":49,"right":96,"top":365,"width":47,"height":16,"fontSize":12},{"tag":"DT","role":null,"text":"Ultimo acesso","left":49,"right":147,"top":398,"width":98,"height":16,"fontSize":12}]
   - O que deveria acontecer: Texto operacional deve manter legibilidade minima de 14px.
   - Evidencia: /home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-usuarios-mobile.png
 - **Texto abaixo de 14px em tablet/mobile**
@@ -270,11 +246,11 @@ Foram auditadas 18 areas em 3 viewports, com login, captura de screenshots, leit
 
 ## Top 5 prioridades
 
-1. Importante: /admin/cardapio (pc) - Alvos de toque abaixo de 44px
-2. Importante: /admin/conversoes (pc) - Alvos de toque abaixo de 44px
-3. Melhoria: /cardapio (tablet) - Texto abaixo de 14px em tablet/mobile
-4. Melhoria: /pdv (tablet) - Texto abaixo de 14px em tablet/mobile
-5. Melhoria: /kds (tablet) - Texto abaixo de 14px em tablet/mobile
+1. Melhoria: /cardapio (tablet) - Texto abaixo de 14px em tablet/mobile
+2. Melhoria: /pdv (tablet) - Texto abaixo de 14px em tablet/mobile
+3. Melhoria: /kds (tablet) - Texto abaixo de 14px em tablet/mobile
+4. Melhoria: /mesas (tablet) - Texto abaixo de 14px em tablet/mobile
+5. Melhoria: /caixa (tablet) - Texto abaixo de 14px em tablet/mobile
 
 ## O que funcionou bem
 

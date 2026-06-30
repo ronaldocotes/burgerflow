@@ -282,6 +282,7 @@ Cada achado deve conter:
 | 2026-06-30 | Executar Fase 4 - Backend, Dados e Seguranca | Concluida | `docs/outputs/menuflow-phase4-backend-security/REPORT.md`, `docs/outputs/menuflow-phase4-backend-security/results.json` | 15 etapas, 0 falhas; prefixo `AUDIT4-20260630110704`; validou 401/403, OPERATOR vs DRE, STAFF vs produto, idempotencia, X-Tenant-ID spoofado, DTO publico e anti-lockout. |
 | 2026-06-30 | Executar Fase 5.1 - Correcoes UX de hitbox | Concluida | `docs/auditorias/2026-06-30-relatorio-fase-5-ux-hitboxes.md`, `docs/outputs/menuflow-critical-audit/REPORT.md`, `results.json` | Type-check verde. Auditoria frontend final: 45 achados brutos, 60 screenshots; queda de 75 para 45 apos corrigir botoes pequenos, filtros, switches e acoes icon-only. |
 | 2026-06-30 | Executar Fase 5.2 - Layouts responsivos | Concluida | `docs/auditorias/2026-06-30-relatorio-fase-5-2-layouts-responsivos.md`, `docs/outputs/menuflow-critical-audit/REPORT.md`, `results.json` | Type-check verde. Auditoria frontend final: 42 achados brutos, 60 screenshots; overflows de `admin/cupons` tablet/mobile e despesas DRE mobile removidos com cards ate `lg`. |
+| 2026-06-30 | Executar Fase 5.3 - Alvos reais e falsos positivos | Concluida | `docs/auditorias/2026-06-30-relatorio-fase-5-3-alvos-reais.md`, `docs/auditorias/2026-06-29-menuflow-critical-audit.cjs`, `docs/outputs/menuflow-critical-audit/REPORT.md` | Type-check e `node --check` verdes. Auditoria frontend final: 38 achados brutos, 60 screenshots; achados importantes de alvos de toque zerados. |
 
 ## Proxima Etapa
 
@@ -299,4 +300,4 @@ Comando para revalidar a Fase 1 quando necessario:
 wsl -d Kali-Linux --cd /home/ronaldo/menuflow --% bash scripts/run-frontend-audit-local.sh
 ```
 
-Para a Fase 5.3, separar falsos positivos de inputs escondidos/nativos, corrigir o que for clique real em `admin/cardapio` e `admin/conversoes`, e revisar texto pequeno de topbar/metadados com regra seletiva. Depois abrir subfrente de performance, dependencias e producao quando os bloqueantes visuais estiverem controlados.
+Para a Fase 5.4, revisar texto pequeno com regra seletiva, priorizando texto operacional real em vez de badges, metadados e elementos secundarios. Depois decidir se as barras horizontais de categorias em `/cardapio` e `/pdv` mobile devem continuar como padrao deliberado ou virar chips quebraveis tambem no mobile, e abrir subfrente de performance, dependencias e producao quando os bloqueantes visuais estiverem controlados.
