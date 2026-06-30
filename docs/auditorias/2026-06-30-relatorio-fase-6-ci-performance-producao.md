@@ -109,3 +109,40 @@ Deploy de producao reconciliado em artefatos versionados, sem executar deploy re
 - `scripts/deploy-prod-a1.sh` foi adicionado para rodar no host A1: preflight, validacao da rede externa `web`, backup do control DB quando Postgres ja estiver rodando, `docker compose up -d --build` e smoke publico.
 - `docker/DEPLOY-A1.md` foi atualizado para o fluxo atual de DuckDNS + Caddy compartilhado.
 - `docker/Caddyfile` foi atualizado como referencia standalone: proxy do frontend real, health publico somente em `/api/v1/actuator/health` e bloqueio do restante do actuator.
+
+## Atualizacao Fase 6.3
+
+Foi adicionado `scripts/check-tenant-migrations.sh`, um verificador read-only de drift de migrations por tenant.
+
+Ele:
+
+- Le `tenants` no banco de controle.
+- Calcula a ultima migration de controle e tenant presente no repositorio.
+- Consulta `flyway_schema_history` no control DB.
+- Consulta `schema_version` em cada banco fisico `tenant_<slug>`.
+- Mostra tenants com drift ou banco ausente.
+- Opcionalmente imprime um comando `scripts/apply-migrations.sh` revisavel, sem executar Flyway.
+
+Uso previsto no host A1:
+
+```bash
+scripts/check-tenant-migrations.sh --env .env.prod --host localhost:5432 --apply-command
+```
+
+O script e propositalmente read-only. Aplicacao real de migrations continua separada e deve ser feita pelo Capataz/Curador apos revisar o comando emitido.
+
+Validacao local em Postgres QA (`localhost:5545`):
+
+```bash
+MF_DB_USER=menuflow MF_DB_PASSWORD=menuflow123 MF_DB_CONTROL=menuflow_control MF_DB_HOST=localhost:5545 \
+  scripts/check-tenant-migrations.sh --host localhost:5545 --apply-command
+```
+
+Resultado:
+
+- Control DB aplicado: V6.
+- Ultima migration tenant no repo: V31.
+- Tenants ativos encontrados: `audit`, `demo`.
+- `tenant_audit`: V31, sem drift.
+- `tenant_demo`: V31, sem drift.
+- `tenants_with_drift=0`.

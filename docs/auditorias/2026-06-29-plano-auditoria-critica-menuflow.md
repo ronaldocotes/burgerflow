@@ -288,6 +288,7 @@ Cada achado deve conter:
 | 2026-06-30 | Iniciar Fase 6 - CI, performance e producao | Em andamento | `docs/auditorias/2026-06-30-relatorio-fase-6-ci-performance-producao.md`, `frontend/eslint.config.mjs`, `mobile/eslint.config.mjs` | Gates locais: frontend lint/type/test/build verdes, backend test verde, mobile lint/type/test verdes. IA bloqueada por `pytest` ausente no ambiente local. Achado principal: CD e composes de producao precisam alinhamento com `menuflow.duckdns.org` e health real. |
 | 2026-06-30 | Executar Fase 6.1 - Gates e smoke seguro | Concluida | `scripts/run-local-gates.sh`, `scripts/run-ia-tests-local.sh`, `.github/workflows/smoke.yml`, `.github/workflows/cd.yml` | Script unico local criado e validado; deploy legado desativado por apontar para compose antigo; smoke seguro adicionado e validado contra `menuflow.duckdns.org` e `/api/v1/actuator/health`. |
 | 2026-06-30 | Executar Fase 6.2 - Reconciliar deploy A1 | Concluida | `compose.prod.yml`, `env.prod.template`, `scripts/deploy-prod-a1.sh`, `docker/DEPLOY-A1.md`, `docker/Caddyfile` | Fluxo canonico documentado para A1 compartilhada: Caddy externo, rede `web`, preflight, backup control DB, build/up e smoke publico. Nenhum deploy remoto executado. |
+| 2026-06-30 | Executar Fase 6.3 - Verificador de migrations por tenant | Concluida | `scripts/check-tenant-migrations.sh`, `docs/auditorias/2026-06-30-relatorio-fase-6-ci-performance-producao.md` | Script read-only criado e validado no Postgres QA: control V6, tenants `audit` e `demo` em V31, `tenants_with_drift=0`; imprime comando revisavel de `apply-migrations.sh` sem executar Flyway. |
 
 ## Proxima Etapa
 
@@ -307,4 +308,4 @@ wsl -d Kali-Linux --cd /home/ronaldo/menuflow --% bash scripts/run-frontend-audi
 
 A Fase 5.5 foi concluida com a opcao B: categorias quebraveis no mobile em `/cardapio` e `/pdv`. A auditoria frontend local fechou com 0 achados automatizados.
 
-A Fase 6 foi iniciada com foco em CI, performance e producao. O script unico de gates locais foi criado, o smoke seguro do dominio real foi adicionado e o deploy A1 foi reconciliado em artefatos versionados. Proxima frente recomendada: preparar migracao/checagem automatizada de tenants e decidir quando reativar CD automatico.
+A Fase 6 foi iniciada com foco em CI, performance e producao. O script unico de gates locais foi criado, o smoke seguro do dominio real foi adicionado, o deploy A1 foi reconciliado em artefatos versionados e a checagem read-only de migrations por tenant foi preparada. Proxima frente recomendada: testar o verificador no host A1 e, com evidencia, decidir quando reativar CD automatico.
