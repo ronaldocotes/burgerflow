@@ -49,6 +49,8 @@ data class KdsOrderView(
     val items: List<KdsItem>,
     val estimatedPrepTimeMinutes: Int,
     val createdAt: Instant,
+    val externalOrigin: String,
+    val externalDisplayId: String?,
 ) {
     companion object {
         fun from(o: Order) = KdsOrderView(
@@ -60,6 +62,8 @@ data class KdsOrderView(
             items = KdsItem.from(o),
             estimatedPrepTimeMinutes = o.estimatedPrepTimeMinutes,
             createdAt = o.createdAt,
+            externalOrigin = o.externalOrigin,
+            externalDisplayId = o.externalDisplayId,
         )
     }
 }
