@@ -43,6 +43,8 @@ Restam apenas:
 
 Essas barras mantem chips de categoria com alvo de 44px e rolagem horizontal clara. A proxima decisao e de produto: manter esse padrao mobile ou trocar por chips quebraveis tambem no celular.
 
+Decisao posterior: na Fase 5.5 foi escolhida a opcao B, com chips quebraveis no mobile para eliminar o gesto horizontal e fechar a auditoria sem residuos.
+
 ## Proxima Subfase Recomendada
 
-Fase 5.5: decidir se as barras horizontais de categorias em `/cardapio` e `/pdv` mobile continuam como padrao deliberado ou viram layout quebravel. Depois abrir subfrente de performance, dependencias e producao.
+Fase 5.5: aplicar chips quebraveis no mobile em `/cardapio` e `/pdv`, revalidar a auditoria e depois abrir subfrente de performance, dependencias e producao.

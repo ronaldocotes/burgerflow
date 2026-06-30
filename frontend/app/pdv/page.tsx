@@ -357,12 +357,12 @@ export default function PdvPage() {
 
           {/* Abas de categorias */}
           {categories.length > 0 && (
-            <div className="mb-4 flex gap-2 overflow-x-auto pb-1 scrollbar-none md:flex-wrap md:overflow-visible" role="group" aria-label="Filtrar por categoria">
+            <div className="mb-4 flex flex-wrap gap-2 overflow-visible pb-1" role="group" aria-label="Filtrar por categoria">
               <button
                 type="button"
                 onClick={() => setSelectedCategoryId(null)}
                 aria-pressed={selectedCategoryId === null}
-                className={`min-h-11 shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                className={`min-h-11 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                   selectedCategoryId === null
                     ? "bg-primary-700 text-white"
                     : "bg-bg-secondary text-text-secondary border border-border-light hover:bg-bg-tertiary"
@@ -376,7 +376,7 @@ export default function PdvPage() {
                   type="button"
                   onClick={() => setSelectedCategoryId(cat.id)}
                   aria-pressed={selectedCategoryId === cat.id}
-                  className={`min-h-11 shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                  className={`min-h-11 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                     selectedCategoryId === cat.id
                       ? "bg-primary-700 text-white"
                       : "bg-bg-secondary text-text-secondary border border-border-light hover:bg-bg-tertiary"

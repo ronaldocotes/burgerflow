@@ -284,6 +284,7 @@ Cada achado deve conter:
 | 2026-06-30 | Executar Fase 5.2 - Layouts responsivos | Concluida | `docs/auditorias/2026-06-30-relatorio-fase-5-2-layouts-responsivos.md`, `docs/outputs/menuflow-critical-audit/REPORT.md`, `results.json` | Type-check verde. Auditoria frontend final: 42 achados brutos, 60 screenshots; overflows de `admin/cupons` tablet/mobile e despesas DRE mobile removidos com cards ate `lg`. |
 | 2026-06-30 | Executar Fase 5.3 - Alvos reais e falsos positivos | Concluida | `docs/auditorias/2026-06-30-relatorio-fase-5-3-alvos-reais.md`, `docs/auditorias/2026-06-29-menuflow-critical-audit.cjs`, `docs/outputs/menuflow-critical-audit/REPORT.md` | Type-check e `node --check` verdes. Auditoria frontend final: 38 achados brutos, 60 screenshots; achados importantes de alvos de toque zerados. |
 | 2026-06-30 | Executar Fase 5.4 - Texto seletivo | Concluida | `docs/auditorias/2026-06-30-relatorio-fase-5-4-texto-seletivo.md`, `docs/auditorias/2026-06-29-menuflow-critical-audit.cjs`, `docs/outputs/menuflow-critical-audit/REPORT.md` | Type-check e `node --check` verdes. Auditoria frontend final: 2 achados brutos, 60 screenshots; textos abaixo de 14px zerados pela regra seletiva e ajustes de UI. |
+| 2026-06-30 | Executar Fase 5.5 - Categorias mobile | Concluida | `frontend/app/cardapio/page.tsx`, `frontend/app/pdv/page.tsx`, `docs/auditorias/2026-06-30-relatorio-fase-5-5-categorias-mobile.md`, `docs/outputs/menuflow-critical-audit/REPORT.md` | Decidida a opcao B: chips quebraveis no mobile. Type-check verde. Auditoria frontend local final: 0 achados automatizados, 60 screenshots. |
 
 ## Proxima Etapa
 
@@ -301,4 +302,4 @@ Comando para revalidar a Fase 1 quando necessario:
 wsl -d Kali-Linux --cd /home/ronaldo/menuflow --% bash scripts/run-frontend-audit-local.sh
 ```
 
-Para a Fase 5.5, decidir se as barras horizontais de categorias em `/cardapio` e `/pdv` mobile continuam como padrao deliberado ou viram layout quebravel tambem no celular. Depois abrir subfrente de performance, dependencias e producao, pois os bloqueantes visuais automatizados ficaram controlados.
+A Fase 5.5 foi concluida com a opcao B: categorias quebraveis no mobile em `/cardapio` e `/pdv`. A auditoria frontend local fechou com 0 achados automatizados. Proxima frente recomendada: performance, dependencias e producao.

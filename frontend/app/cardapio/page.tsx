@@ -87,7 +87,7 @@ function CategoryBar({
       role="navigation"
       aria-label="Categorias do cardápio"
     >
-      <div ref={barRef} className="flex gap-1.5 overflow-x-auto px-4 py-2 no-scrollbar md:flex-wrap md:overflow-visible">
+      <div ref={barRef} className="flex flex-wrap gap-1.5 overflow-visible px-4 py-2">
         {sections.map((s) => {
           const id = `section-${s.key}`;
           const isActive = activeId === id;
@@ -98,7 +98,7 @@ function CategoryBar({
               onClick={() => onSelect(id)}
               aria-current={isActive ? "true" : undefined}
               className={[
-                "min-h-11 flex-shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150",
+                "min-h-11 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150",
                 isActive
                   ? "bg-primary-700 text-white"
                   : "bg-bg-tertiary text-text-secondary hover:text-text-primary",
