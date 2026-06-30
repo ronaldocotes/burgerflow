@@ -146,3 +146,20 @@ Resultado:
 - `tenant_audit`: V31, sem drift.
 - `tenant_demo`: V31, sem drift.
 - `tenants_with_drift=0`.
+
+Validacao real no A1 (`ubuntu@100.95.28.100`, host `alicia-a1`), read-only:
+
+```bash
+cd /home/ubuntu/menuflow
+bash scripts/check-tenant-migrations.sh --env .env.prod --host localhost:5432 --apply-command
+```
+
+Resultado:
+
+- Control DB aplicado: V6.
+- Ultima migration tenant no repo remoto: V31.
+- Tenant ativo encontrado: `demo`.
+- `tenant_demo`: V31, sem drift.
+- `tenants_with_drift=0`.
+- O host nao tinha `psql` instalado fora do container; o script foi corrigido para usar `docker exec menuflow-postgres psql` quando necessario.
+- Achado operacional: existe cron ativo `*/5 * * * * /home/ubuntu/pull-deploy-menuflow.sh`, que faz `git reset --hard origin/main` e `docker compose up -d --build --remove-orphans`. Ou seja, o deploy real ja e pull-deploy no host, independente do GitHub Actions CD desativado.
