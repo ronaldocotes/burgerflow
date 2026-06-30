@@ -83,7 +83,7 @@ function Toggle({ id, checked, onChange, disabled }: {
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={[
-        'relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors',
+        'relative inline-flex h-11 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700',
         checked ? 'bg-primary-700' : 'bg-gray-300',
         disabled ? 'opacity-50 cursor-not-allowed' : '',

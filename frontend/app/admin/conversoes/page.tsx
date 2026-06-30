@@ -166,7 +166,7 @@ function PasswordField({
       <input
         id={id}
         type={visible ? 'text' : 'password'}
-        className="input-field w-full pr-10"
+        className="input-field w-full pr-12"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -176,7 +176,7 @@ function PasswordField({
         type="button"
         onClick={() => setVisible((v) => !v)}
         aria-label={visible ? 'Ocultar token' : 'Mostrar token'}
-        className="absolute inset-y-0 right-2 flex items-center text-text-muted hover:text-text-secondary"
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-text-muted hover:text-text-secondary"
       >
         {visible ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
       </button>
@@ -535,7 +535,7 @@ function DispatchesSection() {
               onClick={() => handleFilter(value)}
               aria-pressed={filterStatus === value}
               className={[
-                'rounded-full px-3 py-1 text-xs font-medium transition-colors duration-150',
+                'inline-flex min-h-11 items-center justify-center rounded-full px-3 text-xs font-medium transition-colors duration-150',
                 filterStatus === value
                   ? 'bg-primary-700 text-white'
                   : 'bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary/80',

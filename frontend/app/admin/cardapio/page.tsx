@@ -458,7 +458,7 @@ export default function AdminCardapioPage() {
                             {activeProducts.map((product) => (
                               <tr key={product.id} className="hover:bg-bg-secondary/70">
                                 <td className="px-4 py-3">
-                                  <button className="text-left font-semibold text-text-primary hover:text-primary-700 hover:underline" onClick={() => void editProduct(product)}>
+	                                  <button className="inline-flex min-h-11 items-center text-left font-semibold text-text-primary hover:text-primary-700 hover:underline" onClick={() => void editProduct(product)}>
                                     {product.name}
                                   </button>
                                   <p className="text-xs text-text-muted">{product.sku}</p>
@@ -692,7 +692,7 @@ function ProductMobileCard({
   return (
     <article className="overflow-hidden rounded-lg border border-border-light bg-bg-primary p-4">
       <div className="flex flex-col gap-2 min-[360px]:flex-row min-[360px]:items-start min-[360px]:justify-between">
-        <button className="w-full min-w-0 text-left min-[360px]:flex-1" onClick={onEdit}>
+	        <button className="min-h-11 w-full min-w-0 text-left min-[360px]:flex-1" onClick={onEdit}>
           <h3 className="truncate text-sm font-semibold text-text-primary">{product.name}</h3>
           <p className="truncate text-xs text-text-muted">{product.sku || "Sem SKU"}</p>
         </button>

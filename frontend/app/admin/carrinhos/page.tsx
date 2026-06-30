@@ -189,7 +189,7 @@ function ConfigPanel() {
               setDraft((d) => ({ ...d, cartRecoveryEnabled: !d.cartRecoveryEnabled }))
             }
             className={[
-              'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+              'relative inline-flex h-11 w-12 shrink-0 items-center rounded-full transition-colors',
               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700',
               draft.cartRecoveryEnabled ? 'bg-primary-700' : 'bg-bg-tertiary',
             ].join(' ')}
@@ -421,7 +421,7 @@ export default function CarrinhosPage() {
                   onClick={() => setStatusFilter(value)}
                   aria-pressed={statusFilter === value}
                   className={[
-                    'rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
+                    'inline-flex min-h-11 items-center justify-center rounded-full px-4 text-sm font-medium transition-colors',
                     statusFilter === value
                       ? 'bg-primary-700 text-white'
                       : 'border border-border-light bg-bg-primary text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',

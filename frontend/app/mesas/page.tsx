@@ -245,7 +245,7 @@ function TableCard({ table, onAction, onRequestClose, onQrClick }: TableCardProp
     >
       {/* Botao QR — canto superior direito */}
       <button
-        className={`absolute right-2 top-2 rounded-lg p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${qrBtnClass}`}
+        className={`absolute right-2 top-2 inline-flex h-11 w-11 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${qrBtnClass}`}
         onClick={() => onQrClick(table)}
         aria-label={`QR Code da ${table.label}`}
         title="Gerar QR Code"
@@ -399,7 +399,7 @@ export default function MesasPage() {
         <nav className="flex items-center gap-3">
           <button
             onClick={() => void refresh()}
-            className="rounded-lg px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-secondary"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-sm text-text-secondary hover:bg-bg-secondary"
           >
             Atualizar
           </button>

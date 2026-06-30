@@ -769,10 +769,10 @@ export default function UsuariosPage() {
                                 </button>
                                 {/* Toggle ativo/inativo */}
                                 <button
-                                  className={[
-                                    'relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-700',
-                                    user.isActive ? 'bg-primary-700' : 'bg-bg-tertiary',
-                                    disableToggle ? 'cursor-not-allowed opacity-40' : '',
+	                                  className={[
+	                                    'relative inline-flex h-11 w-16 items-center rounded-full px-1 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-700',
+	                                    user.isActive ? 'bg-primary-700' : 'bg-bg-tertiary',
+	                                    disableToggle ? 'cursor-not-allowed opacity-40' : '',
                                   ].join(' ')}
                                   aria-checked={user.isActive}
                                   aria-label={
@@ -787,11 +787,11 @@ export default function UsuariosPage() {
                                   onClick={() => void toggleStatus(user)}
                                   title={disableToggle ? 'Unico administrador' : undefined}
                                 >
-                                  <span
-                                    className={[
-                                      'inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform',
-                                      user.isActive ? 'translate-x-4' : 'translate-x-0.5',
-                                    ].join(' ')}
+	                                  <span
+	                                    className={[
+	                                      'inline-block h-8 w-8 transform rounded-full bg-white shadow transition-transform',
+	                                      user.isActive ? 'translate-x-6' : 'translate-x-0',
+	                                    ].join(' ')}
                                     aria-hidden="true"
                                   />
                                 </button>

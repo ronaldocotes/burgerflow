@@ -115,7 +115,7 @@ export default function CaixaHistoricoPage() {
         <div className="mb-6 flex items-center gap-3">
           <Link
             href="/caixa"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border-light bg-bg-primary text-text-secondary hover:bg-bg-tertiary transition-colors"
+            className="flex h-11 w-11 items-center justify-center rounded-lg border border-border-light bg-bg-primary text-text-secondary hover:bg-bg-tertiary transition-colors"
             aria-label="Voltar ao caixa"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />

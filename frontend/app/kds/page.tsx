@@ -200,7 +200,7 @@ function OrderCard({ order, now, onAdvance, onCancel }: OrderCardProps) {
           </span>
           <button
             onClick={() => onCancel(order)}
-            className="text-xs text-text-muted underline underline-offset-2 hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-error"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg px-2 text-xs text-text-muted underline underline-offset-2 hover:bg-bg-tertiary hover:text-error focus:outline-none focus-visible:ring-2 focus-visible:ring-error"
             aria-label="Cancelar pedido"
           >
             Cancelar
@@ -391,7 +391,7 @@ export default function KdsPage() {
         <nav className="flex items-center gap-3">
           <button
             onClick={() => refresh()}
-            className="rounded-lg px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-secondary"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-sm text-text-secondary hover:bg-bg-secondary"
           >
             Atualizar
           </button>

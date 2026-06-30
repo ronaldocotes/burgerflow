@@ -470,7 +470,7 @@ export default function TrackingPage() {
                   key={opt.value}
                   onClick={() => setPeriod(opt.value)}
                   className={[
-                    'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
+                    'inline-flex min-h-11 items-center justify-center rounded-lg border px-3 text-xs font-medium transition-colors',
                     period === opt.value
                       ? 'border-primary-700 bg-primary-700 text-white'
                       : 'border-border-medium bg-bg-primary text-text-secondary hover:bg-bg-tertiary',

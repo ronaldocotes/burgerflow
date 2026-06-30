@@ -84,7 +84,7 @@ function Toggle({ id, checked, onChange, label }: ToggleProps) {
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={[
-          'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+          'relative inline-flex h-11 w-12 shrink-0 items-center rounded-full transition-colors',
           'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700',
           checked ? 'bg-primary-700' : 'bg-bg-tertiary',
         ].join(' ')}
@@ -264,7 +264,7 @@ function HandoffsSection({ pendingCount, onPendingCountChange }: {
               onClick={() => setFilter(f)}
               aria-pressed={filter === f}
               className={[
-                'rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
+                'inline-flex min-h-11 items-center justify-center rounded-full px-4 text-sm font-medium transition-colors',
                 filter === f
                   ? 'bg-primary-700 text-white'
                   : 'border border-border-light bg-bg-primary text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
@@ -545,7 +545,7 @@ function ConfigSection() {
                         aria-label={`${DAY_LABELS[k] ?? k} aberto`}
                         onClick={() => setDay(k, { enabled: !day.enabled })}
                         className={[
-                          'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+                          'relative inline-flex h-11 w-12 shrink-0 items-center rounded-full transition-colors',
                           'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700',
                           day.enabled ? 'bg-primary-700' : 'bg-bg-tertiary',
                         ].join(' ')}
@@ -622,15 +622,15 @@ function ConfigSection() {
                             aria-label={`${DAY_LABELS[k] ?? k} aberto`}
                             onClick={() => setDay(k, { enabled: !day.enabled })}
                             className={[
-                              'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
+                              'relative inline-flex h-11 w-12 shrink-0 items-center rounded-full transition-colors',
                               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700',
                               day.enabled ? 'bg-primary-700' : 'bg-bg-tertiary',
                             ].join(' ')}
                           >
                             <span
                               className={[
-                                'inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform',
-                                day.enabled ? 'translate-x-4' : 'translate-x-0.5',
+                                'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform',
+                                day.enabled ? 'translate-x-6' : 'translate-x-1',
                               ].join(' ')}
                               aria-hidden="true"
                             />

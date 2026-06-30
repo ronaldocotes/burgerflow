@@ -753,25 +753,25 @@ export default function CuponsPage() {
                           ) : (
                             <>
                               <button
-                                onClick={() => setRedemptionCoupon(c)}
-                                aria-label={`Ver historico de usos de ${c.code}`}
-                                className="p-2 rounded-lg text-text-muted hover:bg-bg-tertiary hover:text-text-primary transition-colors min-h-[36px]"
-                              >
+	                                onClick={() => setRedemptionCoupon(c)}
+	                                aria-label={`Ver historico de usos de ${c.code}`}
+	                                className="icon-button text-text-muted hover:text-text-primary"
+	                              >
                                 <History className="h-4 w-4" aria-hidden="true" />
                               </button>
                               <button
-                                onClick={() => openEdit(c)}
-                                aria-label={`Editar cupom ${c.code}`}
-                                className="p-2 rounded-lg text-text-muted hover:bg-bg-tertiary hover:text-text-primary transition-colors min-h-[36px]"
-                              >
+	                                onClick={() => openEdit(c)}
+	                                aria-label={`Editar cupom ${c.code}`}
+	                                className="icon-button text-text-muted hover:text-text-primary"
+	                              >
                                 <Pencil className="h-4 w-4" aria-hidden="true" />
                               </button>
                               {c.active && (
                                 <button
-                                  onClick={() => setConfirmDeactivateId(c.id)}
-                                  aria-label={`Desativar cupom ${c.code}`}
-                                  className="p-2 rounded-lg text-text-muted hover:bg-red-50 hover:text-error transition-colors min-h-[36px]"
-                                >
+	                                  onClick={() => setConfirmDeactivateId(c.id)}
+	                                  aria-label={`Desativar cupom ${c.code}`}
+	                                  className="icon-button text-text-muted hover:bg-red-50 hover:text-error"
+	                                >
                                   <XCircle className="h-4 w-4" aria-hidden="true" />
                                 </button>
                               )}

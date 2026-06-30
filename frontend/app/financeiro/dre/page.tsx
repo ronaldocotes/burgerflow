@@ -164,7 +164,7 @@ function PeriodSelector({
           onClick={() => onPeriodChange(opt.value)}
           aria-pressed={period === opt.value}
           className={[
-            'rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
+            'inline-flex min-h-11 items-center justify-center rounded-full px-4 text-sm font-medium transition-colors',
             period === opt.value
               ? 'bg-primary-700 text-white'
               : 'border border-border-medium bg-bg-primary text-text-secondary hover:bg-bg-tertiary',
@@ -195,7 +195,7 @@ function PeriodSelector({
             type="button"
             onClick={onSearch}
             disabled={loading || !customStart || !customEnd}
-            className="btn-primary py-1.5 text-sm disabled:opacity-50"
+            className="btn-primary text-sm disabled:opacity-50"
           >
             {loading ? 'Buscando...' : 'Buscar'}
           </button>
@@ -753,7 +753,7 @@ function ExpensesSection({ showToast }: { showToast: (msg: string, type: ToastTy
                             setModalOpen(true)
                           }}
                           aria-label={`Editar ${exp.description}`}
-                          className="rounded p-1 text-text-muted hover:bg-bg-tertiary hover:text-primary-700"
+                          className="icon-button text-text-muted hover:text-primary-700"
                         >
                           <Pencil className="h-4 w-4" aria-hidden="true" />
                         </button>
@@ -761,7 +761,7 @@ function ExpensesSection({ showToast }: { showToast: (msg: string, type: ToastTy
                           type="button"
                           onClick={() => void handleDelete(exp.id, exp.description)}
                           aria-label={`Excluir ${exp.description}`}
-                          className="rounded p-1 text-text-muted hover:bg-red-50 hover:text-red-600"
+                          className="icon-button text-text-muted hover:bg-red-50 hover:text-red-600"
                         >
                           <Trash2 className="h-4 w-4" aria-hidden="true" />
                         </button>

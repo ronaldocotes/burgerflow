@@ -182,7 +182,7 @@ export default function RfvPage() {
                 onClick={() => handleFilter(opt.value)}
                 aria-pressed={isActive}
                 className={[
-                  'rounded-full border px-4 py-1.5 text-sm font-medium transition-colors',
+                  'inline-flex min-h-11 items-center justify-center rounded-full border px-4 text-sm font-medium transition-colors',
                   isActive
                     ? opt.activeClass + ' border-transparent'
                     : 'border-border-medium bg-bg-primary ' + opt.color + ' hover:bg-bg-tertiary',
