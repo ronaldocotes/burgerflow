@@ -841,7 +841,7 @@ function ListItems<T extends { id: string }>({ items, title, subtitle, onEdit, o
 
 function SubmitButton({ saving, editing }: { saving: boolean; editing: boolean }) {
   return (
-    <button type="submit" className="btn-primary inline-flex items-center justify-center gap-2" disabled={saving}>
+    <button type="submit" className="btn-primary inline-flex min-h-11 items-center justify-center gap-2 self-start" disabled={saving}>
       <Save className="h-4 w-4" aria-hidden="true" />
       {saving ? "Salvando..." : editing ? "Salvar alterações" : "Criar"}
     </button>

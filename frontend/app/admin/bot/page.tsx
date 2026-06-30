@@ -528,7 +528,66 @@ function ConfigSection() {
           {/* Grid de horarios */}
           <div>
             <p className="mb-3 text-sm font-medium text-text-primary">Horario de funcionamento</p>
-            <div className="overflow-x-auto">
+            <div className="space-y-3 sm:hidden">
+              {DAY_KEYS.map((key) => {
+                const k = key as string
+                const day = days[k] ?? { enabled: false, open: '08:00', close: '22:00' }
+                return (
+                  <div key={k} className="rounded-lg border border-border-light bg-bg-secondary p-3">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium text-text-primary">
+                        {DAY_LABELS[k] ?? k}
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={day.enabled}
+                        aria-label={`${DAY_LABELS[k] ?? k} aberto`}
+                        onClick={() => setDay(k, { enabled: !day.enabled })}
+                        className={[
+                          'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+                          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700',
+                          day.enabled ? 'bg-primary-700' : 'bg-bg-tertiary',
+                        ].join(' ')}
+                      >
+                        <span
+                          className={[
+                            'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+                            day.enabled ? 'translate-x-6' : 'translate-x-1',
+                          ].join(' ')}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="grid gap-1 text-xs font-medium text-text-muted">
+                        Abertura
+                        <input
+                          type="time"
+                          value={day.open}
+                          disabled={!day.enabled}
+                          onChange={(e) => setDay(k, { open: e.target.value })}
+                          aria-label={`Abertura ${DAY_LABELS[k] ?? k}`}
+                          className="input-field disabled:opacity-40"
+                        />
+                      </label>
+                      <label className="grid gap-1 text-xs font-medium text-text-muted">
+                        Fechamento
+                        <input
+                          type="time"
+                          value={day.close}
+                          disabled={!day.enabled}
+                          onChange={(e) => setDay(k, { close: e.target.value })}
+                          aria-label={`Fechamento ${DAY_LABELS[k] ?? k}`}
+                          className="input-field disabled:opacity-40"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="hidden overflow-x-auto sm:block">
               <table className="w-full min-w-[400px] text-sm">
                 <thead>
                   <tr className="border-b border-border-light">

@@ -671,7 +671,7 @@ export default function UsuariosPage() {
             </div>
           ) : (
             <>
-              <div className="grid gap-3 p-4 md:hidden">
+              <div className="grid gap-3 p-4 lg:hidden">
                 {loadingUsers ? (
                   Array.from({ length: 3 }).map((_, i) => (
                     <div key={i} className="h-40 animate-pulse rounded-lg bg-bg-tertiary" />
@@ -701,7 +701,7 @@ export default function UsuariosPage() {
                 )}
               </div>
 
-              <div className="hidden overflow-x-auto md:block">
+              <div className="hidden overflow-x-auto lg:block">
                 <table className="min-w-full text-sm" aria-label="Lista de usuarios">
                 <thead className="bg-bg-secondary text-left text-xs uppercase text-text-muted">
                   <tr>

@@ -149,7 +149,7 @@ function NavContent({
                       aria-current={isActive ? 'page' : undefined}
                       onClick={onNavClick}
                       className={[
-                        'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150',
+                        'flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150',
                         collapsed ? 'justify-center' : '',
                         isActive
                           ? 'bg-primary-700 text-white'
@@ -230,7 +230,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
                 <BrandBadge collapsed={false} />
               )}
               <span className="flex-1 truncate text-sm font-semibold text-text-primary">{restaurantName ?? 'MenuFlow'}</span>
-              <button onClick={onClose} aria-label="Fechar menu" className="rounded-lg p-1 text-text-muted hover:bg-bg-tertiary">
+              <button onClick={onClose} aria-label="Fechar menu" className="flex h-11 w-11 items-center justify-center rounded-lg text-text-muted hover:bg-bg-tertiary">
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
@@ -251,7 +251,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
             <button
               onClick={toggle}
               aria-label={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
-              className={['flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary', isCollapsed ? 'justify-center' : ''].join(' ')}
+              className={['flex min-h-11 w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary', isCollapsed ? 'justify-center' : ''].join(' ')}
             >
               {isCollapsed ? <ChevronRight className="h-4 w-4" aria-hidden="true" /> : <><ChevronLeft className="h-4 w-4" aria-hidden="true" /><span>Recolher</span></>}
             </button>

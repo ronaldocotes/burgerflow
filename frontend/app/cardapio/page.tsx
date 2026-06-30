@@ -87,7 +87,7 @@ function CategoryBar({
       role="navigation"
       aria-label="Categorias do cardápio"
     >
-      <div ref={barRef} className="flex gap-1.5 px-4 py-2 overflow-x-auto no-scrollbar">
+      <div ref={barRef} className="flex gap-1.5 overflow-x-auto px-4 py-2 no-scrollbar md:flex-wrap md:overflow-visible">
         {sections.map((s) => {
           const id = `section-${s.key}`;
           const isActive = activeId === id;
@@ -98,7 +98,7 @@ function CategoryBar({
               onClick={() => onSelect(id)}
               aria-current={isActive ? "true" : undefined}
               className={[
-                "whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-150 flex-shrink-0",
+                "min-h-11 flex-shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150",
                 isActive
                   ? "bg-primary-700 text-white"
                   : "bg-bg-tertiary text-text-secondary hover:text-text-primary",
@@ -369,7 +369,7 @@ function CardapioView({
         {/* Botão voltar — flex item, não absolute, para garantir visibilidade em todos os browsers */}
         <button
           onClick={() => window.history.back()}
-          className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full text-text-primary hover:bg-bg-tertiary active:bg-bg-tertiary transition-colors"
+          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-text-primary transition-colors hover:bg-bg-tertiary active:bg-bg-tertiary"
           aria-label="Voltar"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -380,7 +380,7 @@ function CardapioView({
           <span aria-hidden="true">🍔</span> Cardápio
         </h1>
         {/* Espaçador igual ao botão para manter o título centralizado */}
-        <div className="w-9 flex-shrink-0" aria-hidden="true" />
+        <div className="w-11 flex-shrink-0" aria-hidden="true" />
       </header>
 
       <RestaurantHero restaurantInfo={restaurantInfo} />

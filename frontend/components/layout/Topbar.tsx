@@ -98,7 +98,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           type="button"
           onClick={onMenuClick}
           aria-label="Abrir menu"
-          className="lg:hidden flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-tertiary"
+          className="lg:hidden flex h-11 w-11 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-tertiary"
         >
           <Menu className="h-5 w-5" aria-hidden="true" />
         </button>
@@ -128,10 +128,10 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           aria-expanded={menuOpen}
           aria-haspopup="menu"
           onClick={() => setMenuOpen((v) => !v)}
-          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-text-secondary hover:bg-bg-tertiary"
+          className="flex min-h-11 items-center gap-2 rounded-lg px-2 py-1.5 text-text-secondary hover:bg-bg-tertiary"
         >
           <div
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-700 text-xs font-bold text-white select-none"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-700 text-xs font-bold text-white select-none"
             aria-hidden="true"
           >
             {initial}
@@ -139,7 +139,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           <span className="hidden max-w-[120px] truncate text-xs font-medium text-text-primary sm:block">
             {roleLabel || email}
           </span>
-          <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
         </button>
 
         {menuOpen && (
@@ -164,7 +164,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
               <button
                 role="menuitem"
                 onClick={handleLogout}
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-text-secondary hover:bg-bg-tertiary"
+                className="flex min-h-11 w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-text-secondary hover:bg-bg-tertiary"
               >
                 <LogOut className="h-4 w-4 shrink-0" aria-hidden="true" />
                 Sair

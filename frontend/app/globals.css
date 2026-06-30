@@ -129,7 +129,7 @@ body {
   }
   
   .btn-primary {
-    @apply bg-primary-700 text-white px-4 py-2 rounded-lg font-medium
+    @apply inline-flex min-h-11 items-center justify-center bg-primary-700 text-white px-4 py-2 rounded-lg font-medium
            hover:bg-primary-800 active:bg-primary-900
            transition-colors duration-200
            focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
@@ -137,34 +137,34 @@ body {
   }
   
   .btn-secondary {
-    @apply bg-secondary-700 text-white px-4 py-2 rounded-lg font-medium
+    @apply inline-flex min-h-11 items-center justify-center bg-secondary-700 text-white px-4 py-2 rounded-lg font-medium
            hover:bg-secondary-800 active:bg-secondary-900
            transition-colors duration-200
            focus:ring-2 focus:ring-secondary-500 focus:ring-offset-2;
   }
   
   .btn-outline {
-    @apply border border-border-medium text-text-primary px-4 py-2 rounded-lg font-medium
+    @apply inline-flex min-h-11 items-center justify-center border border-border-medium text-text-primary px-4 py-2 rounded-lg font-medium
            hover:bg-bg-tertiary active:bg-border-light
            transition-colors duration-200;
   }
   
   .input-field {
-    @apply w-full px-4 py-2 border border-border-medium rounded-lg
+    @apply min-h-11 w-full px-4 py-2 border border-border-medium rounded-lg
            bg-bg-primary text-text-primary placeholder:text-text-muted
            focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20
            focus:outline-none transition-all duration-200;
   }
 
   .input {
-    @apply w-full px-4 py-2 border border-border-medium rounded-lg
+    @apply min-h-11 w-full px-4 py-2 border border-border-medium rounded-lg
            bg-bg-primary text-text-primary placeholder:text-text-muted
            focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20
            focus:outline-none transition-all duration-200;
   }
 
   .icon-button {
-    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg
+    @apply inline-flex h-11 w-11 items-center justify-center rounded-lg
            text-text-secondary hover:bg-bg-tertiary hover:text-text-primary
            transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50;
   }
