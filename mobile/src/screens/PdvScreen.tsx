@@ -6,7 +6,6 @@ import React, {
   useState,
 } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   SafeAreaView,
@@ -17,7 +16,6 @@ import {
   View,
 } from 'react-native';
 import BottomSheet from '@gorhom/bottom-sheet';
-import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { palette, semantic, theme } from '@/theme/colors';
 import { api, ApiError } from '@/lib/api';
 import { useCart, buildSimpleLine } from '@/hooks/useCart';
@@ -41,13 +39,12 @@ export default function PdvScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loadingProductId, setLoadingProductId] = useState<string | null>(null);
   const [orderType, setOrderType] = useState<OrderType>('DINE_IN');
-  const [badgeFlash, setBadgeFlash] = useState(false);
 
   const cartRef = useRef<BottomSheet>(null);
   const customizeRef = useRef<CustomizeSheetRef>(null);
   const paymentRef = useRef<PaymentSheetRef>(null);
 
-  const { lines, addLine, updateQty, removeLine, clearCart } = useCart();
+  const { lines, addLine, updateQty, clearCart } = useCart();
   const { quote, quoting, quoteError } = useQuote(lines, orderType);
 
   // Carrega catalogo + categorias em paralelo.
@@ -136,9 +133,6 @@ export default function PdvScreen() {
 
   function addSimpleProduct(product: Product) {
     addLine(buildSimpleLine(product));
-    // Flash visual no badge do carrinho
-    setBadgeFlash(true);
-    setTimeout(() => setBadgeFlash(false), 400);
     // Expande o bottom sheet para confirmar visualmente
     cartRef.current?.snapToIndex(1);
     setTimeout(() => cartRef.current?.snapToIndex(0), 800);
@@ -146,8 +140,6 @@ export default function PdvScreen() {
 
   function handleCartAdd(line: CartLine) {
     addLine(line);
-    setBadgeFlash(true);
-    setTimeout(() => setBadgeFlash(false), 400);
     cartRef.current?.snapToIndex(1);
     setTimeout(() => cartRef.current?.snapToIndex(0), 800);
   }

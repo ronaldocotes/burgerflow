@@ -1225,6 +1225,8 @@ function PixPaymentModal({
           <>
             {/* Imagem do QR */}
             <div className="flex justify-center">
+              {/* QR em data URI gerado pela API; next/image nao otimiza esse caso. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`data:image/png;base64,${pixQrImage}`}
                 alt="QR Code PIX — escaneie com o app do seu banco"

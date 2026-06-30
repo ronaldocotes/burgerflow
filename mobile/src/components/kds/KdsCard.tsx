@@ -2,7 +2,7 @@
 // Todos os botões >= 48dp. Avançar: barra inteira no fundo do card.
 // Cancelar: Alert nativo (sem modal — cozinheiro precisa de feedback rápido).
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { AgingBar } from './AgingBar';
 import { kds, semantic, theme } from '@/theme/colors';

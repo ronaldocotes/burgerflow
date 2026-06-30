@@ -13,6 +13,20 @@ export default defineConfig([
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    files: ["*.js", "*.config.js"],
+    languageOptions: {
+      globals: {
+        __dirname: "readonly",
+        global: "readonly",
+        module: "readonly",
+        require: "readonly",
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
+  {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
       parserOptions: {

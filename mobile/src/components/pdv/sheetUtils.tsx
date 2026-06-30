@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React from 'react';
 import { BottomSheetBackdrop, BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 
 // Backdrop compartilhado para os BottomSheetModals do PDV.

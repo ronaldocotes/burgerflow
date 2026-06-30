@@ -3,7 +3,7 @@
 // Atualização: STOMP + polling 10s de fallback + AppState reconexão.
 
 import React, { useCallback, useState } from 'react';
-import { Alert, SafeAreaView, Text, View } from 'react-native';
+import { Alert, SafeAreaView, View } from 'react-native';
 import { useKdsFeed } from '@/hooks/useKdsFeed';
 import { KdsColumn } from '@/components/kds/KdsColumn';
 import { StatusBanner } from '@/components/ui/StatusBanner';

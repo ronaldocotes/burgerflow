@@ -9,7 +9,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text } from 'react-native';
 import { BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
 import { DoorOpen, ReceiptX, X } from 'phosphor-react-native';
 import { palette, semantic, theme } from '@/theme/colors';

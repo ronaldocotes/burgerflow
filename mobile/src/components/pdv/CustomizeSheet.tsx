@@ -6,9 +6,7 @@ import React, {
   useState,
 } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -22,13 +20,8 @@ import { palette, semantic, theme } from '@/theme/colors';
 import { formatBRL, uuid } from '@/utils/money';
 import type { CartLine, OrderItemInput } from '@/types/cart';
 import type {
-  CRUST_LABELS,
-  DOUGH_TYPES,
   Product,
-  ProductCrustPrice,
-  ProductFlavor,
   ProductOptionGroup,
-  ProductSize,
   ProductVariations,
 } from '@/types/menu';
 import { renderBackdrop } from './sheetUtils';

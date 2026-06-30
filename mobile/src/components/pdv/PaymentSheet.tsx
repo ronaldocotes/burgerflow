@@ -6,7 +6,6 @@ import React, {
   useState,
 } from 'react';
 import {
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -17,7 +16,7 @@ import { BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
 import { semantic, theme } from '@/theme/colors';
 import { formatBRL, uuid } from '@/utils/money';
 import { api, ApiError } from '@/lib/api';
-import type { CartLine, OrderCreateInput, OrderItemInput, OrderType, PaymentMethod, QuoteResponse } from '@/types/cart';
+import type { OrderCreateInput, OrderItemInput, OrderType, PaymentMethod, QuoteResponse } from '@/types/cart';
 import { renderBackdrop } from './sheetUtils';
 
 const PAYMENT_LABELS: Record<PaymentMethod, string> = {
