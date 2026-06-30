@@ -11,6 +11,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${MF_ENV_FILE:-$ROOT/.env.prod}"
 DB_HOST="${MF_DB_HOST:-localhost:5432}"
 DB_PREFIX="${MF_DB_PREFIX:-tenant_}"
+PSQL_CONTAINER="${MF_PSQL_CONTAINER:-menuflow-postgres}"
 
 usage() {
   cat <<'EOF'
@@ -69,9 +70,14 @@ if grep -Eq 'CHANGE-ME|change-me|CHANGE_ME' "$ENV_FILE" 2>/dev/null; then
   exit 1
 fi
 
+USE_DOCKER_PSQL=false
 if ! command -v psql >/dev/null 2>&1; then
-  echo "FATAL: psql is required for read-only migration checks." >&2
-  exit 1
+  if command -v docker >/dev/null 2>&1 && docker inspect "$PSQL_CONTAINER" >/dev/null 2>&1; then
+    USE_DOCKER_PSQL=true
+  else
+    echo "FATAL: psql is required, or docker container '$PSQL_CONTAINER' must be available." >&2
+    exit 1
+  fi
 fi
 
 DB_HOST_ONLY="${DB_HOST%:*}"
@@ -104,7 +110,12 @@ psql_base=(
 
 run_psql() {
   local db="$1"; shift
-  PGPASSWORD="$MF_DB_PASSWORD" "${psql_base[@]}" -d "$db" "$@"
+  if [[ "$USE_DOCKER_PSQL" == "true" ]]; then
+    docker exec -e PGPASSWORD="$MF_DB_PASSWORD" "$PSQL_CONTAINER" \
+      psql -U "$MF_DB_USER" -v ON_ERROR_STOP=1 -At -d "$db" "$@"
+  else
+    PGPASSWORD="$MF_DB_PASSWORD" "${psql_base[@]}" -d "$db" "$@"
+  fi
 }
 
 echo "control_db=$MF_DB_CONTROL"
