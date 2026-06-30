@@ -532,7 +532,7 @@ function ExpenseModal({ initial, onClose, onSaved, showToast }: ExpenseModalProp
             type="button"
             onClick={onClose}
             aria-label="Fechar"
-            className="rounded-lg p-1 text-text-muted hover:bg-bg-tertiary"
+            className="icon-button text-text-muted hover:bg-bg-tertiary"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -710,7 +710,54 @@ function ExpensesSection({ showToast }: { showToast: (msg: string, type: ToastTy
 
       {loadState === 'ok' && expenses.length > 0 && (
         <>
-          <div className="overflow-x-auto">
+          <div className="grid gap-3 lg:hidden">
+            {paginated.map(exp => (
+              <article key={exp.id} className="rounded-xl border border-border-light bg-bg-primary p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="break-words text-base font-semibold text-text-primary">
+                      {exp.description}
+                    </p>
+                    <p className="mt-1 text-sm text-text-secondary">
+                      {CATEGORY_LABELS[exp.category] ?? exp.category}
+                    </p>
+                  </div>
+                  <p className="shrink-0 font-mono text-base font-semibold text-text-primary">
+                    {formatCents(exp.amountCents)}
+                  </p>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between gap-3 border-t border-border-light pt-3">
+                  <span className="text-sm text-text-secondary">
+                    {new Date(exp.expenseDate + 'T12:00:00').toLocaleDateString('pt-BR')}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditing(exp)
+                        setModalOpen(true)
+                      }}
+                      aria-label={`Editar ${exp.description}`}
+                      className="icon-button text-text-muted hover:text-primary-700"
+                    >
+                      <Pencil className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete(exp.id, exp.description)}
+                      aria-label={`Excluir ${exp.description}`}
+                      className="icon-button text-text-muted hover:bg-red-50 hover:text-red-600"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="hidden lg:block">
             <table className="w-full text-sm" role="table">
               <thead>
                 <tr className="border-b border-border-light text-left">
@@ -782,7 +829,7 @@ function ExpensesSection({ showToast }: { showToast: (msg: string, type: ToastTy
                   onClick={() => setPage(p => Math.max(0, p - 1))}
                   disabled={page === 0}
                   aria-label="Pagina anterior"
-                  className="rounded p-1 hover:bg-bg-tertiary disabled:opacity-40"
+                  className="icon-button text-text-muted hover:bg-bg-tertiary disabled:opacity-40"
                 >
                   <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -794,7 +841,7 @@ function ExpensesSection({ showToast }: { showToast: (msg: string, type: ToastTy
                   onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                   disabled={page + 1 >= totalPages}
                   aria-label="Proxima pagina"
-                  className="rounded p-1 hover:bg-bg-tertiary disabled:opacity-40"
+                  className="icon-button text-text-muted hover:bg-bg-tertiary disabled:opacity-40"
                 >
                   <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </button>

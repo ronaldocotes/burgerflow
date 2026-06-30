@@ -395,15 +395,15 @@ function CouponFormModal({
               aria-checked={form.active}
               onClick={() => set({ active: !form.active })}
               className={[
-                'relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700',
+                'relative inline-flex h-11 w-12 flex-shrink-0 items-center rounded-full border-2 border-transparent px-1 transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700',
                 form.active ? 'bg-primary-700' : 'bg-bg-tertiary',
               ].join(' ')}
             >
               <span
                 aria-hidden="true"
                 className={[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                  form.active ? 'translate-x-5' : 'translate-x-0',
+                  'pointer-events-none inline-block h-8 w-8 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  form.active ? 'translate-x-2' : 'translate-x-0',
                 ].join(' ')}
               />
             </button>
@@ -663,7 +663,7 @@ export default function CuponsPage() {
           <Tag className="h-6 w-6 text-primary-700" aria-hidden="true" />
           <h1 className="text-2xl font-bold text-text-primary">Cupons &amp; Descontos</h1>
         </div>
-        <button onClick={openCreate} className="btn-primary flex items-center gap-2 min-h-[44px] px-4">
+        <button onClick={openCreate} className="btn-primary flex min-h-11 items-center gap-2 px-4">
           <Plus className="h-4 w-4" aria-hidden="true" />
           Novo Cupom
         </button>
@@ -690,9 +690,102 @@ export default function CuponsPage() {
           </button>
         </div>
       ) : (
-        /* Tabela */
-        <div className="bg-bg-primary rounded-xl border border-border-light overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
+        <div className="space-y-3">
+          <div className="grid gap-3 lg:hidden">
+            {coupons.map((c) => {
+              const status = getStatus(c)
+              const isConfirming = confirmDeactivateId === c.id
+              return (
+                <article key={c.id} className="rounded-xl border border-border-light bg-bg-primary p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-mono text-base font-semibold text-text-primary break-all">
+                        {c.code}
+                      </p>
+                      <p className="mt-1 text-sm text-text-secondary">
+                        {c.description || 'Sem descricao'}
+                      </p>
+                    </div>
+                    <StatusBadge status={status} />
+                  </div>
+
+                  <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <dt className="text-xs font-semibold uppercase tracking-wider text-text-muted">Tipo</dt>
+                      <dd className="mt-1 text-text-primary">
+                        {c.discountType === 'FIXED' ? 'Valor fixo' : 'Percentual'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-semibold uppercase tracking-wider text-text-muted">Desconto</dt>
+                      <dd className="mt-1 font-semibold text-text-primary">{formatDiscount(c)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-semibold uppercase tracking-wider text-text-muted">Validade</dt>
+                      <dd className="mt-1 text-text-primary">
+                        {fmtDate(c.validFrom)} ate {fmtDate(c.validUntil)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-semibold uppercase tracking-wider text-text-muted">Usos</dt>
+                      <dd className="mt-1 text-text-primary">
+                        {c.maxUses != null ? c.maxUses : <span aria-label="Ilimitado">Ilimitado</span>}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-border-light pt-3">
+                    {isConfirming ? (
+                      <>
+                        <span className="mr-auto text-sm text-text-secondary">Desativar cupom?</span>
+                        <button
+                          onClick={() => { void handleDeactivate(c.id) }}
+                          disabled={deactivating}
+                          className="btn-outline min-h-11 px-3 text-sm text-error disabled:opacity-50"
+                        >
+                          {deactivating ? 'Aguarde...' : 'Sim'}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeactivateId(null)}
+                          className="btn-outline min-h-11 px-3 text-sm"
+                        >
+                          Nao
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => setRedemptionCoupon(c)}
+                          aria-label={`Ver historico de usos de ${c.code}`}
+                          className="icon-button text-text-muted hover:text-text-primary"
+                        >
+                          <History className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                        <button
+                          onClick={() => openEdit(c)}
+                          aria-label={`Editar cupom ${c.code}`}
+                          className="icon-button text-text-muted hover:text-text-primary"
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                        {c.active && (
+                          <button
+                            onClick={() => setConfirmDeactivateId(c.id)}
+                            aria-label={`Desativar cupom ${c.code}`}
+                            className="icon-button text-text-muted hover:bg-red-50 hover:text-error"
+                          >
+                            <XCircle className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+
+          <div className="hidden overflow-hidden rounded-xl border border-border-light bg-bg-primary shadow-sm lg:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-bg-secondary border-b border-border-light">
@@ -753,25 +846,25 @@ export default function CuponsPage() {
                           ) : (
                             <>
                               <button
-	                                onClick={() => setRedemptionCoupon(c)}
-	                                aria-label={`Ver historico de usos de ${c.code}`}
-	                                className="icon-button text-text-muted hover:text-text-primary"
-	                              >
+                                onClick={() => setRedemptionCoupon(c)}
+                                aria-label={`Ver historico de usos de ${c.code}`}
+                                className="icon-button text-text-muted hover:text-text-primary"
+                              >
                                 <History className="h-4 w-4" aria-hidden="true" />
                               </button>
                               <button
-	                                onClick={() => openEdit(c)}
-	                                aria-label={`Editar cupom ${c.code}`}
-	                                className="icon-button text-text-muted hover:text-text-primary"
-	                              >
+                                onClick={() => openEdit(c)}
+                                aria-label={`Editar cupom ${c.code}`}
+                                className="icon-button text-text-muted hover:text-text-primary"
+                              >
                                 <Pencil className="h-4 w-4" aria-hidden="true" />
                               </button>
                               {c.active && (
                                 <button
-	                                  onClick={() => setConfirmDeactivateId(c.id)}
-	                                  aria-label={`Desativar cupom ${c.code}`}
-	                                  className="icon-button text-text-muted hover:bg-red-50 hover:text-error"
-	                                >
+                                  onClick={() => setConfirmDeactivateId(c.id)}
+                                  aria-label={`Desativar cupom ${c.code}`}
+                                  className="icon-button text-text-muted hover:bg-red-50 hover:text-error"
+                                >
                                   <XCircle className="h-4 w-4" aria-hidden="true" />
                                 </button>
                               )}

@@ -1,12 +1,12 @@
 # Auditoria critica MenuFlow
 
 Base: http://localhost:3011
-Data: 2026-06-30T11:49:51.141Z
+Data: 2026-06-30T12:02:04.790Z
 Dispositivos: pc 1920x1080, tablet 768x1024, mobile 390x844
 
 ## Sumario executivo
 
-Foram auditadas 18 areas em 3 viewports, com login, captura de screenshots, leitura de DOM, erros HTTP/console, overflow, alvos de toque e texto pequeno. Encontrados 45 achados automatizados. Esta rodada e uma auditoria operacional read-only: nao finalizou pedido nem gravou entidades para nao poluir a demo de producao.
+Foram auditadas 18 areas em 3 viewports, com login, captura de screenshots, leitura de DOM, erros HTTP/console, overflow, alvos de toque e texto pequeno. Encontrados 42 achados automatizados. Esta rodada e uma auditoria operacional read-only: nao finalizou pedido nem gravou entidades para nao poluir a demo de producao.
 
 ## Achados por severidade
 
@@ -24,12 +24,6 @@ Foram auditadas 18 areas em 3 viewports, com login, captura de screenshots, leit
   - O que acontece: [{"tag":"INPUT","role":null,"label":"","width":1,"height":1}]
   - O que deveria acontecer: Botoes/inputs/tabs devem ter area clicavel minima de 44x44px.
   - Evidencia: /home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-conversoes-pc.png
-- **Conteudo corta horizontalmente**
-  - Dispositivo: tablet
-  - Tela: /admin/cupons
-  - O que acontece: scrollWidth=768, clientWidth=768, clipped=[{"tag":"TABLE","role":null,"text":"CodigoTipoDescontoValidadeUsos (max)StatusAcoesAUDIT-20260630105721-CUPOMValor fixoR$ 5,00","left":25,"right":817,"top":149,"width":792,"height":229,"fontSize":14},{"tag":"THEAD","role":null,"text":"CodigoTipoDescontoValidadeUsos (max)StatusAcoes","left":25,"right":817,"top":149,"width":792,"height":65,"fontSize":14},{"tag":"TR","role":null,"text":"CodigoTipoDescontoValidadeUsos (max)StatusAcoes","left":25,"right":817,"top":149,"width":792,"height":65,"fontSize":14}]
-  - O que deveria acontecer: Nao deve haver overflow horizontal em PC/tablet/mobile.
-  - Evidencia: /home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-cupons-tablet.png
 - **Alvos de toque abaixo de 44px**
   - Dispositivo: tablet
   - Tela: /admin/conversoes
@@ -48,18 +42,6 @@ Foram auditadas 18 areas em 3 viewports, com login, captura de screenshots, leit
   - O que acontece: scrollWidth=390, clientWidth=390, clipped=[{"tag":"BUTTON","role":null,"text":"Combos da Casa","left":281,"right":429,"top":128,"width":148,"height":44,"fontSize":14},{"tag":"BUTTON","role":null,"text":"Hamburgueres Artesanais","left":437,"right":645,"top":128,"width":208,"height":44,"fontSize":14},{"tag":"BUTTON","role":null,"text":"Smash Burgers","left":653,"right":789,"top":128,"width":136,"height":44,"fontSize":14}]
   - O que deveria acontecer: Nao deve haver overflow horizontal em PC/tablet/mobile.
   - Evidencia: /home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/pdv-mobile.png
-- **Conteudo corta horizontalmente**
-  - Dispositivo: mobile
-  - Tela: /financeiro/dre
-  - O que acontece: scrollWidth=390, clientWidth=390, clipped=[{"tag":"TABLE","role":"table","text":"DescricaoCategoriaDataValorAcoesAUDIT-20260630105721 DespesaOutros30/06/2026R$ 12,34","left":40,"right":539,"top":1868,"width":499,"height":106,"fontSize":14},{"tag":"THEAD","role":null,"text":"DescricaoCategoriaDataValorAcoes","left":40,"right":539,"top":1868,"width":499,"height":26,"fontSize":14},{"tag":"TR","role":null,"text":"DescricaoCategoriaDataValorAcoes","left":40,"right":539,"top":1868,"width":499,"height":26,"fontSize":14}]
-  - O que deveria acontecer: Nao deve haver overflow horizontal em PC/tablet/mobile.
-  - Evidencia: /home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/dre-mobile.png
-- **Conteudo corta horizontalmente**
-  - Dispositivo: mobile
-  - Tela: /admin/cupons
-  - O que acontece: scrollWidth=390, clientWidth=390, clipped=[{"tag":"TABLE","role":null,"text":"CodigoTipoDescontoValidadeUsos (max)StatusAcoesAUDIT-20260630105721-CUPOMValor fixoR$ 5,00","left":25,"right":817,"top":169,"width":792,"height":229,"fontSize":14},{"tag":"THEAD","role":null,"text":"CodigoTipoDescontoValidadeUsos (max)StatusAcoes","left":25,"right":817,"top":169,"width":792,"height":65,"fontSize":14},{"tag":"TR","role":null,"text":"CodigoTipoDescontoValidadeUsos (max)StatusAcoes","left":25,"right":817,"top":169,"width":792,"height":65,"fontSize":14}]
-  - O que deveria acontecer: Nao deve haver overflow horizontal em PC/tablet/mobile.
-  - Evidencia: /home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-cupons-mobile.png
 - **Alvos de toque abaixo de 44px**
   - Dispositivo: mobile
   - Tela: /admin/conversoes
@@ -126,7 +108,7 @@ Foram auditadas 18 areas em 3 viewports, com login, captura de screenshots, leit
 - **Texto abaixo de 14px em tablet/mobile**
   - Dispositivo: tablet
   - Tela: /admin/cupons
-  - O que acontece: [{"tag":"DIV","role":null,"text":"5","left":543,"right":575,"top":12,"width":32,"height":32,"fontSize":12},{"tag":"SPAN","role":null,"text":"Administrador","left":583,"right":664,"top":20,"width":81,"height":16,"fontSize":12},{"tag":"SPAN","role":null,"text":"Ativo","left":659,"right":725,"top":286,"width":66,"height":20,"fontSize":12}]
+  - O que acontece: [{"tag":"DIV","role":null,"text":"5","left":543,"right":575,"top":12,"width":32,"height":32,"fontSize":12},{"tag":"SPAN","role":null,"text":"Administrador","left":583,"right":664,"top":20,"width":81,"height":16,"fontSize":12},{"tag":"SPAN","role":null,"text":"Ativo","left":605,"right":671,"top":165,"width":66,"height":20,"fontSize":12},{"tag":"DT","role":null,"text":"Tipo","left":41,"right":350,"top":229,"width":309,"height":16,"fontSize":12},{"tag":"DT","role":null,"text":"Desconto","left":362,"right":671,"top":229,"width":309,"height":16,"fontSize":12}]
   - O que deveria acontecer: Texto operacional deve manter legibilidade minima de 14px.
   - Evidencia: /home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-cupons-tablet.png
 - **Texto abaixo de 14px em tablet/mobile**
@@ -234,7 +216,7 @@ Foram auditadas 18 areas em 3 viewports, com login, captura de screenshots, leit
 - **Texto abaixo de 14px em tablet/mobile**
   - Dispositivo: mobile
   - Tela: /admin/cupons
-  - O que acontece: [{"tag":"DIV","role":null,"text":"5","left":254,"right":286,"top":12,"width":32,"height":32,"fontSize":12},{"tag":"SPAN","role":null,"text":"Ativo","left":659,"right":725,"top":306,"width":66,"height":20,"fontSize":12}]
+  - O que acontece: [{"tag":"DIV","role":null,"text":"5","left":254,"right":286,"top":12,"width":32,"height":32,"fontSize":12},{"tag":"SPAN","role":null,"text":"Ativo","left":227,"right":293,"top":185,"width":66,"height":20,"fontSize":12},{"tag":"DT","role":null,"text":"Tipo","left":41,"right":161,"top":313,"width":120,"height":16,"fontSize":12},{"tag":"DT","role":null,"text":"Desconto","left":173,"right":293,"top":313,"width":120,"height":16,"fontSize":12},{"tag":"DT","role":null,"text":"Validade","left":41,"right":161,"top":365,"width":120,"height":16,"fontSize":12}]
   - O que deveria acontecer: Texto operacional deve manter legibilidade minima de 14px.
   - Evidencia: /home/ronaldo/menuflow/docs/outputs/menuflow-critical-audit/admin-cupons-mobile.png
 - **Texto abaixo de 14px em tablet/mobile**
