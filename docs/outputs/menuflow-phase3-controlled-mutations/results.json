@@ -1,0 +1,345 @@
+{
+  "apiUrl": "http://localhost:8088/api/v1",
+  "login": {
+    "tenant": "audit",
+    "email": "audit@menuflow.local"
+  },
+  "runId": "20260630105721",
+  "prefix": "AUDIT-20260630105721",
+  "steps": [
+    {
+      "name": "login-admin-audit",
+      "status": "passed",
+      "startedAt": "2026-06-30T10:57:21.106Z",
+      "finishedAt": "2026-06-30T10:57:21.334Z",
+      "data": "eyJhbGciOiJIUzM4NCJ9.eyJpc3MiOiJtZW51ZmxvdyIsInN1YiI6IjU2ZmQwZjA1LWJiMjktNDYzNC1iODc4LTcxYmU3Y2UzZGU3ZiIsImp0aSI6ImMxYjZmODgzLTE1NWYtNDRmYy1hOWVlLWNkOWMxZDgyMjM5OSIsInR5cGUiOiJhY2Nlc3MiLCJ0ZW5hbnRJZCI6ImF1ZGl0IiwidGVuYW50VXVpZCI6IjdkNDczNWQyLTNhZGYtNDg4YS1iNzhhLTkyMDczOWJhNTM0NyIsInJvbGVzIjpbIkFETUlOIl0sImlhdCI6MTc4MjgxNzA0MSwiZXhwIjoxNzgyODIwNjQxfQ.MW1E0QYS0BJYDkz1Kbh7y6y1BUnA3hxYnCL9f0G7vW-DOKhpSoGJzQ0MaelpZs_o"
+    },
+    {
+      "name": "dre-before-today",
+      "status": "passed",
+      "startedAt": "2026-06-30T10:57:21.404Z",
+      "finishedAt": "2026-06-30T10:57:21.463Z",
+      "data": {
+        "periodStart": "2026-06-30",
+        "periodEnd": "2026-06-30",
+        "grossRevenueCents": 0,
+        "marketplaceFeesCents": 0,
+        "cardFeesCents": 0,
+        "taxCents": 0,
+        "netRevenueCents": 0,
+        "cogsCents": 0,
+        "grossProfitCents": 0,
+        "operatingExpensesCents": 0,
+        "netProfitCents": 0,
+        "orderCount": 0,
+        "averageTicketCents": 0,
+        "grossMarginPct": 0,
+        "netMarginPct": 0,
+        "ordersByChannel": {},
+        "ordersByPaymentMethod": {}
+      }
+    },
+    {
+      "name": "create-audit-category",
+      "status": "passed",
+      "startedAt": "2026-06-30T10:57:21.463Z",
+      "finishedAt": "2026-06-30T10:57:21.483Z",
+      "data": {
+        "id": "b34fed50-0e08-4b57-8e02-e81f73fce913",
+        "name": "AUDIT-20260630105721 Categoria",
+        "description": "Categoria criada pela auditoria controlada Fase 3.",
+        "displayOrder": 999,
+        "active": true,
+        "colorCode": "#047857",
+        "iconUrl": null,
+        "createdAt": "2026-06-30T10:57:21.472492533Z",
+        "updatedAt": "2026-06-30T10:57:21.472492988Z"
+      }
+    },
+    {
+      "name": "create-audit-product-idempotent",
+      "status": "passed",
+      "startedAt": "2026-06-30T10:57:21.483Z",
+      "finishedAt": "2026-06-30T10:57:21.545Z",
+      "data": {
+        "id": "86ed2629-62e9-4e34-923d-c46eea28a700",
+        "categoryId": "b34fed50-0e08-4b57-8e02-e81f73fce913",
+        "sku": "AUDIT-20260630105721-SKU",
+        "name": "AUDIT-20260630105721 Produto",
+        "description": "Produto criado pela auditoria controlada Fase 3.",
+        "priceCents": 2590,
+        "costPriceCents": 900,
+        "imageUrl": null,
+        "active": true,
+        "isAvailable": true,
+        "displayOrder": 999,
+        "preparationTimeMinutes": 12,
+        "isFeatured": true,
+        "promoPriceCents": null,
+        "promoStartsAt": null,
+        "promoEndsAt": null,
+        "effectivePriceCents": 2590,
+        "onPromo": false,
+        "createdAt": "2026-06-30T10:57:21.508034469Z",
+        "updatedAt": "2026-06-30T10:57:21.508035018Z",
+        "idempotentReplayStatus": 201
+      }
+    },
+    {
+      "name": "validate-public-menu-has-audit-product",
+      "status": "passed",
+      "startedAt": "2026-06-30T10:57:21.545Z",
+      "finishedAt": "2026-06-30T10:57:21.616Z",
+      "data": {
+        "productId": "86ed2629-62e9-4e34-923d-c46eea28a700",
+        "name": "AUDIT-20260630105721 Produto",
+        "categoryId": "b34fed50-0e08-4b57-8e02-e81f73fce913"
+      }
+    },
+    {
+      "name": "create-audit-coupon",
+      "status": "passed",
+      "startedAt": "2026-06-30T10:57:21.616Z",
+      "finishedAt": "2026-06-30T10:57:21.675Z",
+      "data": {
+        "id": "ec6f5dc5-48d3-4761-8623-04d7b3a22c94",
+        "code": "AUDIT-20260630105721-CUPOM",
+        "description": "Cupom criado pela auditoria controlada Fase 3.",
+        "discountType": "FIXED",
+        "discountValue": 500,
+        "minOrderCents": 1000,
+        "maxUses": 5,
+        "maxUsesPerCustomer": 2,
+        "validFrom": "2026-06-30T09:57:21.616Z",
+        "validUntil": "2026-07-07T10:57:21.616Z",
+        "active": true,
+        "createdAt": "2026-06-30T10:57:21.654446688Z",
+        "updatedAt": "2026-06-30T10:57:21.654447437Z"
+      }
+    },
+    {
+      "name": "preview-audit-coupon-public",
+      "status": "passed",
+      "startedAt": "2026-06-30T10:57:21.675Z",
+      "finishedAt": "2026-06-30T10:57:21.704Z",
+      "data": {
+        "valid": true,
+        "discountCents": 500,
+        "description": "Cupom criado pela auditoria controlada Fase 3."
+      }
+    },
+    {
+      "name": "create-audit-operating-expense",
+      "status": "passed",
+      "startedAt": "2026-06-30T10:57:21.704Z",
+      "finishedAt": "2026-06-30T10:57:21.738Z",
+      "data": {
+        "id": "2fb25fd5-2b27-4057-bffd-f745e57af8d3",
+        "description": "AUDIT-20260630105721 Despesa",
+        "amountCents": 1234,
+        "category": "OTHER",
+        "expenseDate": "2026-06-30",
+        "createdAt": "2026-06-30T10:57:21.718267089Z",
+        "updatedAt": "2026-06-30T10:57:21.718267780Z"
+      }
+    },
+    {
+      "name": "create-public-order-with-coupon",
+      "status": "passed",
+      "startedAt": "2026-06-30T10:57:21.738Z",
+      "finishedAt": "2026-06-30T10:57:21.855Z",
+      "data": {
+        "orderId": "764fa53a-cff7-49a1-bebe-4627b46db32e",
+        "orderNumber": "MF-260630-005070",
+        "totalCents": 4680
+      }
+    },
+    {
+      "name": "validate-coupon-redemption",
+      "status": "passed",
+      "startedAt": "2026-06-30T10:57:21.855Z",
+      "finishedAt": "2026-06-30T10:57:21.882Z",
+      "data": {
+        "id": "1d4f3edc-e69f-4e21-a21a-4cb2137f2289",
+        "couponId": "ec6f5dc5-48d3-4761-8623-04d7b3a22c94",
+        "orderId": "764fa53a-cff7-49a1-bebe-4627b46db32e",
+        "customerPhone": "5596999000001",
+        "discountAppliedCents": 500,
+        "redeemedAt": "2026-06-30T10:57:21.815903Z"
+      }
+    },
+    {
+      "name": "validate-kds-has-public-order",
+      "status": "passed",
+      "startedAt": "2026-06-30T10:57:21.882Z",
+      "finishedAt": "2026-06-30T10:57:21.918Z",
+      "data": {
+        "orderId": "764fa53a-cff7-49a1-bebe-4627b46db32e",
+        "orderNumber": "MF-260630-005070",
+        "status": "PREPARING",
+        "orderType": "DINE_IN",
+        "tableNumber": "AUDIT",
+        "items": [
+          {
+            "productName": "AUDIT-20260630105721 Produto",
+            "quantity": 2,
+            "notes": "Item AUDIT"
+          }
+        ],
+        "estimatedPrepTimeMinutes": 10,
+        "createdAt": "2026-06-30T10:57:21.805466Z"
+      }
+    },
+    {
+      "name": "create-pdv-order-idempotent",
+      "status": "passed",
+      "startedAt": "2026-06-30T10:57:21.918Z",
+      "finishedAt": "2026-06-30T10:57:22.020Z",
+      "data": {
+        "id": "d4c3fca8-e865-4d2e-b85a-c2db4afac458",
+        "orderNumber": "MF-260630-211338",
+        "customerId": null,
+        "userId": "56fd0f05-bb29-4634-b878-71be7ce3de7f",
+        "orderType": "DINE_IN",
+        "status": "PREPARING",
+        "tableNumber": "AUDIT-PDV",
+        "items": [
+          {
+            "id": "4215b86f-a4c8-4737-afd8-d1af35c11c98",
+            "productId": "86ed2629-62e9-4e34-923d-c46eea28a700",
+            "productSku": "AUDIT-20260630105721-SKU",
+            "productName": "AUDIT-20260630105721 Produto",
+            "quantity": 1,
+            "unitPriceCents": 2590,
+            "totalPriceCents": 2590,
+            "notes": "PDV AUDIT",
+            "status": "PENDING",
+            "sizeId": null,
+            "sizeName": null,
+            "flavor1Id": null,
+            "flavor1Name": null,
+            "flavor2Id": null,
+            "flavor2Name": null,
+            "crustType": null,
+            "doughType": null,
+            "options": []
+          }
+        ],
+        "subtotalCents": 2590,
+        "discountCents": 0,
+        "deliveryFeeCents": 0,
+        "totalCents": 2590,
+        "paymentMethod": null,
+        "paymentStatus": "PENDING",
+        "priority": "NORMAL",
+        "estimatedPrepTimeMinutes": 10,
+        "notes": null,
+        "couponCode": null,
+        "couponDiscountCents": 0,
+        "createdAt": "2026-06-30T10:57:21.955742991Z",
+        "updatedAt": "2026-06-30T10:57:21.955743184Z",
+        "completedAt": null,
+        "idempotentReplayStatus": 201
+      }
+    },
+    {
+      "name": "pay-pdv-order-card",
+      "status": "passed",
+      "startedAt": "2026-06-30T10:57:22.020Z",
+      "finishedAt": "2026-06-30T10:57:22.076Z",
+      "data": {
+        "id": "cb0238f0-48c8-4bb7-b711-1644da0d663d",
+        "orderId": "d4c3fca8-e865-4d2e-b85a-c2db4afac458",
+        "method": "CARD",
+        "amountPaidCents": 2590,
+        "changeCents": 0,
+        "totalCents": 2590,
+        "paidAt": "2026-06-30T10:57:22.034156442Z"
+      }
+    },
+    {
+      "name": "dre-after-today",
+      "status": "passed",
+      "startedAt": "2026-06-30T10:57:22.076Z",
+      "finishedAt": "2026-06-30T10:57:22.094Z",
+      "data": {
+        "periodStart": "2026-06-30",
+        "periodEnd": "2026-06-30",
+        "grossRevenueCents": 2590,
+        "marketplaceFeesCents": 0,
+        "cardFeesCents": 0,
+        "taxCents": 0,
+        "netRevenueCents": 2590,
+        "cogsCents": 0,
+        "grossProfitCents": 2590,
+        "operatingExpensesCents": 1234,
+        "netProfitCents": 1356,
+        "orderCount": 1,
+        "averageTicketCents": 2590,
+        "grossMarginPct": 100,
+        "netMarginPct": 52.36,
+        "ordersByChannel": {
+          "DINE_IN": 1
+        },
+        "ordersByPaymentMethod": {
+          "CREDIT_CARD": 1
+        }
+      }
+    }
+  ],
+  "artifacts": {
+    "summary": {
+      "runId": "20260630105721",
+      "prefix": "AUDIT-20260630105721",
+      "categoryId": "b34fed50-0e08-4b57-8e02-e81f73fce913",
+      "productId": "86ed2629-62e9-4e34-923d-c46eea28a700",
+      "couponId": "ec6f5dc5-48d3-4761-8623-04d7b3a22c94",
+      "expenseId": "2fb25fd5-2b27-4057-bffd-f745e57af8d3",
+      "publicOrderId": "764fa53a-cff7-49a1-bebe-4627b46db32e",
+      "pdvOrderId": "d4c3fca8-e865-4d2e-b85a-c2db4afac458",
+      "paymentId": "cb0238f0-48c8-4bb7-b711-1644da0d663d",
+      "dreBefore": {
+        "periodStart": "2026-06-30",
+        "periodEnd": "2026-06-30",
+        "grossRevenueCents": 0,
+        "marketplaceFeesCents": 0,
+        "cardFeesCents": 0,
+        "taxCents": 0,
+        "netRevenueCents": 0,
+        "cogsCents": 0,
+        "grossProfitCents": 0,
+        "operatingExpensesCents": 0,
+        "netProfitCents": 0,
+        "orderCount": 0,
+        "averageTicketCents": 0,
+        "grossMarginPct": 0,
+        "netMarginPct": 0,
+        "ordersByChannel": {},
+        "ordersByPaymentMethod": {}
+      },
+      "dreAfter": {
+        "periodStart": "2026-06-30",
+        "periodEnd": "2026-06-30",
+        "grossRevenueCents": 2590,
+        "marketplaceFeesCents": 0,
+        "cardFeesCents": 0,
+        "taxCents": 0,
+        "netRevenueCents": 2590,
+        "cogsCents": 0,
+        "grossProfitCents": 2590,
+        "operatingExpensesCents": 1234,
+        "netProfitCents": 1356,
+        "orderCount": 1,
+        "averageTicketCents": 2590,
+        "grossMarginPct": 100,
+        "netMarginPct": 52.36,
+        "ordersByChannel": {
+          "DINE_IN": 1
+        },
+        "ordersByPaymentMethod": {
+          "CREDIT_CARD": 1
+        }
+      }
+    }
+  }
+}
