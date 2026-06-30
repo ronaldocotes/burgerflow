@@ -6,7 +6,7 @@ import { api, ApiError } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { useModalA11y } from "@/lib/use-modal-a11y";
 import { useKdsFeed } from "@/lib/use-kds-feed";
-import { FeedStatus, KdsOrder, OrderStatus } from "@/types/kds";
+import { ExternalOrigin, FeedStatus, KdsOrder, OrderStatus } from "@/types/kds";
 import LoadingSpinner from "@/components/loading-spinner";
 
 // Mapeamento de status para o avanço do pedido no KDS.
@@ -54,8 +54,6 @@ function isOverdue(order: KdsOrder, now: number): boolean {
   return elapsed >= limit;
 }
 
-
-
 function elapsedLabel(order: KdsOrder, now: number): string {
   const secs = Math.floor(
     (now - new Date(order.createdAt).getTime()) / 1000,
@@ -63,6 +61,36 @@ function elapsedLabel(order: KdsOrder, now: number): string {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+// ── Badge de canal de origem ──────────────────────────────────────────────────
+// OWN não renderiza nada (padrão interno).
+// IFOOD → badge laranja; RAPPI → badge amarelo.
+// O badge fica inline com o número do pedido no cabeçalho do card.
+
+function OriginBadge({ origin }: { origin?: ExternalOrigin }) {
+  if (!origin || origin === "OWN") return null;
+  if (origin === "IFOOD") {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-700"
+        aria-label="Pedido via iFood"
+      >
+        🛵 iFood
+      </span>
+    );
+  }
+  if (origin === "RAPPI") {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-700"
+        aria-label="Pedido via Rappi"
+      >
+        🟡 Rappi
+      </span>
+    );
+  }
+  return null;
 }
 
 // ── Modal de cancelamento ────────────────────────────────────────────────────
@@ -166,6 +194,13 @@ function OrderCard({ order, now, onAdvance, onCancel }: OrderCardProps) {
 
   const nextStatus = NEXT_STATUS[order.status];
 
+  // Quando existe ID do canal externo, usá-lo como número principal.
+  // O número interno fica como referência secundária para rastreio.
+  const displayNumber = order.externalDisplayId ?? `#${order.orderNumber}`;
+  const showInternalRef =
+    !!order.externalDisplayId &&
+    order.externalDisplayId !== `#${order.orderNumber}`;
+
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl bg-bg-primary shadow-card transition-shadow hover:shadow-dropdown">
       {/* Barra de aging no topo (kohli.design pattern) */}
@@ -177,11 +212,17 @@ function OrderCard({ order, now, onAdvance, onCancel }: OrderCardProps) {
       {/* Cabeçalho */}
       <div className="mb-3 flex items-start justify-between gap-2">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xl font-bold text-text-primary">
-              #{order.orderNumber}
+              {displayNumber}
             </span>
+            <OriginBadge origin={order.externalOrigin} />
           </div>
+          {showInternalRef && (
+            <p className="mt-0.5 text-xs text-text-muted">
+              int #{order.orderNumber}
+            </p>
+          )}
           <div className="mt-0.5 flex items-center gap-2 text-sm text-text-secondary">
             <span>{ORDER_TYPE_LABEL[order.orderType] ?? order.orderType}</span>
             {order.tableNumber && <span>· Mesa {order.tableNumber}</span>}

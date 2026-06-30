@@ -9,6 +9,9 @@ export type OrderStatus =
 
 export type OrderType = "DINE_IN" | "TAKEAWAY" | "DELIVERY";
 
+/** Canal de origem do pedido. OWN = plataforma própria. */
+export type ExternalOrigin = "OWN" | "IFOOD" | "RAPPI";
+
 export interface KdsItem {
   productName: string;
   quantity: number;
@@ -24,6 +27,10 @@ export interface KdsOrder {
   items: KdsItem[];
   estimatedPrepTimeMinutes: number | null;
   createdAt: string;
+  /** Canal de origem do pedido. Ausente equivale a "OWN". */
+  externalOrigin?: ExternalOrigin;
+  /** ID de exibição do canal externo (ex.: "#4502" do iFood). Nullable. */
+  externalDisplayId?: string | null;
 }
 
 // Evento STOMP publicado em /topic/kds/{tenantSlug} após updateStatus.
