@@ -99,3 +99,13 @@ Resultado:
 - IA foi pulada pelo script principal por `pytest` ausente no shell atual, com instrucao para `scripts/run-ia-tests-local.sh`.
 - Smoke real do frontend retornou HTML com 7366 bytes.
 - Smoke real do backend retornou `{"status":"UP","groups":["liveness","readiness"]}`.
+
+## Atualizacao Fase 6.2
+
+Deploy de producao reconciliado em artefatos versionados, sem executar deploy remoto:
+
+- `compose.prod.yml` foi consolidado como compose canonico da A1 compartilhada.
+- `env.prod.template` foi adicionado como template canonico de segredos da raiz.
+- `scripts/deploy-prod-a1.sh` foi adicionado para rodar no host A1: preflight, validacao da rede externa `web`, backup do control DB quando Postgres ja estiver rodando, `docker compose up -d --build` e smoke publico.
+- `docker/DEPLOY-A1.md` foi atualizado para o fluxo atual de DuckDNS + Caddy compartilhado.
+- `docker/Caddyfile` foi atualizado como referencia standalone: proxy do frontend real, health publico somente em `/api/v1/actuator/health` e bloqueio do restante do actuator.

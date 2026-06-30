@@ -110,7 +110,7 @@ Atualizacao 2026-06-26 - benchmark ClickEscale:
 Ordem de confianca:
 
 1. Codigo vivo e testes.
-2. `docker/docker-compose.prod.yml` e `docker/Caddyfile`.
+2. `compose.prod.yml`, `env.prod.template`, `scripts/deploy-prod-a1.sh` e `docker/DEPLOY-A1.md`.
 3. Este documento.
 4. `docs/growth-center-trafego-pago.md`.
 5. README antigo, quando nao contradizer os itens acima.

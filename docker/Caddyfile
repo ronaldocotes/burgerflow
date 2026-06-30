@@ -1,10 +1,10 @@
-# MenuFlow — Caddy reverse proxy (production, Oracle A1 molde SISATER).
+# MenuFlow — Caddy reverse proxy (standalone reference, Oracle A1).
 # ONLY Caddy publishes 80/443; everything else stays on the internal Docker
 # network. TLS is automatic (Let's Encrypt) for a real domain, or use the
 # sslip.io trick for zero-DNS testing: <anything>.<IP-with-dashes>.sslip.io
 #
-# Set the site address via the {$SITE_ADDRESS} env var in .env.prod, e.g.
-#   SITE_ADDRESS=menuflow.163-176-212-54.sslip.io
+# Set the site address via the {$SITE_ADDRESS} env var, e.g.
+#   SITE_ADDRESS=menuflow.duckdns.org
 #
 # IMPORTANT: this A1 host already runs SISATER/Alicia/Posthumus behind their own
 # Caddy on 80/443. Do NOT blindly bind 80/443 again — coordinate with o Capataz:
@@ -20,19 +20,15 @@
 	@ws path /ws /ws/* /ws-sockjs/*
 	reverse_proxy @ws backend:8080
 
-	# Defense in depth: never expose actuator to the internet (before the API rule).
+	# Public smoke needs health only; never expose the rest of actuator.
+	reverse_proxy /api/v1/actuator/health backend:8080
 	respond /api/v1/actuator/* 404
 
 	# REST API (Spring Boot context-path is /api/v1).
 	reverse_proxy /api/v1/* backend:8080
 
-	# Frontend (Next.js) gets everything else. The frontend service is commented
-	# out in docker-compose.prod.yml until the web app is ready; while it is not
-	# deployed, this returns a simple placeholder instead of proxying a dead host.
-	# When the frontend ships: replace the `respond` line with
-	#   reverse_proxy frontend:3000
-	respond / "MenuFlow API is up. Web app coming soon." 200
-	respond "MenuFlow API is up. Web app coming soon." 200
+	# Frontend (Next.js) gets everything else.
+	reverse_proxy frontend:3000
 
 	header {
 		# Basic hardening headers (Caddy already sets sane TLS).

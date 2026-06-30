@@ -214,7 +214,7 @@ Este comando irá iniciar:
 - IA FastAPI (porta 8000)
 - Nginx (porta 80)
 
-> **Nota:** este `docker-compose.yml` é o ambiente de **desenvolvimento completo** (inclui Kafka/Zookeeper, Nginx, PgAdmin e Kafka UI como apoio). A **fundação de produção** é o `docker-compose.prod.yml` — apenas **Caddy + Postgres + Redis + backend** (sem Kafka/K3s). Veja `docker/DEPLOY-A1.md`.
+> **Nota:** este `docker-compose.yml` é o ambiente de **desenvolvimento completo** (inclui Kafka/Zookeeper, Nginx, PgAdmin e Kafka UI como apoio). A **fundação de produção atual** é `compose.prod.yml` na raiz — Postgres + Redis + backend + frontend na rede externa `web`, atrás do Caddy compartilhado da A1. Veja `docker/DEPLOY-A1.md`.
 
 ### 4. Acessar o Sistema
 
