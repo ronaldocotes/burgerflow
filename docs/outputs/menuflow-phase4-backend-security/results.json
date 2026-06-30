@@ -1,0 +1,229 @@
+{
+  "apiUrl": "http://localhost:8088/api/v1",
+  "tenant": "audit",
+  "runId": "20260630110704",
+  "prefix": "AUDIT4-20260630110704",
+  "generatedAt": "2026-06-30T11:07:05.121Z",
+  "steps": [
+    {
+      "name": "login-admin-audit",
+      "status": "passed",
+      "startedAt": "2026-06-30T11:07:04.415Z",
+      "finishedAt": "2026-06-30T11:07:04.606Z",
+      "data": "eyJhbGciOiJIUzM4NCJ9.eyJpc3MiOiJtZW51ZmxvdyIsInN1YiI6IjU2ZmQwZjA1LWJiMjktNDYzNC1iODc4LTcxYmU3Y2UzZGU3ZiIsImp0aSI6IjA4OWQ2MGUwLTEzYjgtNDUzZi1hZmNmLTJmZDVkYmE0MzM0MiIsInR5cGUiOiJhY2Nlc3MiLCJ0ZW5hbnRJZCI6ImF1ZGl0IiwidGVuYW50VXVpZCI6IjdkNDczNWQyLTNhZGYtNDg4YS1iNzhhLTkyMDczOWJhNTM0NyIsInJvbGVzIjpbIkFETUlOIl0sImlhdCI6MTc4MjgxNzYyNCwiZXhwIjoxNzgyODIxMjI0fQ.qiU-NeHoXynCbonU8Dis7Iw1MUKoDw9k3dciq4Pl-SMqcvidMBf2gAfzNJDLVkT9"
+    },
+    {
+      "name": "login-operator-audit",
+      "status": "passed",
+      "startedAt": "2026-06-30T11:07:04.606Z",
+      "finishedAt": "2026-06-30T11:07:04.704Z",
+      "data": "eyJhbGciOiJIUzM4NCJ9.eyJpc3MiOiJtZW51ZmxvdyIsInN1YiI6IjEwNzY1YTdiLTFjZDctNDg2Ni05M2I3LWY0N2FhMjUxMjQ0NSIsImp0aSI6IjMzOWViZjNhLTNmMjMtNGNjOS1iYTMyLTI2MGY0MzUyNmY4MiIsInR5cGUiOiJhY2Nlc3MiLCJ0ZW5hbnRJZCI6ImF1ZGl0IiwidGVuYW50VXVpZCI6IjdkNDczNWQyLTNhZGYtNDg4YS1iNzhhLTkyMDczOWJhNTM0NyIsInJvbGVzIjpbIk9QRVJBVE9SIl0sImlhdCI6MTc4MjgxNzYyNCwiZXhwIjoxNzgyODIxMjI0fQ.EagzdppNoFtuHMuXQ9MueSqLLT2gKC6GW939lW3gC0tii307C2wvulljBmuBFg_X"
+    },
+    {
+      "name": "login-staff-audit",
+      "status": "passed",
+      "startedAt": "2026-06-30T11:07:04.704Z",
+      "finishedAt": "2026-06-30T11:07:04.798Z",
+      "data": "eyJhbGciOiJIUzM4NCJ9.eyJpc3MiOiJtZW51ZmxvdyIsInN1YiI6ImM2YmI1NWFjLTNjZjYtNGI1OC1iMzIwLTE4MzEwMzRlZDI4MyIsImp0aSI6ImVhNGM5YmQ4LTA4MmYtNDZjOC04NWM0LWNhYjQyNmFhZWI3MiIsInR5cGUiOiJhY2Nlc3MiLCJ0ZW5hbnRJZCI6ImF1ZGl0IiwidGVuYW50VXVpZCI6IjdkNDczNWQyLTNhZGYtNDg4YS1iNzhhLTkyMDczOWJhNTM0NyIsInJvbGVzIjpbIlNUQUZGIl0sImlhdCI6MTc4MjgxNzYyNCwiZXhwIjoxNzgyODIxMjI0fQ.HDZqDsi529Q4r5_n1i1vzBX22DBjYmnm5s5tEoE65kgtgd6FlVvfs9Y0TMF9V2YT"
+    },
+    {
+      "name": "protected-products-without-token-returns-401",
+      "status": "passed",
+      "startedAt": "2026-06-30T11:07:04.798Z",
+      "finishedAt": "2026-06-30T11:07:04.810Z",
+      "data": {
+        "status": 401
+      }
+    },
+    {
+      "name": "operator-can-open-pdv-active-orders",
+      "status": "passed",
+      "startedAt": "2026-06-30T11:07:04.810Z",
+      "finishedAt": "2026-06-30T11:07:04.872Z",
+      "data": {
+        "status": 200,
+        "count": 1
+      }
+    },
+    {
+      "name": "operator-cannot-read-dre",
+      "status": "passed",
+      "startedAt": "2026-06-30T11:07:04.872Z",
+      "finishedAt": "2026-06-30T11:07:04.897Z",
+      "data": {
+        "status": 403
+      }
+    },
+    {
+      "name": "staff-cannot-create-product",
+      "status": "passed",
+      "startedAt": "2026-06-30T11:07:04.897Z",
+      "finishedAt": "2026-06-30T11:07:04.920Z",
+      "data": {
+        "status": 403
+      }
+    },
+    {
+      "name": "create-category-for-idempotency-check",
+      "status": "passed",
+      "startedAt": "2026-06-30T11:07:04.920Z",
+      "finishedAt": "2026-06-30T11:07:04.937Z",
+      "data": {
+        "id": "2abd8ab9-c346-449a-88f5-b2f3f44ed7ac",
+        "name": "AUDIT4-20260630110704 Backend",
+        "description": "Categoria criada pela auditoria backend/seguranca Fase 4.",
+        "displayOrder": 1001,
+        "active": true,
+        "colorCode": "#0f766e",
+        "iconUrl": null,
+        "createdAt": "2026-06-30T11:07:04.928263141Z",
+        "updatedAt": "2026-06-30T11:07:04.928263747Z"
+      }
+    },
+    {
+      "name": "product-idempotency-replay-same-payload",
+      "status": "passed",
+      "startedAt": "2026-06-30T11:07:04.937Z",
+      "finishedAt": "2026-06-30T11:07:04.978Z",
+      "data": {
+        "id": "bcb81947-6912-49c0-be68-efdd1dae89d7",
+        "categoryId": "2abd8ab9-c346-449a-88f5-b2f3f44ed7ac",
+        "sku": "AUDIT4-20260630110704-IDEMP",
+        "name": "AUDIT4-20260630110704 Idempotente",
+        "description": "Produto criado para validar idempotencia e misuse.",
+        "priceCents": 3190,
+        "costPriceCents": 1100,
+        "imageUrl": null,
+        "active": true,
+        "isAvailable": true,
+        "displayOrder": 1001,
+        "preparationTimeMinutes": 11,
+        "isFeatured": false,
+        "promoPriceCents": null,
+        "promoStartsAt": null,
+        "promoEndsAt": null,
+        "effectivePriceCents": 3190,
+        "onPromo": false,
+        "createdAt": "2026-06-30T11:07:04.946915953Z",
+        "updatedAt": "2026-06-30T11:07:04.946916753Z"
+      }
+    },
+    {
+      "name": "product-idempotency-rejects-different-payload",
+      "status": "passed",
+      "startedAt": "2026-06-30T11:07:04.978Z",
+      "finishedAt": "2026-06-30T11:07:04.987Z",
+      "data": {
+        "status": 409,
+        "body": {
+          "timestamp": "2026-06-30T11:07:04.985205242Z",
+          "status": 409,
+          "error": "Conflict",
+          "code": "CONFLICT",
+          "message": "Idempotency-Key reused with a different request",
+          "path": "/api/v1/products",
+          "errors": [],
+          "details": []
+        }
+      }
+    },
+    {
+      "name": "signed-token-tenant-binding-ignores-spoofed-header",
+      "status": "passed",
+      "startedAt": "2026-06-30T11:07:04.987Z",
+      "finishedAt": "2026-06-30T11:07:04.994Z",
+      "data": {
+        "productId": "bcb81947-6912-49c0-be68-efdd1dae89d7",
+        "sku": "AUDIT4-20260630110704-IDEMP"
+      }
+    },
+    {
+      "name": "public-menu-does-not-expose-admin-cost-fields",
+      "status": "passed",
+      "startedAt": "2026-06-30T11:07:04.994Z",
+      "finishedAt": "2026-06-30T11:07:05.066Z",
+      "data": {
+        "productId": "bcb81947-6912-49c0-be68-efdd1dae89d7",
+        "keys": [
+          "categoryId",
+          "description",
+          "displayOrder",
+          "effectivePriceCents",
+          "id",
+          "imageUrl",
+          "isAvailable",
+          "isFeatured",
+          "name",
+          "onPromo",
+          "optionGroups",
+          "priceCents"
+        ]
+      }
+    },
+    {
+      "name": "dre-invalid-period-fails-closed",
+      "status": "passed",
+      "startedAt": "2026-06-30T11:07:05.066Z",
+      "finishedAt": "2026-06-30T11:07:05.077Z",
+      "data": {
+        "status": 400,
+        "body": {
+          "timestamp": "2026-06-30T11:07:05.071491286Z",
+          "status": 400,
+          "error": "Bad Request",
+          "code": "BUSINESS_ERROR",
+          "message": "Período inválido: fim antes do início",
+          "path": "/api/v1/dre",
+          "errors": [],
+          "details": []
+        }
+      }
+    },
+    {
+      "name": "admin-cannot-assign-super-admin-role",
+      "status": "passed",
+      "startedAt": "2026-06-30T11:07:05.077Z",
+      "finishedAt": "2026-06-30T11:07:05.091Z",
+      "data": {
+        "status": 400,
+        "body": {
+          "timestamp": "2026-06-30T11:07:05.088967448Z",
+          "status": 400,
+          "error": "Bad Request",
+          "code": "BUSINESS_ERROR",
+          "message": "Papel não atribuível por um administrador de restaurante",
+          "path": "/api/v1/users/invite",
+          "errors": [],
+          "details": []
+        }
+      }
+    },
+    {
+      "name": "last-active-admin-cannot-be-disabled",
+      "status": "passed",
+      "startedAt": "2026-06-30T11:07:05.091Z",
+      "finishedAt": "2026-06-30T11:07:05.121Z",
+      "data": {
+        "status": 409,
+        "body": {
+          "timestamp": "2026-06-30T11:07:05.119540141Z",
+          "status": 409,
+          "error": "Conflict",
+          "code": "CONFLICT",
+          "message": "Não é possível rebaixar/desativar o único administrador ativo",
+          "path": "/api/v1/users/56fd0f05-bb29-4634-b878-71be7ce3de7f/status",
+          "errors": [],
+          "details": []
+        }
+      }
+    }
+  ],
+  "failed": 0,
+  "artifacts": {
+    "created": {
+      "categoryId": "2abd8ab9-c346-449a-88f5-b2f3f44ed7ac",
+      "productId": "bcb81947-6912-49c0-be68-efdd1dae89d7",
+      "prefix": "AUDIT4-20260630110704"
+    }
+  }
+}

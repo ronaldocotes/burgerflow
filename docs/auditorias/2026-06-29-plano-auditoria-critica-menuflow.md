@@ -278,16 +278,18 @@ Cada achado deve conter:
 | 2026-06-30 | Executar Fase 2 - Fluxos Operacionais Seguros | Concluida | `docs/outputs/menuflow-phase2-safe-flows/REPORT.md`, `docs/outputs/menuflow-phase2-safe-flows/results.json` | 27 cenarios em PC/tablet/mobile: 26 passed, 1 warning esperado no PC porque menu mobile nao aparece em desktop, 0 failed. |
 | 2026-06-30 | Criar script da Fase 3 | Concluida | `docs/auditorias/2026-06-30-menuflow-phase3-controlled-mutations.cjs`, `scripts/run-phase3-controlled-mutations-local.sh` | Script API-only cria dados reais com prefixo `AUDIT-*` no tenant `audit` e valida efeitos em cardapio publico, cupom, KDS, PDV, pagamento e DRE. |
 | 2026-06-30 | Executar Fase 3 - Mutacao Controlada | Concluida | `docs/outputs/menuflow-phase3-controlled-mutations/REPORT.md`, `docs/outputs/menuflow-phase3-controlled-mutations/results.json` | 14 etapas, 0 falhas; prefixo `AUDIT-20260630105721`; produto/cupom/despesa/pedido publico/pedido PDV/pagamento criados e DRE refletiu despesa + venda paga. |
+| 2026-06-30 | Criar script da Fase 4 | Concluida | `docs/auditorias/2026-06-30-menuflow-phase4-backend-security.cjs`, `scripts/run-phase4-backend-security-local.sh` | Script API-only valida auth, RBAC, tenant binding, idempotencia, contrato publico, DRE invalido e protecoes de plataforma no tenant `audit`. |
+| 2026-06-30 | Executar Fase 4 - Backend, Dados e Seguranca | Concluida | `docs/outputs/menuflow-phase4-backend-security/REPORT.md`, `docs/outputs/menuflow-phase4-backend-security/results.json` | 15 etapas, 0 falhas; prefixo `AUDIT4-20260630110704`; validou 401/403, OPERATOR vs DRE, STAFF vs produto, idempotencia, X-Tenant-ID spoofado, DTO publico e anti-lockout. |
 
 ## Proxima Etapa
 
-Avancar para a **Fase 4 - Backend, Dados e Seguranca** contra o tenant `audit`, usando o usuario admin:
+Avancar para a **Fase 5 - Correcoes** contra o tenant `audit`, usando o usuario admin:
 
 - Tenant: `audit`
 - Email: `audit@menuflow.local`
 - Senha: `Audit@1234`
 
-O tenant ja esta populado no QA local com dados ricos e migrations aplicadas ate a versao 31. A Fase 1 read-only, a Fase 2 de fluxos seguros e a Fase 3 de mutacao controlada ja foram executadas, registradas e validadas.
+O tenant ja esta populado no QA local com dados ricos e migrations aplicadas ate a versao 31. As Fases 1, 2, 3 e 4 ja foram executadas, registradas e validadas.
 
 Comando para revalidar a Fase 1 quando necessario:
 
@@ -295,4 +297,4 @@ Comando para revalidar a Fase 1 quando necessario:
 wsl -d Kali-Linux --cd /home/ronaldo/menuflow --% bash scripts/run-frontend-audit-local.sh
 ```
 
-Para a Fase 4, priorizar tenant/RBAC, idempotencia, auditoria, contratos e consistencia financeira a partir dos dados `AUDIT-*` ja criados.
+Para a Fase 5, transformar os achados restantes em correcoes priorizadas. Se nao houver bloqueantes visuais/funcionais imediatos, abrir subfrente de performance, dependencias e producao: `EXPLAIN`/indices nos relatorios e listagens criticas, varredura de dependencias, configuracao de producao, headers/actuator externo, logs sem segredo/PII e smoke test contra o dominio publico quando autorizado.
