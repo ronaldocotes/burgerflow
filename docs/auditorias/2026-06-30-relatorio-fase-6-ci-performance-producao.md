@@ -73,3 +73,29 @@ Fase 6.1: alinhar CI/CD e producao real antes de novo deploy.
 - Marcar `compose.prod.yml` como canonico ou arquivar o compose standalone como referencia.
 - Adicionar script unico local para gates: frontend, backend, mobile e IA.
 - Preparar ambiente IA reprodutivel antes de exigir pytest localmente.
+
+## Atualizacao Fase 6.1
+
+Foram adicionados scripts locais reprodutiveis:
+
+- `scripts/run-local-gates.sh`: executa gates de frontend, backend, mobile e tenta IA quando `pytest` esta disponivel.
+- `scripts/run-ia-tests-local.sh`: cria `.venv-ia`, instala `ia/requirements.txt` e roda `pytest`.
+
+Tambem foi adicionado `.github/workflows/smoke.yml`, um smoke seguro do ambiente atual em `https://menuflow.duckdns.org` sem SSH e sem deploy.
+
+O workflow antigo `.github/workflows/cd.yml` foi marcado como legado e seus jobs de deploy foram desativados com `if: false`, porque ele ainda referencia `docker/docker-compose.yml`, um stack antigo com Kafka/Nginx/admin tooling que nao corresponde ao `compose.prod.yml` usado na producao DuckDNS.
+
+Validacoes da Fase 6.1:
+
+```bash
+scripts/run-local-gates.sh
+curl --fail --show-error --location --max-time 20 https://menuflow.duckdns.org/
+curl --fail --show-error --location --max-time 20 https://menuflow.duckdns.org/api/v1/actuator/health
+```
+
+Resultado:
+
+- Gates locais passaram para frontend, backend e mobile.
+- IA foi pulada pelo script principal por `pytest` ausente no shell atual, com instrucao para `scripts/run-ia-tests-local.sh`.
+- Smoke real do frontend retornou HTML com 7366 bytes.
+- Smoke real do backend retornou `{"status":"UP","groups":["liveness","readiness"]}`.

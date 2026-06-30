@@ -1,0 +1,31 @@
+name: Production Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/**"
+      - "backend/**"
+      - "compose.prod.yml"
+      - ".github/workflows/smoke.yml"
+
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MENUFLOW_PUBLIC_URL: https://menuflow.duckdns.org
+  MENUFLOW_API_HEALTH_URL: https://menuflow.duckdns.org/api/v1/actuator/health
+
+jobs:
+  smoke:
+    name: Smoke current production
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check frontend
+        run: curl --fail --show-error --location --max-time 20 "$MENUFLOW_PUBLIC_URL/"
+
+      - name: Check backend actuator health
+        run: curl --fail --show-error --location --max-time 20 "$MENUFLOW_API_HEALTH_URL"
