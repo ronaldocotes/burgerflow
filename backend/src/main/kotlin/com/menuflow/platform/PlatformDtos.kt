@@ -6,6 +6,7 @@ import com.menuflow.model.control.Tenant
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
+import jakarta.validation.constraints.Email
 import java.time.Instant
 import java.util.UUID
 
@@ -14,13 +15,13 @@ import java.util.UUID
  * identificador de banco em CREATE DATABASE "tenant_<slug>" — injeção aqui é RCE de
  * SQL. Validado no DTO (Bean Validation) E de novo no service (fail-closed).
  */
-const val SLUG_REGEX = "^[a-z0-9-]{3,30}$"
+const val SLUG_REGEX = "^[a-z0-9]{3,30}$"
 
 // ── Requests ────────────────────────────────────────────────────────────────
 
 data class CreateTenantRequest(
     @field:NotBlank
-    @field:Pattern(regexp = SLUG_REGEX, message = "slug inválido: use minúsculas, dígitos e hífen (3–30)")
+    @field:Pattern(regexp = SLUG_REGEX, message = "slug inválido: use apenas letras minúsculas e dígitos (3–30)")
     val slug: String,
 
     @field:NotBlank
@@ -32,6 +33,7 @@ data class CreateTenantRequest(
     val restaurantType: RestaurantType = RestaurantType.HAMBURGUERIA,
 
     /** E-mail do primeiro admin do tenant. Recebe um convite (link), não senha. */
+    @field:Email
     @field:NotBlank
     @field:Size(max = 255)
     val adminEmail: String,
