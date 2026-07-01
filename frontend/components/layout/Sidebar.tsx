@@ -29,6 +29,10 @@ import {
   Zap,
   Bot,
   Gauge,
+  LayoutDashboard,
+  Building2,
+  Plug,
+  BrainCircuit,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -52,6 +56,15 @@ interface NavGroup {
 }
 
 const NAV_GROUPS: NavGroup[] = [
+  {
+    group: 'PLATAFORMA',
+    items: [
+      { href: '/plataforma',             label: 'Visão Geral',  icon: LayoutDashboard, roles: ['SUPER_ADMIN'] },
+      { href: '/plataforma/tenants',     label: 'Empresas',     icon: Building2,       roles: ['SUPER_ADMIN'] },
+      { href: '/plataforma/integracoes', label: 'Integrações',  icon: Plug,            roles: ['SUPER_ADMIN'] },
+      { href: '/plataforma/ia',          label: 'Uso de IA',    icon: BrainCircuit,    roles: ['SUPER_ADMIN'] },
+    ],
+  },
   {
     group: 'OPERAÇÃO',
     items: [
@@ -132,8 +145,11 @@ function NavContent({
   return (
     <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Menu principal">
       {NAV_GROUPS.map(({ group, items }) => {
-        const visibleItems = items.filter(
-          ({ roles }) => !roles || (userRole !== null && roles.includes(userRole)),
+        const visibleItems = items.filter(({ roles }) =>
+          // SUPER_ADMIN só vê itens da plataforma (não opera PDV/KDS do tenant)
+          userRole === 'SUPER_ADMIN'
+            ? roles?.includes('SUPER_ADMIN') ?? false
+            : !roles || (userRole !== null && roles.includes(userRole)),
         )
         if (visibleItems.length === 0) return null
         return (
@@ -145,7 +161,11 @@ function NavContent({
             )}
             <ul role="list" className="flex flex-col gap-0.5">
               {visibleItems.map(({ href, label, icon: Icon }) => {
-                const isActive = pathname === href || pathname.startsWith(href + '/')
+                // "/plataforma" é hub com filhos próprios no menu: só ativa no match exato
+                const isActive =
+                  href === '/plataforma'
+                    ? pathname === href
+                    : pathname === href || pathname.startsWith(href + '/')
                 return (
                   <li key={href}>
                     <Link

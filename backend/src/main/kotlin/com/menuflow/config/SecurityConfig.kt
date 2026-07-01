@@ -85,6 +85,11 @@ class SecurityConfig(
                     // {tenantSlug}; defesa em PixPaymentService (ver controller).
                     .requestMatchers("/webhooks/**").permitAll()
                     .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                    // Painel super-admin (/plataforma): gate path-level (cinta). Todo
+                    // controller do modulo tambem tem @PreAuthorize (suspensorio).
+                    // Defesa em profundidade: um controller /admin/** esquecido sem
+                    // anotacao continua exigindo o papel SUPER_ADMIN por este matcher.
+                    .requestMatchers("/admin/**").hasRole("SUPER_ADMIN")
                     .anyRequest().authenticated()
             }
             // Unauthenticated access to a protected route -> 401 (not 403). 403 is

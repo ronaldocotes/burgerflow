@@ -206,7 +206,12 @@ class UserManagementService(
         }
     }
 
-    /** Converte e valida o papel; recusa papel inexistente ou SUPER_ADMIN (plataforma). */
+    /**
+     * Converte e valida o papel. SUPER_ADMIN (papel de PLATAFORMA, cross-tenant) só
+     * pode ser atribuído por quem JÁ é SUPER_ADMIN — assim um super-admin promove
+     * outro sem UPDATE manual no banco, mas um ADMIN de restaurante nunca escala
+     * privilégio para fora do próprio tenant.
+     */
     private fun parseAssignableRole(raw: String): UserRole {
         val role = try {
             UserRole.valueOf(raw.trim().uppercase())
@@ -214,7 +219,10 @@ class UserManagementService(
             throw BusinessException("Papel inválido: $raw")
         }
         if (role == UserRole.SUPER_ADMIN) {
-            throw BusinessException("Papel não atribuível por um administrador de restaurante")
+            val actorIsSuperAdmin = principal().roles.any { it == UserRole.SUPER_ADMIN.name }
+            if (!actorIsSuperAdmin) {
+                throw BusinessException("Papel não atribuível por um administrador de restaurante")
+            }
         }
         return role
     }

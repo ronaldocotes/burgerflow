@@ -27,9 +27,15 @@ const ROUTE_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/admin/cupons',     title: 'Cupons'        },
   { prefix: '/delivery',           title: 'Entregas'     },
   { prefix: '/admin/entregadores', title: 'Entregadores' },
+  { prefix: '/plataforma/tenants',     title: 'Empresas'    },
+  { prefix: '/plataforma/integracoes', title: 'Integrações' },
+  { prefix: '/plataforma/ia',          title: 'Uso de IA'   },
+  { prefix: '/plataforma',             title: 'Visão Geral da Plataforma' },
 ]
 
 function routeTitle(pathname: string): string {
+  // Detalhe de empresa: rota dinâmica /plataforma/tenants/[slug]
+  if (pathname.startsWith('/plataforma/tenants/')) return 'Detalhes da Empresa'
   const match = ROUTE_TITLES.find(
     ({ prefix }) => pathname === prefix || pathname.startsWith(prefix + '/')
   )
@@ -55,6 +61,7 @@ function decodeJwtPayload(token: string): JwtPayload | null {
 }
 
 const ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: 'Plataforma',
   ADMIN:   'Administrador',
   MANAGER: 'Gerente',
   CASHIER: 'Caixa',

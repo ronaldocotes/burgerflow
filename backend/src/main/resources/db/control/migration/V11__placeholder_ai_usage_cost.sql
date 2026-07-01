@@ -1,0 +1,2 @@
+-- Placeholder reservado para F3: ADD estimated_cost_usd_micros em ai_usage.
+-- Implementado na Fase 3 do painel super-admin (/plataforma/ia).

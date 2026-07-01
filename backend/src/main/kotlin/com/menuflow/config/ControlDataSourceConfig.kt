@@ -22,7 +22,9 @@ import javax.sql.DataSource
  */
 @Configuration
 @EnableJpaRepositories(
-    basePackages = ["com.menuflow.repository.control"],
+    // O modulo platform (painel super-admin) tambem vive no banco de CONTROLE:
+    // suas entidades/repos (tenant_module, platform_audit_log) usam este EMF/tx.
+    basePackages = ["com.menuflow.repository.control", "com.menuflow.platform"],
     entityManagerFactoryRef = "controlEntityManagerFactory",
     transactionManagerRef = "controlTransactionManager",
 )
@@ -51,7 +53,8 @@ class ControlDataSourceConfig {
     ): LocalContainerEntityManagerFactoryBean =
         builder
             .dataSource(dataSource)
-            .packages("com.menuflow.model.control")
+            // Entidades do controle + entidades do modulo platform (mesmo banco).
+            .packages("com.menuflow.model.control", "com.menuflow.platform")
             .persistenceUnit("control")
             .properties(
                 mapOf(

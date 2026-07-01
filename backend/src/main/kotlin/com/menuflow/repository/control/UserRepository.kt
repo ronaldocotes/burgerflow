@@ -17,4 +17,8 @@ interface UserRepository : JpaRepository<User, UUID> {
 
     /** Contagem de admins ATIVOS do tenant — base da proteção anti-lockout. */
     fun countByTenantIdAndRoleAndIsActiveTrue(tenantId: UUID, role: UserRole): Long
+
+    /** Todos os usuários com este e-mail em QUALQUER tenant — usado no bootstrap
+     *  do primeiro SUPER_ADMIN (o e-mail sozinho não é único entre tenants). */
+    fun findAllByEmail(email: String): List<User>
 }

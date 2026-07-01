@@ -20,7 +20,10 @@ import java.util.UUID
  * tenant database.
  */
 @Component
-class JwtAuthFilter(private val jwtService: JwtService) : OncePerRequestFilter() {
+class JwtAuthFilter(
+    private val jwtService: JwtService,
+    private val tenantStatusCache: TenantStatusCache,
+) : OncePerRequestFilter() {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -42,6 +45,13 @@ class JwtAuthFilter(private val jwtService: JwtService) : OncePerRequestFilter()
                 val tenantSlug = claims["tenantId"] as String
                 val tenantUuid = UUID.fromString(claims["tenantUuid"] as String)
                 val roles = jwtService.rolesOf(claims)
+
+                // Tenant desativado no painel super-admin corta o acesso mesmo com
+                // access token ainda válido (login/refresh já recusam; aqui é o
+                // enforcement stateless, cache 60s p/ não bater no banco por request).
+                if (!tenantStatusCache.isActive(tenantSlug)) {
+                    throw IllegalStateException("Tenant is not active")
+                }
 
                 val principal = AuthPrincipal(userId, tenantSlug, tenantUuid, roles)
                 val authorities = roles.map { SimpleGrantedAuthority("ROLE_$it") }
