@@ -79,6 +79,23 @@ interface OrderRepository :
     fun findActiveDeliveryOrders(@Param("from") from: Instant): List<Order>
 
     /**
+     * Pedidos de entrega ATIVOS atribuidos a um entregador (Fase 6.1 — GET
+     * /delivery/orders/my). deliveryStatus setado e ainda nao terminal (DELIVERED
+     * ou FAILED). Mais recentes primeiro.
+     */
+    @Query(
+        """
+        SELECT o FROM Order o
+        WHERE o.driverId = :driverId
+          AND o.deliveryStatus IS NOT NULL
+          AND o.deliveryStatus <> com.menuflow.model.DeliveryStatus.DELIVERED
+          AND o.deliveryStatus <> com.menuflow.model.DeliveryStatus.FAILED
+        ORDER BY o.updatedAt DESC
+        """,
+    )
+    fun findActiveOrdersForDriver(@Param("driverId") driverId: UUID): List<Order>
+
+    /**
      * Soma (centavos) das vendas em dinheiro EFETIVADAS de um turno de caixa:
      * pedidos carimbados com o turno, pagos em dinheiro (CASH) e com pagamento
      * confirmado (PAID). COALESCE garante 0 quando não há nenhuma venda. Entra no

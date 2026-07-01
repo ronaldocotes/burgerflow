@@ -33,6 +33,31 @@ data class DeliveryDriver(
     @Column(name = "tenant_id", nullable = false)
     var tenantId: UUID,
 
+    // --- Fase 6.1: elo de autenticacao, turno e ultima localizacao ---
+    /** User (banco de controle, papel DRIVER) ligado a este entregador. Elo 1:1. */
+    @Column(name = "user_id")
+    var userId: UUID? = null,
+
+    /** Turno ativo: motoboy online e disponivel para receber ofertas de entrega. */
+    @Column(name = "active_shift", nullable = false)
+    var activeShift: Boolean = false,
+
+    /** Ultima latitude reportada pelo app (mapa ao vivo e auto-assign). */
+    @Column(name = "last_lat")
+    var lastLat: Double? = null,
+
+    /** Ultima longitude reportada pelo app. */
+    @Column(name = "last_lng")
+    var lastLng: Double? = null,
+
+    /** Momento da ultima posicao reportada. */
+    @Column(name = "last_location_at")
+    var lastLocationAt: Instant? = null,
+
+    /** Nivel de bateria (%) reportado pelo app; telemetria. */
+    @Column(name = "battery_pct")
+    var batteryPct: Int? = null,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 

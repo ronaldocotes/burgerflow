@@ -116,6 +116,9 @@ class WebSocketConfig(
         val allowed = setOf(
             "/topic/kds/$tenantSlug",
             "/topic/delivery/$tenantSlug",
+            // Canal de ofertas de entrega (Fase 6.1). Do proprio tenant apenas; o app
+            // do motoboy filtra as ofertas pelo seu driverId no payload.
+            "/topic/delivery/$tenantSlug/offers",
             "/topic/tables/$tenantSlug",
         )
         return destination in allowed

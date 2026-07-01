@@ -30,6 +30,11 @@ menuflow:
   # contra o Postgres compartilhado nem fazer HTTP real para Meta/Google).
   conversions:
     enabled: false
+  # Job de expiracao de ofertas de entrega desligado nos testes (o @Scheduled nao deve
+  # disparar contra o Postgres compartilhado nem varrer tenants de outros casos).
+  delivery:
+    expiry:
+      enabled: false
 
 # Cifracao de tokens iFood: chave de TESTE valida (32 bytes / 256 bits em Base64).
 # Decodifica para 'testkeytestkeytestkeytestkey1234' (exatamente 32 bytes).

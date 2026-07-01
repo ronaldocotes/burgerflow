@@ -14,6 +14,7 @@ import com.menuflow.model.Coupon
 import com.menuflow.model.CouponRedemption
 import com.menuflow.model.Customer
 import com.menuflow.model.DeliveryDriver
+import com.menuflow.model.DeliveryOffer
 import com.menuflow.model.DriverConfig
 import com.menuflow.model.DriverSettlement
 import com.menuflow.model.IdempotencyKey
@@ -91,6 +92,7 @@ class TenantDataSourceConfig {
                 IdempotencyKey::class.java,
                 Payment::class.java,
                 DeliveryDriver::class.java,
+                DeliveryOffer::class.java,
                 RefreshToken::class.java,
                 TenantConfig::class.java,
                 CashSession::class.java,

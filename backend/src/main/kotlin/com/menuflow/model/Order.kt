@@ -178,6 +178,49 @@ data class Order(
     /** Número exibido ao cliente na plataforma externa (ex.: "#4502" do iFood). */
     @Column(name = "external_display_id")
     var externalDisplayId: String? = null,
+
+    // --- Fase 6.1: endereço e geolocalização da entrega (tenant DB) ---
+    // Todos nullable: pedido de balcão/mesa não tem endereço; o geocode (lat/lng)
+    // pode não estar disponível na criação. Snapshot no pedido (não referencia o
+    // cadastro de cliente) para o histórico de entrega ser imutável.
+    @Column(name = "delivery_recipient_name", length = 120)
+    var deliveryRecipientName: String? = null,
+
+    @Column(name = "delivery_phone", length = 20)
+    var deliveryPhone: String? = null,
+
+    @Column(name = "delivery_cep", length = 9)
+    var deliveryCep: String? = null,
+
+    @Column(name = "delivery_street", length = 200)
+    var deliveryStreet: String? = null,
+
+    @Column(name = "delivery_number", length = 20)
+    var deliveryNumber: String? = null,
+
+    @Column(name = "delivery_complement", length = 100)
+    var deliveryComplement: String? = null,
+
+    @Column(name = "delivery_neighborhood", length = 100)
+    var deliveryNeighborhood: String? = null,
+
+    @Column(name = "delivery_city", length = 100)
+    var deliveryCity: String? = null,
+
+    @Column(name = "delivery_reference", length = 200)
+    var deliveryReference: String? = null,
+
+    /** Latitude do endereço de entrega (geocode). Requisito do auto-assign. */
+    @Column(name = "delivery_lat")
+    var deliveryLat: Double? = null,
+
+    /** Longitude do endereço de entrega (geocode). */
+    @Column(name = "delivery_lng")
+    var deliveryLng: Double? = null,
+
+    /** Origem da coordenada (VIACEP/GOOGLE/MANUAL) para auditoria. */
+    @Column(name = "delivery_geocode_source", length = 30)
+    var deliveryGeocodeSource: String? = null,
 ) {
     @PreUpdate
     fun preUpdate() {
@@ -236,12 +279,25 @@ enum class OrderPriority {
 }
 
 /**
- * Delivery dispatch lifecycle (Sprint 2), independent of the kitchen [OrderStatus].
- * ASSIGNED -> OUT_FOR_DELIVERY -> DELIVERED. Set only for delivery orders that
- * have been assigned to a courier.
+ * Ciclo de vida do despacho de entrega, independente do [OrderStatus] da cozinha.
+ *
+ * Valores do Sprint 2 (mantidos por compatibilidade): ASSIGNED, OUT_FOR_DELIVERY,
+ * DELIVERED. A Fase 6.1 adiciona o fluxo de auto-assign/motoboy de forma ADITIVA:
+ * PENDING (sem motoboy) -> OFFERED (oferta enviada) -> ACCEPTED (aceita) ->
+ * ARRIVED_AT_STORE -> PICKED_UP -> OUT_FOR_DELIVERY -> ARRIVED_AT_CUSTOMER ->
+ * DELIVERED, com FAILED para falha de entrega. Nenhum valor antigo foi removido.
  */
 enum class DeliveryStatus {
+    // Sprint 2 (mantidos)
     ASSIGNED,
     OUT_FOR_DELIVERY,
     DELIVERED,
+    // Fase 6.1 (novos, aditivos)
+    PENDING,
+    OFFERED,
+    ACCEPTED,
+    ARRIVED_AT_STORE,
+    PICKED_UP,
+    ARRIVED_AT_CUSTOMER,
+    FAILED,
 }

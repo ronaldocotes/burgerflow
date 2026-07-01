@@ -230,6 +230,31 @@ data class TenantConfig(
     @Column(name = "opening_hours_sunday", length = 20)
     var openingHoursSunday: String? = null,
 
+    // --- Entrega (Fase 6.1) ---
+    /** Modo de operação da entrega: OWN_FLEET, THIRD_PARTY ou HYBRID. */
+    @Column(name = "delivery_mode", nullable = false, length = 12)
+    var deliveryMode: String = "OWN_FLEET",
+
+    /** Liga o despacho automático por proximidade (Haversine). */
+    @Column(name = "auto_assign_enabled", nullable = false)
+    var autoAssignEnabled: Boolean = false,
+
+    /** Janela (segundos) para o motoboy aceitar a oferta antes de expirar. */
+    @Column(name = "offer_timeout_seconds", nullable = false)
+    var offerTimeoutSeconds: Int = 45,
+
+    /** Raio máximo (km) para ofertar a entrega a um entregador. */
+    @Column(name = "max_offer_radius_km", nullable = false)
+    var maxOfferRadiusKm: Double = 10.0,
+
+    /** Tarifa base de entrega, em centavos (nunca float para dinheiro). */
+    @Column(name = "delivery_base_fee_cents", nullable = false)
+    var deliveryBaseFeeCents: Long = 500,
+
+    /** Tarifa por km rodado, em centavos. */
+    @Column(name = "delivery_fee_per_km_cents", nullable = false)
+    var deliveryFeePerKmCents: Long = 200,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 
