@@ -132,6 +132,11 @@ ifood:
   polling:
     enabled: false
     interval-ms: 30000
+  # Cifracao AES-256-GCM dos tokens iFood (client_secret/app_token/access/refresh).
+  # Placeholder so para dev/boot; em producao defina IFOOD_ENCRYPTION_KEY
+  # (32 bytes / 256 bits em Base64) via env / .env.prod na A1.
+  encryption:
+    key: ${IFOOD_ENCRYPTION_KEY:PLACEHOLDER_32_BYTES_BASE64_KEY==}
 
 # Resilience4j: circuit breaker + retry das chamadas ao Asaas; e o CB/rate-limiter
 # do iFood (config nomeada 'ifoodTenantAction' reutilizavel por acao de tenant, e

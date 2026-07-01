@@ -30,3 +30,9 @@ menuflow:
   # contra o Postgres compartilhado nem fazer HTTP real para Meta/Google).
   conversions:
     enabled: false
+
+# Cifracao de tokens iFood: chave de TESTE valida (32 bytes / 256 bits em Base64).
+# Decodifica para 'testkeytestkeytestkeytestkey1234' (exatamente 32 bytes).
+ifood:
+  encryption:
+    key: "dGVzdGtleXRlc3RrZXl0ZXN0a2V5dGVzdGtleTEyMzQ="
