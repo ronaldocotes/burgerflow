@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   ChefHat,
   LayoutGrid,
+  ClipboardList,
   Package,
   Settings,
   ChevronLeft,
@@ -55,6 +56,7 @@ const NAV_GROUPS: NavGroup[] = [
     group: 'OPERAÇÃO',
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: Gauge, roles: ['ADMIN', 'MANAGER'] },
+      { href: '/pedidos', label: 'Pedidos', icon: ClipboardList, roles: ['ADMIN', 'MANAGER', 'STAFF', 'CASHIER'] },
       { href: '/pdv',   label: 'PDV',     icon: ShoppingCart },
       { href: '/kds',   label: 'Cozinha', icon: ChefHat      },
       { href: '/mesas', label: 'Mesas',   icon: LayoutGrid   },

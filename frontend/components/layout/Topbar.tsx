@@ -8,6 +8,7 @@ import { useRestaurantInfo } from '@/lib/use-restaurant-info'
 
 const ROUTE_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/dashboard',        title: 'Dashboard'     },
+  { prefix: '/pedidos',          title: 'Pedidos'       },
   { prefix: '/pdv',              title: 'PDV'           },
   { prefix: '/kds',              title: 'Cozinha — KDS' },
   { prefix: '/mesas',            title: 'Mesas'         },
