@@ -10,7 +10,7 @@ export type OrderStatus =
 export type OrderType = "DINE_IN" | "TAKEAWAY" | "DELIVERY";
 
 /** Canal de origem do pedido. OWN = plataforma própria. */
-export type ExternalOrigin = "OWN" | "IFOOD" | "RAPPI";
+export type ExternalOrigin = "OWN" | "IFOOD" | "RAPPI" | "NINETY_NINE";
 
 export interface KdsItem {
   productName: string;

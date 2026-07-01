@@ -138,6 +138,14 @@ ifood:
   encryption:
     key: ${IFOOD_ENCRYPTION_KEY:PLACEHOLDER_32_BYTES_BASE64_KEY==}
 
+# Integracao Open Delivery (99Food / Rappi) — Fase 5.5a. Polling DESABILITADO
+# por padrao: o job so vira bean quando open-delivery.polling.enabled=true (ver
+# OpenDeliveryPollingJob @ConditionalOnProperty). Auth OAuth2 client_credentials.
+open-delivery:
+  polling:
+    enabled: false
+    interval-ms: 30000
+
 # Resilience4j: circuit breaker + retry das chamadas ao Asaas; e o CB/rate-limiter
 # do iFood (config nomeada 'ifoodTenantAction' reutilizavel por acao de tenant, e
 # rate-limiter global da conta iFood). Config so declarada aqui; a aplicacao dos

@@ -65,7 +65,7 @@ function elapsedLabel(order: KdsOrder, now: number): string {
 
 // ── Badge de canal de origem ──────────────────────────────────────────────────
 // OWN não renderiza nada (padrão interno).
-// IFOOD → badge laranja; RAPPI → badge amarelo.
+// IFOOD → badge laranja; RAPPI → badge amarelo; NINETY_NINE (99Food) → badge azul.
 // O badge fica inline com o número do pedido no cabeçalho do card.
 
 function OriginBadge({ origin }: { origin?: ExternalOrigin }) {
@@ -87,6 +87,16 @@ function OriginBadge({ origin }: { origin?: ExternalOrigin }) {
         aria-label="Pedido via Rappi"
       >
         🟡 Rappi
+      </span>
+    );
+  }
+  if (origin === "NINETY_NINE") {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-700"
+        aria-label="Pedido via 99Food"
+      >
+        🚕 99Food
       </span>
     );
   }
