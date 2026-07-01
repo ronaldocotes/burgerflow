@@ -648,3 +648,8 @@ Validar: npm run type-check, npm run lint, npm run build, screenshots em docs/ou
 | 2026-07-01 | Benchmark ClickEscale `/delivery` | Concluida | Tela tem mapa Leaflet, area/raio, status loja/iFood, motoboys e modal de cadastro. |
 | 2026-07-01 | Grounding MenuFlow backend/frontend | Concluida | Existem APIs `/delivery`, `/drivers`, tela `/admin/entregadores`, campos de endereco/geo no pedido e config de entrega no tenant. |
 | 2026-07-01 | Plano para Claude | Concluida | Este documento define Fase 1 frontend, Fase 1B backend opcional e DoD. |
+| 2026-07-01 | Fase 1B — Backend DTO | Concluída |  ampliado com 12 campos (endereço, geocode, canal, pagamento, datas). Serialização por  evita acoplamento cross-módulo. |
+| 2026-07-01 | Fase 1 — Frontend /delivery | Concluída |  (1167 linhas): KPIs, mapa operacional CSS/SVG, cards responsivos, skeleton, empty state, erro com role=alert, modal de atribuição (useModalA11y), toggle de turno, avanço de status. |
+| 2026-07-01 | Sidebar + Topbar | Concluída | Entrada  em OPERAÇÃO (Truck, ADMIN/MANAGER/STAFF/CASHIER). Topbar mapeia para título 'Entregas'. |
+| 2026-07-01 | Validação frontend | PASSOU | tsc --noEmit: 0 erros. eslint: 0 warnings. next build:  compilado como rota estática. |
+| 2026-07-01 | Screenshots QA | Parcial | Arquivos PNG salvos em docs/outputs/delivery-audit/ mas renderizaram em branco por limitação WSL networking (standalone server + Playwright). Validação visual pendente em browser real. |

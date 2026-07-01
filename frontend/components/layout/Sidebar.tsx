@@ -60,6 +60,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/pdv',   label: 'PDV',     icon: ShoppingCart },
       { href: '/kds',   label: 'Cozinha', icon: ChefHat      },
       { href: '/mesas', label: 'Mesas',   icon: LayoutGrid   },
+      { href: '/delivery', label: 'Entregas', icon: Truck, roles: ['ADMIN', 'MANAGER', 'STAFF', 'CASHIER'] },
       { href: '/caixa',            label: 'Caixa',       icon: Wallet, },
       { href: '/admin/fidelidade', label: 'Fidelidade',   icon: Star,   roles: ['ADMIN', 'MANAGER', 'CASHIER'] },
     ],

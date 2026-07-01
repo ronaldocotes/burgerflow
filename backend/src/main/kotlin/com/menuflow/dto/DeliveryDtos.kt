@@ -105,7 +105,13 @@ data class DeliveryStatusUpdateRequest(
     val deliveryStatus: DeliveryStatus,
 )
 
-/** Response + STOMP payload for a delivery dispatch. */
+/**
+ * Response + STOMP payload for a delivery dispatch.
+ *
+ * Fase 1B (2026-07-01): campos de endereço, geocode, canal e pagamento adicionados
+ * de forma aditiva (todos opcionais ou com default) para suportar a tela /delivery
+ * sem quebrar clientes existentes.
+ */
 data class DeliveryOrderResponse(
     val orderId: UUID,
     val orderNumber: String,
@@ -114,6 +120,25 @@ data class DeliveryOrderResponse(
     val totalCents: Long,
     val tableNumber: String?,
     val updatedAt: Instant,
+    // --- Fase 1B: campos de entrega ---
+    val externalOrigin: String,
+    val externalDisplayId: String?,
+    val deliveryRecipientName: String?,
+    val deliveryPhone: String?,
+    val deliveryNeighborhood: String?,
+    val deliveryCity: String?,
+    val deliveryStreet: String?,
+    val deliveryNumber: String?,
+    val deliveryComplement: String?,
+    val deliveryReference: String?,
+    val deliveryLat: Double?,
+    val deliveryLng: Double?,
+    val deliveryFeeCents: Long,
+    /** SalesChannel.name serializado como String para evitar acoplamento de enum cross-módulo. */
+    val salesChannel: String,
+    /** PaymentStatus.name serializado como String. */
+    val paymentStatus: String,
+    val createdAt: Instant,
 ) {
     companion object {
         fun from(o: Order) = DeliveryOrderResponse(
@@ -124,6 +149,22 @@ data class DeliveryOrderResponse(
             totalCents = o.totalCents,
             tableNumber = o.tableNumber,
             updatedAt = o.updatedAt,
+            externalOrigin = o.externalOrigin,
+            externalDisplayId = o.externalDisplayId,
+            deliveryRecipientName = o.deliveryRecipientName,
+            deliveryPhone = o.deliveryPhone,
+            deliveryNeighborhood = o.deliveryNeighborhood,
+            deliveryCity = o.deliveryCity,
+            deliveryStreet = o.deliveryStreet,
+            deliveryNumber = o.deliveryNumber,
+            deliveryComplement = o.deliveryComplement,
+            deliveryReference = o.deliveryReference,
+            deliveryLat = o.deliveryLat,
+            deliveryLng = o.deliveryLng,
+            deliveryFeeCents = o.deliveryFeeCents,
+            salesChannel = o.salesChannel.name,
+            paymentStatus = o.paymentStatus.name,
+            createdAt = o.createdAt,
         )
     }
 }

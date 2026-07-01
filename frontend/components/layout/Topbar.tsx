@@ -25,6 +25,7 @@ const ROUTE_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/admin/fidelidade', title: 'Fidelidade'    },
   { prefix: '/admin/bot',        title: 'Bot WhatsApp'  },
   { prefix: '/admin/cupons',     title: 'Cupons'        },
+  { prefix: '/delivery',           title: 'Entregas'     },
   { prefix: '/admin/entregadores', title: 'Entregadores' },
 ]
 
