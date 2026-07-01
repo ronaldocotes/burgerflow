@@ -13,4 +13,5 @@ enum class ChannelType(val label: String) {
     OWN("Canal Próprio"),
     IFOOD("iFood"),
     RAPPI("Rappi"),
+    NINETY_NINE("99Food"),
 }

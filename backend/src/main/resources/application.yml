@@ -126,15 +126,41 @@ litellm:
   model: ${LITELLM_MODEL:mistral-small-latest}
   timeout-ms: ${LITELLM_TIMEOUT_MS:30000}
 
-# Resilience4j: circuit breaker + retry das chamadas ao Asaas.
+# Integracao iFood (Fase 5.1a). Polling DESABILITADO por padrao: o job so vira
+# bean quando ifood.polling.enabled=true (ver IfoodPollingJob @ConditionalOnProperty).
+ifood:
+  polling:
+    enabled: false
+    interval-ms: 30000
+
+# Resilience4j: circuit breaker + retry das chamadas ao Asaas; e o CB/rate-limiter
+# do iFood (config nomeada 'ifoodTenantAction' reutilizavel por acao de tenant, e
+# rate-limiter global da conta iFood). Config so declarada aqui; a aplicacao dos
+# @CircuitBreaker/@RateLimiter reais entra na 5.1b junto do cliente HTTP do iFood.
 resilience4j:
   circuitbreaker:
+    configs:
+      ifoodTenantAction:
+        sliding-window-type: TIME_BASED
+        sliding-window-size: 60
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 3s
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
     instances:
       asaas:
         sliding-window-size: 10
         failure-rate-threshold: 50
         wait-duration-in-open-state: 30s
         permitted-number-of-calls-in-half-open-state: 3
+  ratelimiter:
+    instances:
+      ifoodAccountGlobal:
+        limit-for-period: 5000
+        limit-refresh-period: 1m
+        timeout-duration: 5s
   retry:
     instances:
       asaas:
