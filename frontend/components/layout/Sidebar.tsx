@@ -27,6 +27,7 @@ import {
   Link2,
   Zap,
   Bot,
+  Gauge,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -53,6 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     group: 'OPERAÇÃO',
     items: [
+      { href: '/dashboard', label: 'Dashboard', icon: Gauge, roles: ['ADMIN', 'MANAGER'] },
       { href: '/pdv',   label: 'PDV',     icon: ShoppingCart },
       { href: '/kds',   label: 'Cozinha', icon: ChefHat      },
       { href: '/mesas', label: 'Mesas',   icon: LayoutGrid   },

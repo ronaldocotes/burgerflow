@@ -7,6 +7,7 @@ import { logout, getToken } from '@/lib/auth'
 import { useRestaurantInfo } from '@/lib/use-restaurant-info'
 
 const ROUTE_TITLES: { prefix: string; title: string }[] = [
+  { prefix: '/dashboard',        title: 'Dashboard'     },
   { prefix: '/pdv',              title: 'PDV'           },
   { prefix: '/kds',              title: 'Cozinha — KDS' },
   { prefix: '/mesas',            title: 'Mesas'         },
@@ -14,6 +15,16 @@ const ROUTE_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/admin/usuarios',   title: 'Usuários'      },
   { prefix: '/configuracoes',    title: 'Configurações' },
   { prefix: '/caixa',            title: 'Caixa'         },
+  { prefix: '/financeiro/dre',   title: 'DRE'           },
+  { prefix: '/admin/campanhas',  title: 'Campanhas'     },
+  { prefix: '/admin/tracking',   title: 'Rastreamento'  },
+  { prefix: '/admin/conversoes', title: 'Conversões'    },
+  { prefix: '/admin/carrinhos',  title: 'Carrinhos'     },
+  { prefix: '/admin/rfv',        title: 'RFV'           },
+  { prefix: '/admin/fidelidade', title: 'Fidelidade'    },
+  { prefix: '/admin/bot',        title: 'Bot WhatsApp'  },
+  { prefix: '/admin/cupons',     title: 'Cupons'        },
+  { prefix: '/admin/entregadores', title: 'Entregadores' },
 ]
 
 function routeTitle(pathname: string): string {
