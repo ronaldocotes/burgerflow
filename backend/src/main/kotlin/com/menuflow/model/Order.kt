@@ -94,6 +94,11 @@ data class Order(
     @Column(name = "cancelled_reason")
     var cancelledReason: String? = null,
 
+    /** Motivo pre-cadastrado escolhido (issue #10); o texto fica denormalizado em
+     * [cancelledReason]. Null = motivo livre/legado. */
+    @Column(name = "cancelled_reason_id")
+    var cancelledReasonId: UUID? = null,
+
     // --- Sprint 2: delivery dispatch (tenant DB) ---
     /** Assigned delivery courier (DeliveryDriver.id in the tenant DB), if any. */
     @Column(name = "driver_id")

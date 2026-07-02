@@ -6,8 +6,11 @@ import com.menuflow.model.BotHandoff
 import com.menuflow.model.Campaign
 import com.menuflow.model.CampaignSend
 import com.menuflow.model.CartSession
+import com.menuflow.model.CancellationReason
 import com.menuflow.model.CashSession
 import com.menuflow.model.CashSessionEntry
+import com.menuflow.model.MenuLink
+import com.menuflow.model.PaymentMethodConfig
 import com.menuflow.model.Category
 import com.menuflow.model.ConversionDispatch
 import com.menuflow.model.Coupon
@@ -115,6 +118,9 @@ class TenantDataSourceConfig {
                 ConversionDispatch::class.java,
                 AiConversation::class.java,
                 BotHandoff::class.java,
+                PaymentMethodConfig::class.java,
+                CancellationReason::class.java,
+                MenuLink::class.java,
             )
             .persistenceUnit("tenant")
             .properties(

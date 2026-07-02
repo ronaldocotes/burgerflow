@@ -53,6 +53,53 @@ data class TenantConfig(
     @Column(name = "merchant_city", length = 50)
     var merchantCity: String? = null,
 
+    // --- Endereco estruturado da loja (issue #7). Preenchido pela busca de CEP. ---
+    /** CEP no formato "00000-000". */
+    @Column(name = "postal_code", length = 9)
+    var postalCode: String? = null,
+
+    /** Logradouro (rua/avenida). */
+    @Column(name = "street", length = 200)
+    var street: String? = null,
+
+    /** Numero (texto: aceita "S/N", "123A"). */
+    @Column(name = "street_number", length = 20)
+    var streetNumber: String? = null,
+
+    /** Complemento do endereco. */
+    @Column(name = "address_complement", length = 100)
+    var addressComplement: String? = null,
+
+    /** Bairro. */
+    @Column(name = "neighborhood", length = 100)
+    var neighborhood: String? = null,
+
+    /** UF (SP, RJ, ...). */
+    @Column(name = "state_uf", length = 2)
+    var stateUf: String? = null,
+
+    // --- Tempo estimado (min/max, em minutos) por modalidade (issue #9). ---
+    /** Promessa de prazo de DELIVERY exibida no cardapio publico. */
+    @Column(name = "delivery_time_min_minutes", nullable = false)
+    var deliveryTimeMinMinutes: Int = 30,
+
+    @Column(name = "delivery_time_max_minutes", nullable = false)
+    var deliveryTimeMaxMinutes: Int = 60,
+
+    /** Promessa de prazo de RETIRADA (pickup). */
+    @Column(name = "pickup_time_min_minutes", nullable = false)
+    var pickupTimeMinMinutes: Int = 15,
+
+    @Column(name = "pickup_time_max_minutes", nullable = false)
+    var pickupTimeMaxMinutes: Int = 30,
+
+    /** Promessa de prazo de CONSUMO LOCAL (dine-in). */
+    @Column(name = "dinein_time_min_minutes", nullable = false)
+    var dineinTimeMinMinutes: Int = 10,
+
+    @Column(name = "dinein_time_max_minutes", nullable = false)
+    var dineinTimeMaxMinutes: Int = 20,
+
     /**
      * Id do customer "avulso" fixo do restaurante no Asaas (Fase 2.3). O PDV/balcao
      * nao cadastra cliente por venda; usamos um unico customer por tenant, criado uma

@@ -21,6 +21,22 @@ data class TenantConfigResponse(
     val address: String?,
     val openingHours: String?,
     val merchantCity: String?,
+    // Endereco estruturado + pin do mapa (issue #7).
+    val postalCode: String?,
+    val street: String?,
+    val streetNumber: String?,
+    val addressComplement: String?,
+    val neighborhood: String?,
+    val stateUf: String?,
+    val restaurantLat: Double?,
+    val restaurantLng: Double?,
+    // Tempo estimado por modalidade, em minutos (issue #9).
+    val deliveryTimeMinMinutes: Int,
+    val deliveryTimeMaxMinutes: Int,
+    val pickupTimeMinMinutes: Int,
+    val pickupTimeMaxMinutes: Int,
+    val dineinTimeMinMinutes: Int,
+    val dineinTimeMaxMinutes: Int,
     // Alíquotas do DRE (Fase 3.1).
     val marketplaceFeePct: BigDecimal,
     val cardFeePct: BigDecimal,
@@ -81,6 +97,20 @@ data class TenantConfigResponse(
                 address          = c.address,
                 openingHours     = c.openingHours,
                 merchantCity     = c.merchantCity,
+                postalCode        = c.postalCode,
+                street            = c.street,
+                streetNumber      = c.streetNumber,
+                addressComplement = c.addressComplement,
+                neighborhood      = c.neighborhood,
+                stateUf           = c.stateUf,
+                restaurantLat     = c.restaurantLat,
+                restaurantLng     = c.restaurantLng,
+                deliveryTimeMinMinutes = c.deliveryTimeMinMinutes,
+                deliveryTimeMaxMinutes = c.deliveryTimeMaxMinutes,
+                pickupTimeMinMinutes   = c.pickupTimeMinMinutes,
+                pickupTimeMaxMinutes   = c.pickupTimeMaxMinutes,
+                dineinTimeMinMinutes   = c.dineinTimeMinMinutes,
+                dineinTimeMaxMinutes   = c.dineinTimeMaxMinutes,
                 marketplaceFeePct = c.marketplaceFeePct,
                 cardFeePct        = c.cardFeePct,
                 taxPct            = c.taxPct,
@@ -145,6 +175,36 @@ data class TenantConfigUpdateRequest(
     val openingHours: String? = null,
     @field:Size(max = 50)
     val merchantCity: String? = null,
+    // Endereco estruturado + pin do mapa (issue #7). Omitido (null) = preservar.
+    @field:Size(max = 9)
+    val postalCode: String? = null,
+    @field:Size(max = 200)
+    val street: String? = null,
+    @field:Size(max = 20)
+    val streetNumber: String? = null,
+    @field:Size(max = 100)
+    val addressComplement: String? = null,
+    @field:Size(max = 100)
+    val neighborhood: String? = null,
+    @field:Size(max = 2)
+    val stateUf: String? = null,
+    // lat/lng validados por range no service (DecimalMin/Max nao suporta Double).
+    val restaurantLat: Double? = null,
+    val restaurantLng: Double? = null,
+    // Tempo estimado por modalidade, em minutos (issue #9). 0..1440.
+    // Omitido (null) = preservar. Consistencia min<=max validada no service.
+    @field:Min(0) @field:Max(1440)
+    val deliveryTimeMinMinutes: Int? = null,
+    @field:Min(0) @field:Max(1440)
+    val deliveryTimeMaxMinutes: Int? = null,
+    @field:Min(0) @field:Max(1440)
+    val pickupTimeMinMinutes: Int? = null,
+    @field:Min(0) @field:Max(1440)
+    val pickupTimeMaxMinutes: Int? = null,
+    @field:Min(0) @field:Max(1440)
+    val dineinTimeMinMinutes: Int? = null,
+    @field:Min(0) @field:Max(1440)
+    val dineinTimeMaxMinutes: Int? = null,
     // Alíquotas do DRE (Fase 3.1): 0..100 (%). Omitido (null) = preservar valor atual.
     @field:DecimalMin("0.0") @field:DecimalMax("100.0")
     val marketplaceFeePct: BigDecimal? = null,

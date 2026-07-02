@@ -38,7 +38,12 @@ class PublicOrderRateLimitFilter(
         // limitado por IP como os writes publicos.
         val isTrackingClick = request.method == "GET" &&
             uri.contains("/public/") && uri.contains("/r/")
-        return !(isPublicWrite || isTrackingClick)
+        // Resolucao de link/QR do cardapio (issue #11): GET /public/{slug}/l/{linkSlug}
+        // faz um read no banco do tenant por hit -> rota publica adivinhavel, limitada
+        // por IP como o clique de tracking.
+        val isMenuLinkResolve = request.method == "GET" &&
+            uri.contains("/public/") && uri.contains("/l/")
+        return !(isPublicWrite || isTrackingClick || isMenuLinkResolve)
     }
 
     override fun doFilterInternal(

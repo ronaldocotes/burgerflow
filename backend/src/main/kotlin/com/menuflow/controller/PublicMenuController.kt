@@ -27,6 +27,10 @@ import jakarta.validation.constraints.Size
 import org.springframework.data.domain.Pageable
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import java.time.DayOfWeek
+import java.time.LocalTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.util.UUID
 
 /** Dados de marca/vitrine do restaurante para o cabecalho do cardapio publico. */
@@ -36,6 +40,21 @@ data class RestaurantInfo(
     val coverUrl: String?,
     val address: String?,
     val openingHours: String?,
+    // Horario por dia da semana (issue #6), formato "HH:mm-HH:mm"; null = fechado.
+    val hoursByWeekday: Map<String, String?>,
+    /** Status aberto/fechado calculado no servidor (America/Sao_Paulo) a partir dos
+     * horarios por dia. null quando o dia atual nao tem horario configurado. */
+    val openNow: Boolean?,
+)
+
+/** Promessa de prazo (min-max, minutos) por modalidade (issue #9). */
+data class PublicDeliveryTimes(
+    val deliveryMinMinutes: Int,
+    val deliveryMaxMinutes: Int,
+    val pickupMinMinutes: Int,
+    val pickupMaxMinutes: Int,
+    val dineinMinMinutes: Int,
+    val dineinMaxMinutes: Int,
 )
 
 data class PublicMenuResponse(
@@ -45,6 +64,8 @@ data class PublicMenuResponse(
     val pixKey: String?,
     /** Marca/vitrine do restaurante (nome, logo, capa, endereco, horario). */
     val restaurantInfo: RestaurantInfo,
+    /** Promessa de prazo por modalidade (issue #9). */
+    val deliveryTimes: PublicDeliveryTimes,
     /** Ids dos produtos mais vendidos (so UUIDs; sem contagem nem receita). */
     val bestsellerIds: List<UUID>,
 )
@@ -87,6 +108,7 @@ class PublicMenuController(
     private val tenantConfigRepository: TenantConfigRepository,
     private val orderItemRepository: OrderItemRepository,
     private val trackingService: TrackingService,
+    private val menuLinkService: com.menuflow.service.MenuLinkService,
 ) {
     @GetMapping("/{tenantSlug}/menu")
     fun getMenu(@PathVariable tenantSlug: String): ResponseEntity<PublicMenuResponse> {
@@ -98,17 +120,28 @@ class PublicMenuController(
             // Dentro do TenantContext: as queries roteiam para o banco do tenant.
             val config = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()
             val pixKey = config?.pixKey
+            val hoursByWeekday = weekdayHours(config)
             val restaurantInfo = RestaurantInfo(
                 name = config?.restaurantName,
                 logoUrl = config?.logoUrl,
                 coverUrl = config?.coverUrl,
                 address = config?.address,
                 openingHours = config?.openingHours,
+                hoursByWeekday = hoursByWeekday,
+                openNow = computeOpenNow(hoursByWeekday),
+            )
+            val deliveryTimes = PublicDeliveryTimes(
+                deliveryMinMinutes = config?.deliveryTimeMinMinutes ?: 30,
+                deliveryMaxMinutes = config?.deliveryTimeMaxMinutes ?: 60,
+                pickupMinMinutes = config?.pickupTimeMinMinutes ?: 15,
+                pickupMaxMinutes = config?.pickupTimeMaxMinutes ?: 30,
+                dineinMinMinutes = config?.dineinTimeMinMinutes ?: 10,
+                dineinMaxMinutes = config?.dineinTimeMaxMinutes ?: 20,
             )
             // So os 5 mais vendidos, apenas ids (nunca contagem/receita no publico).
             val bestsellerIds = orderItemRepository.findTopProductIds(Pageable.ofSize(5))
             ResponseEntity.ok(
-                PublicMenuResponse(categories, products, pixKey, restaurantInfo, bestsellerIds),
+                PublicMenuResponse(categories, products, pixKey, restaurantInfo, deliveryTimes, bestsellerIds),
             )
         } finally {
             TenantContext.clear()
@@ -192,6 +225,60 @@ class PublicMenuController(
             ResponseEntity.ok(redirect)
         } finally {
             TenantContext.clear()
+        }
+    }
+
+    /**
+     * Resolucao publica de um link/QR do cardapio (issue #11). O frontend abre
+     * /public/{tenant}/l/{linkSlug} e este endpoint diz qual modo renderizar
+     * (completo/vitrine/balcao) e se o pedido esta habilitado. Slug invalido/inativo
+     * -> 404. Rate-limited por IP (PublicOrderRateLimitFilter cobre /l/).
+     */
+    @GetMapping("/{tenantSlug}/l/{linkSlug}")
+    fun resolveMenuLink(
+        @PathVariable tenantSlug: String,
+        @PathVariable linkSlug: String,
+    ): ResponseEntity<com.menuflow.dto.PublicMenuLinkResponse> {
+        if (!tenantRepository.existsBySlug(tenantSlug)) return ResponseEntity.notFound().build()
+        TenantContext.set(tenantSlug)
+        return try {
+            ResponseEntity.ok(menuLinkService.resolvePublic(linkSlug))
+        } finally {
+            TenantContext.clear()
+        }
+    }
+
+    /** Mapa dia-da-semana -> "HH:mm-HH:mm" (ou null = fechado) lido do tenant_config. */
+    private fun weekdayHours(c: com.menuflow.model.TenantConfig?): Map<String, String?> = linkedMapOf(
+        "MONDAY" to c?.openingHoursMonday,
+        "TUESDAY" to c?.openingHoursTuesday,
+        "WEDNESDAY" to c?.openingHoursWednesday,
+        "THURSDAY" to c?.openingHoursThursday,
+        "FRIDAY" to c?.openingHoursFriday,
+        "SATURDAY" to c?.openingHoursSaturday,
+        "SUNDAY" to c?.openingHoursSunday,
+    )
+
+    /**
+     * Calcula aberto/fechado AGORA (America/Sao_Paulo) a partir do horario do dia
+     * corrente. Formato "HH:mm-HH:mm". Suporta virada de meia-noite (ex.: "18:00-02:00").
+     * Retorna null quando o dia atual nao tem horario configurado (indeterminado).
+     */
+    private fun computeOpenNow(hoursByWeekday: Map<String, String?>): Boolean? {
+        val now: ZonedDateTime = ZonedDateTime.now(ZoneId.of("America/Sao_Paulo"))
+        val today: DayOfWeek = now.dayOfWeek
+        val raw = hoursByWeekday[today.name]?.trim().takeUnless { it.isNullOrBlank() } ?: return null
+        val parts = raw.split("-")
+        if (parts.size != 2) return null
+        val open = runCatching { LocalTime.parse(parts[0].trim()) }.getOrNull() ?: return null
+        val close = runCatching { LocalTime.parse(parts[1].trim()) }.getOrNull() ?: return null
+        val t = now.toLocalTime()
+        return if (close > open) {
+            // Mesmo dia: [open, close).
+            !t.isBefore(open) && t.isBefore(close)
+        } else {
+            // Vira a meia-noite: aberto de open ate 24h OU de 00h ate close.
+            !t.isBefore(open) || t.isBefore(close)
         }
     }
 

@@ -77,6 +77,9 @@ data class DeliveryAddressRequest(
 data class OrderStatusUpdateRequest(
     val status: OrderStatus,
     val reason: String? = null,
+    /** Motivo de cancelamento pre-cadastrado (issue #10). Quando informado, o texto
+     * do motivo prevalece sobre [reason]. Ver OrderService.updateStatus. */
+    val cancelledReasonId: java.util.UUID? = null,
 )
 
 /**
