@@ -34,6 +34,7 @@ import {
   Plug,
   BrainCircuit,
   Store,
+  Palette,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -94,6 +95,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/bot',       label: 'Bot WhatsApp',   icon: Bot,          roles: ['ADMIN', 'MANAGER'] },
       { href: '/financeiro/dre', label: 'DRE', icon: BarChart2, roles: ['ADMIN', 'MANAGER'] },
       { href: '/configuracoes/loja',  label: 'Minha Loja',     icon: Store, roles: ['ADMIN', 'MANAGER'] },
+      { href: '/configuracoes/personalizacao', label: 'Personalização', icon: Palette, roles: ['ADMIN', 'MANAGER'] },
       { href: '/configuracoes',       label: 'Configurações',  icon: Settings },
     ],
   },

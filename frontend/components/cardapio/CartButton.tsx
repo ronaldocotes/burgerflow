@@ -20,7 +20,7 @@ export function CartButton({ cart, onClick }: Props) {
   return (
     <button
       onClick={onClick}
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-primary-700 text-white rounded-full px-6 py-3 shadow-xl min-h-[48px] flex items-center gap-2 font-medium"
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-[var(--mf-primary)] text-[var(--mf-on-primary)] rounded-full px-6 py-3 shadow-xl min-h-[48px] flex items-center gap-2 font-medium"
       aria-label={`Ver carrinho: ${count} ${count === 1 ? "item" : "itens"}, total ${formatBRL(total)}`}
     >
       <span aria-hidden="true">🛒</span>
