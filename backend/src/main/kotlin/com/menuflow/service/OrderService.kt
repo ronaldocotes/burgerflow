@@ -12,6 +12,7 @@ import com.menuflow.exception.ConflictException
 import com.menuflow.exception.ResourceNotFoundException
 import com.menuflow.exception.UnprocessableEntityException
 import com.menuflow.model.CashSessionStatus
+import com.menuflow.model.Customer
 import com.menuflow.model.CrustType
 import com.menuflow.model.DoughType
 import com.menuflow.model.Order
@@ -24,6 +25,7 @@ import com.menuflow.model.Product
 import com.menuflow.model.SalesChannel
 import com.menuflow.model.TenantConfig
 import com.menuflow.repository.tenant.CashSessionRepository
+import com.menuflow.repository.tenant.CustomerRepository
 import com.menuflow.repository.tenant.IngredientRepository
 import com.menuflow.repository.tenant.OrderRepository
 import com.menuflow.repository.tenant.ProductCrustPriceRepository
@@ -67,6 +69,7 @@ class OrderService(
     private val auditLogService: AuditLogService,
     private val couponService: CouponService,
     private val cancellationReasonRepository: com.menuflow.repository.tenant.CancellationReasonRepository,
+    private val customerRepository: CustomerRepository,
     private val cartRecoveryService: CartRecoveryService,
     private val trackingService: TrackingService,
     private val eventPublisher: org.springframework.context.ApplicationEventPublisher,
@@ -220,9 +223,17 @@ class OrderService(
             cashSessionId = session.id
         }
 
+        // Fidelidade (Fase 3.3): se o operador informou telefone e não passou customerId,
+        // faz upsert do Customer por telefone para que OrderPaidEvent credite pontos.
+        val resolvedCustomerId: java.util.UUID? = req.customerId
+            ?: req.customerPhone?.trim()?.takeIf { it.isNotEmpty() }?.let { phone ->
+                (customerRepository.findByPhoneNumber(phone)
+                    ?: customerRepository.save(Customer(name = phone, phoneNumber = phone))).id
+            }
+
         val order = Order(
             orderNumber = generateOrderNumber(),
-            customerId = req.customerId,
+            customerId = resolvedCustomerId,
             customerPhone = req.customerPhone?.trim()?.takeIf { it.isNotEmpty() },
             userId = userId,
             orderType = req.orderType,

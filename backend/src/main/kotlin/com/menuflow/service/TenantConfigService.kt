@@ -4,6 +4,7 @@ import com.menuflow.dto.TenantConfigResponse
 import com.menuflow.dto.TenantConfigUpdateRequest
 import com.menuflow.model.TenantConfig
 import com.menuflow.repository.tenant.TenantConfigRepository
+import com.menuflow.util.ColorContrast
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -116,6 +117,15 @@ class TenantConfigService(
         req.openingHoursFriday?.let    { config.openingHoursFriday    = it.trim().ifBlank { null } }
         req.openingHoursSaturday?.let  { config.openingHoursSaturday  = it.trim().ifBlank { null } }
         req.openingHoursSunday?.let    { config.openingHoursSunday    = it.trim().ifBlank { null } }
+        // Tema do cardapio publico (Fase CONFIG-B, issue #12): omitido (null) preserva.
+        // "" limpa a cor (volta ao default); hex invalido -> 400 (require).
+        req.themePrimaryColor?.let {
+            val trimmed = it.trim()
+            config.themePrimaryColor = if (trimmed.isBlank()) null else ColorContrast.normalize(trimmed)
+        }
+        req.themeShowPrices?.let       { config.themeShowPrices       = it }
+        req.themeShowDescriptions?.let { config.themeShowDescriptions = it }
+        req.themeShowPhotos?.let       { config.themeShowPhotos       = it }
         return TenantConfigResponse.from(repository.save(config))
     }
 }

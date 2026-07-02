@@ -57,3 +57,23 @@ data class LoyaltyAdjustRequest(
     @field:Size(max = 200)
     val description: String,
 )
+
+/**
+ * Sumário gerencial do programa de fidelidade para um período [from, to]
+ * (ambos inclusivos, fuso America/Sao_Paulo). Retornado em
+ * GET /loyalty/summary?from={date}&to={date}.
+ *
+ *  - activeCustomers: clientes com pontos > 0 AGORA (snapshot do momento; não
+ *    depende do período pois saldos são acumulados).
+ *  - totalPointsIssued: soma dos créditos (ORDER_PAID e MANUAL_ADJUST positivos)
+ *    com createdAt no período.
+ *  - totalRewardsRedeemed: quantidade de punches RESGATADOS (redeemedAt) no período.
+ *  - totalPointsRedeemed: soma dos debitados por REWARD_REDEEMED no período
+ *    (proxy do custo do programa — pontos "gastos").
+ */
+data class LoyaltySummaryResponse(
+    val activeCustomers: Long,
+    val totalPointsIssued: Long,
+    val totalRewardsRedeemed: Long,
+    val totalPointsRedeemed: Long,
+)

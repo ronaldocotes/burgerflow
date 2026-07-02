@@ -3,6 +3,8 @@ package com.menuflow.service
 import com.menuflow.dto.DreResponse
 import com.menuflow.exception.BusinessException
 import com.menuflow.model.SalesChannel
+import com.menuflow.repository.tenant.LoyaltyRewardRepository
+import com.menuflow.repository.tenant.LoyaltyTransactionRepository
 import com.menuflow.repository.tenant.OperatingExpenseRepository
 import com.menuflow.repository.tenant.OrderRepository
 import com.menuflow.repository.tenant.TenantConfigRepository
@@ -30,6 +32,8 @@ class DreService(
     private val orderRepository: OrderRepository,
     private val operatingExpenseRepository: OperatingExpenseRepository,
     private val tenantConfigRepository: TenantConfigRepository,
+    private val loyaltyTransactionRepository: LoyaltyTransactionRepository,
+    private val loyaltyRewardRepository: LoyaltyRewardRepository,
 ) {
     private val zone = ZoneId.of("America/Sao_Paulo")
 
@@ -69,6 +73,10 @@ class DreService(
             else BigDecimal.valueOf(gross)
                 .divide(BigDecimal.valueOf(orderCount), 0, RoundingMode.HALF_UP).toLong()
 
+        // Métricas de fidelidade no mesmo período (informativas — não alteram margem).
+        val loyaltyPointsIssued = loyaltyTransactionRepository.sumPointsIssuedInPeriod(from, to)
+        val loyaltyRewardsRedeemed = loyaltyRewardRepository.countRedeemedInPeriod(from, to)
+
         return DreResponse(
             periodStart = start,
             periodEnd = end,
@@ -90,6 +98,8 @@ class DreService(
             netMarginPct = marginPct(netProfit, gross),
             ordersByChannel = channelBreakdown(from, to),
             ordersByPaymentMethod = paymentBreakdown(from, to),
+            loyaltyPointsIssued = loyaltyPointsIssued,
+            loyaltyRewardsRedeemed = loyaltyRewardsRedeemed,
         )
     }
 

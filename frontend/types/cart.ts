@@ -48,6 +48,8 @@ export interface OrderCreateInput {
   tableNumber?: string | null;
   /** codigo de cupom pre-validado; o servidor recalcula e aplica o desconto */
   couponCode?: string;
+  /** telefone do cliente (opcional): avisos WhatsApp (Fase 2.4) + fidelidade (Fase 3.3) */
+  customerPhone?: string;
 }
 
 // Linha do carrinho no PDV. Tem id próprio porque o mesmo produto com escolhas

@@ -1,5 +1,6 @@
 package com.menuflow.service
 
+import com.menuflow.dto.LoyaltySummaryResponse
 import com.menuflow.dto.LoyaltyStatusResponse
 import com.menuflow.dto.LoyaltyTransactionResponse
 import com.menuflow.event.OrderPaidEvent
@@ -22,6 +23,8 @@ import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
 
 /**
@@ -213,9 +216,44 @@ class LoyaltyService(
         )
     }
 
+    /**
+     * Sumário gerencial do programa de fidelidade para o período [from, to] (ambos
+     * inclusivos). O intervalo de tempo é expandido para limites de dia inteiro no
+     * fuso America/Sao_Paulo (mesmo padrão do DRE).
+     *
+     * - activeCustomers: snapshot atual (clientes com loyaltyPoints > 0),
+     *   independente do período — o saldo é acumulado, não filtrado por data.
+     * - totalPointsIssued: soma dos créditos (deltas positivos) no período.
+     * - totalRewardsRedeemed: punches resgatados (redeemedAt) no período.
+     * - totalPointsRedeemed: pontos debitados em REWARD_REDEEMED no período.
+     *
+     * Requer TenantContext já vinculado (definido pelo JwtAuthFilter via claim do JWT).
+     */
+    @Transactional("tenantTransactionManager", readOnly = true)
+    fun getSummary(from: LocalDate, to: LocalDate): LoyaltySummaryResponse {
+        val fromInstant: Instant = from.atStartOfDay(ZONE_SP).toInstant()
+        val toInstant: Instant = to.plusDays(1).atStartOfDay(ZONE_SP).toInstant()
+
+        val activeCustomers = customerRepository.countByLoyaltyPointsGreaterThan(0)
+        val totalPointsIssued = loyaltyTransactionRepository.sumPointsIssuedInPeriod(fromInstant, toInstant)
+        val totalRewardsRedeemed = loyaltyRewardRepository.countRedeemedInPeriod(fromInstant, toInstant)
+        val totalPointsRedeemed = loyaltyTransactionRepository.sumAbsDeltaByReasonInPeriod(
+            REASON_REWARD_REDEEMED, fromInstant, toInstant,
+        )
+
+        return LoyaltySummaryResponse(
+            activeCustomers = activeCustomers,
+            totalPointsIssued = totalPointsIssued,
+            totalRewardsRedeemed = totalRewardsRedeemed,
+            totalPointsRedeemed = totalPointsRedeemed,
+        )
+    }
+
     companion object {
         const val REASON_ORDER_PAID = "ORDER_PAID"
         const val REASON_REWARD_REDEEMED = "REWARD_REDEEMED"
         const val REASON_MANUAL_ADJUST = "MANUAL_ADJUST"
+
+        private val ZONE_SP: ZoneId = ZoneId.of("America/Sao_Paulo")
     }
 }

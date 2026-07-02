@@ -57,6 +57,20 @@ data class PublicDeliveryTimes(
     val dineinMaxMinutes: Int,
 )
 
+/**
+ * Tema do cardapio publico (issue #12). recommendedTextColor vem calculado no
+ * servidor (WCAG) para o frontend pintar o texto legivel sobre a cor de marca;
+ * null quando nao ha cor configurada (frontend usa o default). Os toggles dizem
+ * o que renderizar (preco/descricao/foto).
+ */
+data class PublicThemeResponse(
+    val primaryColor: String?,
+    val recommendedTextColor: String?,
+    val showPrices: Boolean,
+    val showDescriptions: Boolean,
+    val showPhotos: Boolean,
+)
+
 data class PublicMenuResponse(
     val categories: List<CategoryResponse>,
     val products: List<PublicProductResponse>,
@@ -68,6 +82,10 @@ data class PublicMenuResponse(
     val deliveryTimes: PublicDeliveryTimes,
     /** Ids dos produtos mais vendidos (so UUIDs; sem contagem nem receita). */
     val bestsellerIds: List<UUID>,
+    /** Tema do cardapio: cor de marca + toggles (issue #12). */
+    val theme: PublicThemeResponse,
+    /** Pop-up de entrada com produtos em destaque (issue #13). */
+    val entryPopup: com.menuflow.dto.PublicEntryPopupResponse,
 )
 
 data class PublicOrderItemRequest(
@@ -96,6 +114,18 @@ data class PublicOrderCreatedResponse(
     val totalCents: Long,
 )
 
+/**
+ * Configuração do programa de fidelidade exposta publicamente para o cardápio.
+ * O frontend usa esses dados para calcular/exibir a estimativa de pontos ao cliente
+ * antes de finalizar o pedido — sem expor dados de gestão.
+ */
+data class PublicLoyaltyConfigResponse(
+    val enabled: Boolean,
+    val pointsPerReal: Int,
+    val rewardThreshold: Int,
+    val rewardDescription: String?,
+)
+
 @RestController
 @RequestMapping("/public")
 class PublicMenuController(
@@ -109,6 +139,7 @@ class PublicMenuController(
     private val orderItemRepository: OrderItemRepository,
     private val trackingService: TrackingService,
     private val menuLinkService: com.menuflow.service.MenuLinkService,
+    private val entryPopupService: com.menuflow.service.EntryPopupService,
 ) {
     @GetMapping("/{tenantSlug}/menu")
     fun getMenu(@PathVariable tenantSlug: String): ResponseEntity<PublicMenuResponse> {
@@ -140,8 +171,21 @@ class PublicMenuController(
             )
             // So os 5 mais vendidos, apenas ids (nunca contagem/receita no publico).
             val bestsellerIds = orderItemRepository.findTopProductIds(Pageable.ofSize(5))
+            // Tema (issue #12): cor de marca + toggles + cor de texto recomendada (WCAG).
+            val contrast = com.menuflow.dto.ThemeContrastInfo.of(config?.themePrimaryColor)
+            val theme = PublicThemeResponse(
+                primaryColor = config?.themePrimaryColor,
+                recommendedTextColor = contrast?.recommendedTextColor,
+                showPrices = config?.themeShowPrices ?: true,
+                showDescriptions = config?.themeShowDescriptions ?: true,
+                showPhotos = config?.themeShowPhotos ?: true,
+            )
+            // Pop-up de entrada (issue #13): so produtos ativos; vazio quando desligado.
+            val entryPopup = entryPopupService.getForPublicMenu(config)
             ResponseEntity.ok(
-                PublicMenuResponse(categories, products, pixKey, restaurantInfo, deliveryTimes, bestsellerIds),
+                PublicMenuResponse(
+                    categories, products, pixKey, restaurantInfo, deliveryTimes, bestsellerIds, theme, entryPopup,
+                ),
             )
         } finally {
             TenantContext.clear()
@@ -304,6 +348,33 @@ class PublicMenuController(
         return try {
             campaignService.optOutByPhone(phone)
             ResponseEntity.noContent().build()
+        } finally {
+            TenantContext.clear()
+        }
+    }
+
+    /**
+     * Configuração pública do programa de fidelidade (Fase 3.3). Sem autenticação —
+     * o cardápio precisa desses dados para mostrar a estimativa de pontos ao cliente
+     * antes do pedido. Devolve apenas o que o cliente final precisa ver; nunca dados
+     * de gestão (saldos, extrato, métricas).
+     *
+     * Tenant inexistente -> 404. Tenant sem tenant_config -> enabled=false (sem fidelidade).
+     */
+    @GetMapping("/{tenantSlug}/loyalty-config")
+    fun getLoyaltyConfig(@PathVariable tenantSlug: String): ResponseEntity<PublicLoyaltyConfigResponse> {
+        if (!tenantRepository.existsBySlug(tenantSlug)) return ResponseEntity.notFound().build()
+        TenantContext.set(tenantSlug)
+        return try {
+            val config = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()
+            ResponseEntity.ok(
+                PublicLoyaltyConfigResponse(
+                    enabled = config?.loyaltyEnabled ?: false,
+                    pointsPerReal = config?.loyaltyPointsPerReal ?: 0,
+                    rewardThreshold = config?.loyaltyRewardThreshold ?: 0,
+                    rewardDescription = config?.loyaltyRewardDescription,
+                ),
+            )
         } finally {
             TenantContext.clear()
         }
