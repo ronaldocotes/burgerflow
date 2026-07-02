@@ -144,6 +144,10 @@ function CardapioContent() {
   const searchParams = useSearchParams();
   const tableParam = searchParams.get("table");
   const tableLabel = tableParam ? decodeURIComponent(tableParam) : null;
+  // Tenant/modo vindos da rota publica /l/{tenant}/{slug} (issue #11).
+  // tenant sobrescreve o env (multi-tenant); view=only => vitrine sem pedido.
+  const tenant = searchParams.get("tenant") ?? PUBLIC_TENANT;
+  const viewOnly = searchParams.get("view") === "only";
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -171,7 +175,7 @@ function CardapioContent() {
         setProducts(prods.content);
         setPixKey(null);
       } else {
-        const res = await fetch(`${API_BASE}/public/${PUBLIC_TENANT}/menu`);
+        const res = await fetch(`${API_BASE}/public/${tenant}/menu`);
         if (!res.ok) throw new Error("Cardápio indisponível no momento.");
         const data = (await res.json()) as PublicMenuResponse;
         setCategories(data.categories);
@@ -185,7 +189,7 @@ function CardapioContent() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tenant]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -244,6 +248,8 @@ function CardapioContent() {
       products={products}
       restaurantInfo={restaurantInfo}
       bestsellerIds={bestsellerIds}
+      viewOnly={viewOnly}
+      tenantSlug={tenant}
     />
   );
 }
@@ -257,6 +263,8 @@ function CardapioView({
   products,
   restaurantInfo,
   bestsellerIds,
+  viewOnly,
+  tenantSlug,
 }: {
   sections: { key: string; title: string; items: Product[] }[];
   sectionIds: string[];
@@ -265,6 +273,8 @@ function CardapioView({
   products: Product[];
   restaurantInfo: RestaurantInfo;
   bestsellerIds: string[];
+  viewOnly: boolean;
+  tenantSlug: string;
 }) {
   // Carrinho: inicia vazio, carrega do sessionStorage após hidratação
   const [cart, dispatch] = useReducer(cartReducer, [] as CartLine[]);
@@ -452,9 +462,10 @@ function CardapioView({
         )}
       </div>
 
-      <CartButton cart={cart} onClick={() => setShowCart(true)} />
+      {/* Modo vitrine (VIEW_ONLY): sem carrinho, carrinho-sheet nem checkout. */}
+      {!viewOnly && <CartButton cart={cart} onClick={() => setShowCart(true)} />}
 
-      {showCart && (
+      {!viewOnly && showCart && (
         <CartSheet
           cart={cart}
           dispatch={dispatch}
@@ -466,12 +477,12 @@ function CardapioView({
         />
       )}
 
-      {showCheckout && (
+      {!viewOnly && showCheckout && (
         <CheckoutModal
           cart={cart}
           pixKey={pixKey}
           tableLabel={tableLabel}
-          tenantSlug={PUBLIC_TENANT}
+          tenantSlug={tenantSlug}
           onClose={() => setShowCheckout(false)}
           onNewOrder={handleNewOrder}
         />
@@ -480,6 +491,7 @@ function CardapioView({
       {selectedProduct && (
         <ProductDetailModal
           product={selectedProduct}
+          viewOnly={viewOnly}
           onClose={() => setSelectedProduct(null)}
           onAdd={(qty, notes, options) => {
             dispatch({ type: "ADD_LINE", product: selectedProduct, quantity: qty, notes, options });

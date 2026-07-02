@@ -9,9 +9,11 @@ interface Props {
   product: Product;
   onClose: () => void;
   onAdd: (quantity: number, notes?: string, options?: CartLineOption[]) => void;
+  /** Modo vitrine (VIEW_ONLY): so mostra detalhes, sem opcoes/quantidade/adicionar. */
+  viewOnly?: boolean;
 }
 
-export function ProductDetailModal({ product, onClose, onAdd }: Props) {
+export function ProductDetailModal({ product, onClose, onAdd, viewOnly = false }: Props) {
   const [qty, setQty] = useState(1);
   const [notes, setNotes] = useState("");
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
@@ -119,8 +121,8 @@ export function ProductDetailModal({ product, onClose, onAdd }: Props) {
               )}
             </div>
 
-            {/* Grupos de complementos */}
-            {(product.optionGroups ?? []).filter(g => g.options.length > 0).map(group => (
+            {/* Grupos de complementos, observacoes e quantidade: so no modo com pedido */}
+            {!viewOnly && (product.optionGroups ?? []).filter(g => g.options.length > 0).map(group => (
               <div key={group.id} className="mt-4">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm font-semibold text-text-primary">{group.name}</p>
@@ -185,6 +187,7 @@ export function ProductDetailModal({ product, onClose, onAdd }: Props) {
             ))}
 
             {/* Observacoes por item */}
+            {!viewOnly && (
             <div className="mt-4">
               <label htmlFor="pdm-notes" className="block text-sm font-medium text-text-primary mb-1">
                 Alguma observação?
@@ -199,8 +202,10 @@ export function ProductDetailModal({ product, onClose, onAdd }: Props) {
                 className="w-full rounded-lg border border-border-medium bg-bg-secondary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
+            )}
 
             {/* Stepper de quantidade */}
+            {!viewOnly && (
             <div className="mt-4 flex items-center justify-between">
               <span className="text-sm font-medium text-text-primary">Quantidade</span>
               <div className="flex items-center gap-3">
@@ -221,23 +226,36 @@ export function ProductDetailModal({ product, onClose, onAdd }: Props) {
                 </button>
               </div>
             </div>
+            )}
           </div>
         </div>
 
         {/* Footer fixo */}
         <div className="p-4 border-t border-border-light bg-bg-primary">
-          {validationError && (
-            <p className="text-xs text-red-600 mb-2 text-center" role="alert">
-              {validationError}
-            </p>
+          {viewOnly ? (
+            <button
+              ref={closeRef}
+              onClick={onClose}
+              className="btn-outline w-full py-3 text-base min-h-[48px]"
+            >
+              Fechar
+            </button>
+          ) : (
+            <>
+              {validationError && (
+                <p className="text-xs text-red-600 mb-2 text-center" role="alert">
+                  {validationError}
+                </p>
+              )}
+              <button
+                ref={closeRef}
+                onClick={handleAdd}
+                className="btn-primary w-full py-3 text-base min-h-[48px]"
+              >
+                Adicionar {"·"} {formatBRL(subtotal)}
+              </button>
+            </>
           )}
-          <button
-            ref={closeRef}
-            onClick={handleAdd}
-            className="btn-primary w-full py-3 text-base min-h-[48px]"
-          >
-            Adicionar {"·"} {formatBRL(subtotal)}
-          </button>
         </div>
       </div>
     </>
