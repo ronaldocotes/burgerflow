@@ -1,12 +1,46 @@
 package com.menuflow.dto
 
 import com.menuflow.model.TenantConfig
+import com.menuflow.util.ColorContrast
 import jakarta.validation.constraints.DecimalMax
 import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.Size
 import java.math.BigDecimal
+
+/**
+ * Dados de contraste (WCAG) da cor de marca (issue #12), calculados no servidor.
+ * O frontend usa recommendedTextColor para pintar o texto sobre a cor principal
+ * e meetsAA para exibir o selo de acessibilidade. Ver ColorContrast.
+ */
+data class ThemeContrastInfo(
+    val primaryColor: String,
+    val ratioOnWhite: Double,
+    val ratioOnBlack: Double,
+    val recommendedTextColor: String,
+    val meetsAA: Boolean,
+) {
+    companion object {
+        /** null quando nao ha cor configurada ou o hex e invalido. */
+        fun of(primaryColor: String?): ThemeContrastInfo? {
+            if (primaryColor.isNullOrBlank() || !ColorContrast.isValidHex(primaryColor)) return null
+            val color = ColorContrast.normalize(primaryColor)
+            val onWhite = ColorContrast.contrastRatio(color, ColorContrast.WHITE)
+            val onBlack = ColorContrast.contrastRatio(color, ColorContrast.BLACK)
+            val recommended = if (onWhite >= onBlack) ColorContrast.WHITE else ColorContrast.BLACK
+            return ThemeContrastInfo(
+                primaryColor = color,
+                ratioOnWhite = round2(onWhite),
+                ratioOnBlack = round2(onBlack),
+                recommendedTextColor = recommended,
+                meetsAA = maxOf(onWhite, onBlack) >= 4.5,
+            )
+        }
+
+        private fun round2(v: Double): Double = Math.round(v * 100.0) / 100.0
+    }
+}
 
 /**
  * Estado das configurações do tenant. Exposto em GET /config e devolvido por
@@ -85,6 +119,13 @@ data class TenantConfigResponse(
     val openingHoursFriday: String?,
     val openingHoursSaturday: String?,
     val openingHoursSunday: String?,
+    // Tema do cardapio publico (Fase CONFIG-B, issue #12).
+    val themePrimaryColor: String?,
+    val themeShowPrices: Boolean,
+    val themeShowDescriptions: Boolean,
+    val themeShowPhotos: Boolean,
+    /** Contraste WCAG da cor de marca (null quando sem cor configurada). */
+    val themeContrast: ThemeContrastInfo?,
 ) {
     companion object {
         fun from(c: TenantConfig) =
@@ -150,6 +191,11 @@ data class TenantConfigResponse(
                 openingHoursFriday        = c.openingHoursFriday,
                 openingHoursSaturday      = c.openingHoursSaturday,
                 openingHoursSunday        = c.openingHoursSunday,
+                themePrimaryColor         = c.themePrimaryColor,
+                themeShowPrices           = c.themeShowPrices,
+                themeShowDescriptions     = c.themeShowDescriptions,
+                themeShowPhotos           = c.themeShowPhotos,
+                themeContrast             = ThemeContrastInfo.of(c.themePrimaryColor),
             )
     }
 }
@@ -287,4 +333,11 @@ data class TenantConfigUpdateRequest(
     val openingHoursSaturday: String? = null,
     @field:Size(max = 20)
     val openingHoursSunday: String? = null,
+    // Tema do cardapio publico (Fase CONFIG-B, issue #12): omitido (null) = preservar.
+    // Formato do hex validado no service (ColorContrast); "" limpa a cor (volta ao default).
+    @field:Size(max = 7)
+    val themePrimaryColor: String? = null,
+    val themeShowPrices: Boolean? = null,
+    val themeShowDescriptions: Boolean? = null,
+    val themeShowPhotos: Boolean? = null,
 )

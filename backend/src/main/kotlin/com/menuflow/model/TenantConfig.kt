@@ -360,6 +360,32 @@ data class TenantConfig(
     @Column(name = "owner_phone", length = 20)
     var ownerPhone: String? = null,
 
+    // --- Tema do cardapio publico (Fase CONFIG-B, issue #12) ---
+    /** Cor principal da marca em hex "#RRGGBB"; null = frontend usa a cor default. */
+    @Column(name = "theme_primary_color", length = 7)
+    var themePrimaryColor: String? = null,
+
+    /** Exibir precos no cardapio publico. */
+    @Column(name = "theme_show_prices", nullable = false)
+    var themeShowPrices: Boolean = true,
+
+    /** Exibir descricoes dos produtos no cardapio publico. */
+    @Column(name = "theme_show_descriptions", nullable = false)
+    var themeShowDescriptions: Boolean = true,
+
+    /** Exibir fotos dos produtos no cardapio publico. */
+    @Column(name = "theme_show_photos", nullable = false)
+    var themeShowPhotos: Boolean = true,
+
+    // --- Pop-up de entrada (Fase CONFIG-B, issue #13) ---
+    /** Liga/desliga o pop-up de destaque exibido ao abrir o cardapio. */
+    @Column(name = "entry_popup_enabled", nullable = false)
+    var entryPopupEnabled: Boolean = false,
+
+    /** Titulo do pop-up de entrada (ex.: "Nossas sugestoes"). Null = sem titulo. */
+    @Column(name = "entry_popup_title", length = 120)
+    var entryPopupTitle: String? = null,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 

@@ -20,6 +20,7 @@ import com.menuflow.model.DeliveryDriver
 import com.menuflow.model.DeliveryOffer
 import com.menuflow.model.DriverConfig
 import com.menuflow.model.DriverSettlement
+import com.menuflow.model.EntryPopupProduct
 import com.menuflow.model.IdempotencyKey
 import com.menuflow.model.Ingredient
 import com.menuflow.model.LoyaltyReward
@@ -121,6 +122,7 @@ class TenantDataSourceConfig {
                 PaymentMethodConfig::class.java,
                 CancellationReason::class.java,
                 MenuLink::class.java,
+                EntryPopupProduct::class.java,
             )
             .persistenceUnit("tenant")
             .properties(
