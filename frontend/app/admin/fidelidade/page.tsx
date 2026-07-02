@@ -8,6 +8,7 @@ import {
   RefreshCw, Gift, SlidersHorizontal, CheckCircle,
 } from 'lucide-react'
 import { api, ApiError } from '@/lib/api'
+import { getToken } from '@/lib/auth'
 import { useModalA11y } from '@/lib/use-modal-a11y'
 import type { LoyaltyStatusResponse, LoyaltyConfig } from '@/types/loyalty'
 
@@ -25,6 +26,23 @@ function timeAgo(iso: string): string {
 
 function signedDelta(n: number): string {
   return n > 0 ? '+' + n : String(n)
+}
+
+// Papel do usuario a partir do JWT (mesmo padrao do Sidebar). O backend ja barra
+// o ajuste para nao-gestores (403); aqui so escondemos o botao para nao oferecer
+// uma acao que vai falhar.
+function getUserRoleFromToken(): string | null {
+  try {
+    const token = getToken()
+    if (!token) return null
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(atob(b64)) as { role?: string; roles?: string[] }
+    return payload.role ?? ((Array.isArray(payload.roles) && payload.roles[0]) || null)
+  } catch {
+    return null
+  }
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -104,12 +122,27 @@ function Toggle({ id, checked, onChange, disabled }: {
 
 function PunchCard({ progress, threshold }: { progress: number; threshold: number }) {
   const dots = Math.max(threshold, 1)
+  const label = progress + ' de ' + dots + ' pontos para a proxima recompensa'
+  // Threshold alto (ex.: 100 pontos) renderizaria dezenas de bolinhas de 32px —
+  // vira uma parede. Acima de 24, degrada para barra de progresso.
+  if (dots > 24) {
+    const pct = Math.min(100, Math.round((progress / dots) * 100))
+    return (
+      <div
+        role="img"
+        aria-label={label}
+        className="h-3 w-full overflow-hidden rounded-full bg-gray-200"
+      >
+        <div
+          aria-hidden="true"
+          className="h-full rounded-full bg-primary-700 transition-all"
+          style={{ width: pct + '%' }}
+        />
+      </div>
+    )
+  }
   return (
-    <div
-      className="flex flex-wrap gap-2"
-      role="img"
-      aria-label={progress + ' de ' + dots + ' pontos para o proximo punch'}
-    >
+    <div className="flex flex-wrap gap-2" role="img" aria-label={label}>
       {Array.from({ length: dots }).map((_, i) => (
         <span
           key={i}
@@ -240,6 +273,7 @@ function AdjustModal({ customerId, onClose, onDone, showToast }: AdjustModalProp
 
 interface CustomerPanelProps {
   customerId: string
+  canAdjust: boolean
   showToast: (msg: string, type: 'success' | 'error') => void
 }
 
@@ -248,7 +282,7 @@ type PanelState =
   | { phase: 'error'; message: string }
   | { phase: 'ok'; data: LoyaltyStatusResponse }
 
-function CustomerPanel({ customerId, showToast }: CustomerPanelProps) {
+function CustomerPanel({ customerId, canAdjust, showToast }: CustomerPanelProps) {
   const [state, setState] = useState<PanelState>({ phase: 'loading' })
   const [redeeming, setRedeeming] = useState(false)
   const [showAdjust, setShowAdjust] = useState(false)
@@ -321,7 +355,7 @@ function CustomerPanel({ customerId, showToast }: CustomerPanelProps) {
         </div>
         <div>
           <p className="mb-2 text-sm text-text-muted">
-            Progresso para o proximo punch ({clampedProgress}/{dots})
+            Progresso para a proxima recompensa ({clampedProgress}/{dots})
           </p>
           <PunchCard progress={clampedProgress} threshold={dots} />
         </div>
@@ -335,12 +369,14 @@ function CustomerPanel({ customerId, showToast }: CustomerPanelProps) {
             <Gift className="h-4 w-4" aria-hidden="true" />
             Resgatar recompensa
           </button>
-          <button onClick={() => setShowAdjust(true)}
-            className="btn-outline min-h-[48px] flex items-center gap-2 px-4"
-            title="Ajuste manual de pontos">
-            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-            Ajustar
-          </button>
+          {canAdjust && (
+            <button onClick={() => setShowAdjust(true)}
+              className="btn-outline min-h-[48px] flex items-center gap-2 px-4"
+              title="Ajuste manual de pontos">
+              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+              Ajustar
+            </button>
+          )}
           <button onClick={() => void load()}
             className="btn-outline min-h-[48px] flex items-center gap-2 px-4"
             aria-label="Atualizar dados de fidelidade">
@@ -539,39 +575,68 @@ function ConfigCard() {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+// Cliente vindo de GET /rfv (unica listagem de clientes disponivel na API hoje;
+// cobre quem ja tem pedidos — suficiente para fidelidade, que nasce de pedido pago).
+interface RfvCustomer {
+  customerId: string
+  customerName: string | null
+  segment: string
+}
+
+function normalizeText(v: string): string {
+  return v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
 function CustomerSearch({ onSelect }: { onSelect: (id: string) => void }) {
   const inputId = useId()
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [searching, setSearching] = useState(false)
+  const [results, setResults] = useState<RfvCustomer[] | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const trimmed = value.trim()
-    if (!trimmed) { setError('Informe o ID do cliente.'); return }
-    if (!UUID_RE.test(trimmed)) {
-      setError('Formato invalido. Informe um UUID (ex: 550e8400-e29b-41d4-a716-446655440000).')
-      return
-    }
+    setResults(null)
+    if (!trimmed) { setError('Informe o nome ou o ID (UUID) do cliente.'); return }
     setError(null)
-    onSelect(trimmed)
+    if (UUID_RE.test(trimmed)) { onSelect(trimmed); return }
+    // Nao e UUID -> busca por nome na base RFV (clientes com pedidos; ADMIN/MANAGER)
+    setSearching(true)
+    try {
+      const all = await api.get<RfvCustomer[]>('/rfv')
+      const q = normalizeText(trimmed)
+      setResults(
+        all
+          .filter(c => c.customerName && normalizeText(c.customerName).includes(q))
+          .slice(0, 10),
+      )
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        setError('A busca por nome e restrita a gerentes. Cole o ID (UUID) do cliente.')
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Erro ao buscar clientes.')
+      }
+    } finally { setSearching(false) }
   }
 
   return (
     <div className="rounded-2xl bg-bg-primary p-6 shadow-card">
       <h2 className="mb-1 text-base font-semibold text-text-primary">Consultar cliente</h2>
       <p className="mb-4 text-sm text-text-muted">
-        Cole o ID do cliente (UUID) para consultar o saldo e historico de fidelidade.
+        Busque pelo nome do cliente ou cole o ID (UUID) para consultar o saldo e o
+        historico de fidelidade.
       </p>
-      <form onSubmit={handleSubmit} className="flex items-start gap-3">
+      <form onSubmit={(e) => { void handleSubmit(e) }} className="flex items-start gap-3">
         <div className="flex-1">
-          <label htmlFor={inputId} className="sr-only">ID do cliente</label>
+          <label htmlFor={inputId} className="sr-only">Nome ou ID do cliente</label>
           <input
             id={inputId}
             type="text"
             value={value}
             onChange={e => { setValue(e.target.value); setError(null) }}
-            className="input-field w-full font-mono text-sm"
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            className="input-field w-full text-sm"
+            placeholder="Nome do cliente ou UUID"
             autoComplete="off"
             spellCheck={false}
           />
@@ -582,11 +647,39 @@ function CustomerSearch({ onSelect }: { onSelect: (id: string) => void }) {
             </p>
           )}
         </div>
-        <button type="submit" className="btn-primary min-h-[48px] flex items-center gap-2">
-          <Search className="h-4 w-4" aria-hidden="true" />
+        <button type="submit" disabled={searching}
+          className="btn-primary min-h-[48px] flex items-center gap-2 disabled:opacity-50">
+          {searching
+            ? <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden="true" />
+            : <Search className="h-4 w-4" aria-hidden="true" />}
           Buscar
         </button>
       </form>
+
+      {results && results.length === 0 && (
+        <p className="mt-3 text-sm text-text-muted">
+          Nenhum cliente encontrado com esse nome. A busca cobre clientes com pedidos
+          (base RFV); tambem e possivel colar o ID (UUID) direto.
+        </p>
+      )}
+      {results && results.length > 0 && (
+        <ul role="list" className="mt-3 divide-y divide-border-light rounded-xl border border-border-light">
+          {results.map(c => (
+            <li key={c.customerId}>
+              <button
+                type="button"
+                onClick={() => { setResults(null); onSelect(c.customerId) }}
+                className="flex w-full min-h-[48px] items-center justify-between gap-3 px-4 py-2 text-left hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+              >
+                <span className="truncate text-sm font-medium text-text-primary">
+                  {c.customerName}
+                </span>
+                <span className="shrink-0 text-xs text-text-muted">{c.segment}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
@@ -596,6 +689,12 @@ function CustomerSearch({ onSelect }: { onSelect: (id: string) => void }) {
 export default function FidelidadePage() {
   const [customerId, setCustomerId] = useState<string | null>(null)
   const { toasts, show: showToast } = useToast()
+  const [canAdjust, setCanAdjust] = useState(false)
+  // Papel lido no cliente (localStorage) -> so apos montar, para nao divergir do SSR
+  useEffect(() => {
+    const role = getUserRoleFromToken()
+    setCanAdjust(role === 'ADMIN' || role === 'MANAGER')
+  }, [])
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
@@ -615,7 +714,7 @@ export default function FidelidadePage() {
         <section aria-label="Dados de fidelidade do cliente">
           <p className="mb-3 font-mono text-sm text-text-muted">Cliente: {customerId}</p>
           <div className="space-y-4">
-            <CustomerPanel key={customerId} customerId={customerId} showToast={showToast} />
+            <CustomerPanel key={customerId} customerId={customerId} canAdjust={canAdjust} showToast={showToast} />
           </div>
         </section>
       )}

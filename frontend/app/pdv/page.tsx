@@ -121,6 +121,13 @@ export default function PdvPage() {
   const [showPayment, setShowPayment] = useState(false);
   // true = caixa aberto, false = sem turno (verificado 1x ao montar)
   const [hasCashSession, setHasCashSession] = useState<boolean>(false);
+  // Fidelidade (Fase 3.3): config do tenant p/ o aviso de pontos pos-venda.
+  // GET /config e permitido a todos os papeis operacionais (inclui CASHIER).
+  const [loyaltyCfg, setLoyaltyCfg] = useState<{
+    enabled: boolean;
+    pointsPerReal: number;
+  } | null>(null);
+  const [loyaltyToast, setLoyaltyToast] = useState<string | null>(null);
 
   const redirectToLogin = useCallback(() => {
     logout();
@@ -142,11 +149,13 @@ export default function PdvPage() {
     setLoading(true);
     setError(null);
     try {
-      const [prods, cats, cashSession] = await Promise.all([
+      const [prods, cats, cashSession, cfg] = await Promise.all([
         api.get<Page<Product>>("/products?size=200"),
         api.get<Page<Category>>("/categories?size=200").catch(() => null),
         // 204 → undefined (sem turno aberto); erro de rede → ignora silenciosamente
         api.get<unknown>("/cash-sessions/current").catch(() => undefined),
+        // Fidelidade: falha na config nao derruba o PDV (fail-open, sem toast)
+        api.get<Record<string, unknown>>("/config").catch(() => null),
       ]);
       setProducts(prods.content);
       setCategories(
@@ -156,6 +165,14 @@ export default function PdvPage() {
       );
       // cashSession = undefined significa 204 (sem turno) ou falha na rede
       setHasCashSession(cashSession !== undefined && cashSession !== null);
+      setLoyaltyCfg(
+        cfg
+          ? {
+              enabled: Boolean(cfg.loyaltyEnabled),
+              pointsPerReal: Number(cfg.loyaltyPointsPerReal ?? 0),
+            }
+          : null,
+      );
     } catch (err) {
       if (handleUnauthorized(err)) return;
       setError(err instanceof Error ? err.message : "Erro ao carregar produtos.");
@@ -173,6 +190,13 @@ export default function PdvPage() {
       void load();
     });
   }, [router, load]);
+
+  // Toast de fidelidade: some sozinho apos 6s
+  useEffect(() => {
+    if (!loyaltyToast) return;
+    const t = setTimeout(() => setLoyaltyToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [loyaltyToast]);
 
   function onLogout() {
     logout();
@@ -840,13 +864,35 @@ export default function PdvPage() {
           couponCode={appliedCoupon ? appliedCouponCode : null}
           couponDiscountCents={couponDiscountCents}
           hasCashSession={hasCashSession}
+          loyaltyEnabled={loyaltyCfg?.enabled ?? false}
           onClose={() => setShowPayment(false)}
           onUnauthorized={redirectToLogin}
-          onConfirmed={() => {
+          onConfirmed={(customerPhone) => {
+            // Fidelidade (Fase 3.3): estimativa local com a mesma formula do
+            // servidor — floor(reais) * pontos por real, sobre o total ja com cupom.
+            if (loyaltyCfg?.enabled && customerPhone && quote) {
+              const dueCents = Math.max(0, quote.totalCents - couponDiscountCents);
+              const pts = Math.floor(dueCents / 100) * loyaltyCfg.pointsPerReal;
+              if (pts > 0) {
+                setLoyaltyToast(
+                  `🌟 +${pts} pontos creditados para ${customerPhone}`,
+                );
+              }
+            }
             setShowPayment(false);
             clearCart();
           }}
         />
+      )}
+
+      {loyaltyToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-primary-700 px-4 py-3 text-sm font-semibold text-white shadow-dropdown"
+        >
+          {loyaltyToast}
+        </div>
       )}
     </main>
   );
@@ -1527,6 +1573,7 @@ function PaymentModal({
   couponCode,
   couponDiscountCents,
   hasCashSession,
+  loyaltyEnabled,
   onClose,
   onUnauthorized,
   onConfirmed,
@@ -1538,12 +1585,17 @@ function PaymentModal({
   couponCode: string | null;
   couponDiscountCents: number;
   hasCashSession: boolean;
+  loyaltyEnabled: boolean;
   onClose: () => void;
   onUnauthorized: () => void;
-  onConfirmed: () => void;
+  /** customerPhone = telefone enviado no pedido (digitos), ou null se nao informado */
+  onConfirmed: (customerPhone: string | null) => void;
 }) {
   const [method, setMethod] = useState<PaymentMethod>("CASH");
   const [received, setReceived] = useState(""); // valor recebido em reais (texto)
+  // Telefone do cliente (opcional): avisos WhatsApp (2.4) + fidelidade (3.3).
+  // So vai no pedido com DDD completo (>= 10 digitos); menos que isso e ruido.
+  const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   // Quando PIX: guarda a intenção de pagamento gerada após criar o pedido
@@ -1570,6 +1622,11 @@ function PaymentModal({
   const insufficientCash =
     method === "CASH" && receivedCents != null && receivedCents < dueCents;
 
+  const sentPhone = (() => {
+    const digits = phone.replace(/\D/g, "");
+    return digits.length >= 10 && digits.length <= 13 ? digits : null;
+  })();
+
   async function confirm() {
     if (submitting) return;
     setErr(null);
@@ -1580,6 +1637,7 @@ function PaymentModal({
         items,
         paymentMethod: method,
         couponCode: couponCode ?? undefined,
+        customerPhone: sentPhone ?? undefined,
       };
       const created = await api.post<OrderCreatedResponse>("/orders", body, {
         "Idempotency-Key": crypto.randomUUID(),
@@ -1594,7 +1652,7 @@ function PaymentModal({
         setSubmitting(false);
       } else {
         // CASH, CARD, OTHER: encerra normalmente.
-        onConfirmed();
+        onConfirmed(sentPhone);
       }
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
@@ -1680,6 +1738,31 @@ function PaymentModal({
           ))}
         </div>
 
+        <div className="space-y-1">
+          <label
+            htmlFor="customer-phone"
+            className="block text-sm font-medium text-text-secondary"
+          >
+            Telefone do cliente (opcional)
+          </label>
+          <input
+            id="customer-phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="off"
+            maxLength={16}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="(96) 99999-9999"
+            className="input-field w-full"
+          />
+          <p className="text-xs text-text-muted">
+            {loyaltyEnabled
+              ? "Pontos de fidelidade e avisos do pedido por WhatsApp."
+              : "Avisos do pedido por WhatsApp."}
+          </p>
+        </div>
+
         {method === "CASH" && !hasCashSession && (
           <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
             <span className="mt-0.5 shrink-0 text-warning" aria-hidden="true">&#9888;</span>
@@ -1757,7 +1840,7 @@ function PaymentModal({
     {pixIntent && (
       <PixPaymentModal
         intent={pixIntent}
-        onPaid={onConfirmed}
+        onPaid={() => onConfirmed(sentPhone)}
         onCancel={() => setPixIntent(null)}
         onUnauthorized={onUnauthorized}
       />

@@ -54,6 +54,10 @@ data class DreResponse(
     // Recortes (chave = nome do enum; valor = quantidade de pedidos)
     val ordersByChannel: Map<String, Long>,
     val ordersByPaymentMethod: Map<String, Long>,
+    // Fidelidade — informativos (Fase 3.3). Não afetam o cálculo de margem; servem
+    // para o painel mostrar o engajamento e o custo do programa no período.
+    val loyaltyPointsIssued: Long,
+    val loyaltyRewardsRedeemed: Long,
 )
 
 // --- Despesas operacionais (CRUD) ---
