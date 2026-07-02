@@ -88,9 +88,9 @@ class DispatchServiceAcceptTest {
 
         val order = Order(id = orderId, orderNumber = "A1", orderType = OrderType.DELIVERY)
         val driver = DeliveryDriver(id = driverId, name = "Moto", phone = "5596", tenantId = UUID.randomUUID())
-        given(orderRepo.findByOrderNumber("A1")).willReturn(order)
-        // Oferta viva OFFERED em cada leitura (simula os dois motoboys lendo antes do write).
-        given(offerRepo.findByOrderIdAndStatus(orderId, DeliveryOfferStatus.OFFERED))
+        // Oferta viva OFFERED resolvida pelo CODIGO de aceite (mesma em cada leitura: simula os
+        // dois motoboys lendo antes do write). O pedido vem de findById(offer.orderId).
+        given(offerRepo.findByAcceptCodeAndStatus("AB12CD34", DeliveryOfferStatus.OFFERED))
             .willReturn(listOf(freshOffer()))
         given(driverRepo.findByPhone(anyArg())).willReturn(driver)
         given(orderRepo.findById(orderId)).willReturn(Optional.of(order))
@@ -111,8 +111,8 @@ class DispatchServiceAcceptTest {
             .willReturn(1)
             .willReturn(0)
 
-        val r1 = service.acceptOffer("A1", "5596111@c.us", "m1")
-        val r2 = service.acceptOffer("A1", "5596222@c.us", "m2")
+        val r1 = service.acceptOffer("AB12CD34", "5596111@c.us", "m1")
+        val r2 = service.acceptOffer("AB12CD34", "5596222@c.us", "m2")
 
         assertEquals(DispatchService.AcceptOutcome.ACCEPTED, r1, "o primeiro aceite vence")
         assertEquals(DispatchService.AcceptOutcome.ALREADY_TAKEN, r2, "o segundo perde a corrida")
@@ -122,8 +122,8 @@ class DispatchServiceAcceptTest {
     fun `messageId repetido e deduplicado`() {
         given(offerRepo.acceptOfferAtomic(anyArg(), anyArg(), anyArg())).willReturn(1)
 
-        val r1 = service.acceptOffer("A1", "5596111@c.us", "dup")
-        val r2 = service.acceptOffer("A1", "5596111@c.us", "dup")
+        val r1 = service.acceptOffer("AB12CD34", "5596111@c.us", "dup")
+        val r2 = service.acceptOffer("AB12CD34", "5596111@c.us", "dup")
 
         assertEquals(DispatchService.AcceptOutcome.ACCEPTED, r1)
         assertEquals(DispatchService.AcceptOutcome.DUPLICATE, r2, "mesma messageId nao reprocessa")

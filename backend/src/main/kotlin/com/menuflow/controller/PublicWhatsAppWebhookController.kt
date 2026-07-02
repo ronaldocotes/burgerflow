@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import com.menuflow.dispatch.DispatchInboundHandler
+import java.security.MessageDigest
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -26,7 +28,8 @@ import javax.crypto.spec.SecretKeySpec
  * messageId vive no servico (dedup 24h), cobrindo a reentrega do WAHA.
  *
  * SEGURANCA: o body cru e usado para verificar a assinatura HMAC opcional
- * (X-WAHA-Signature). Se `menuflow.bot.webhook-secret` estiver configurado e a
+ * (header X-Webhook-Hmac, HmacSHA512 hex — o que o WAHA realmente envia). Se
+ * `menuflow.bot.webhook-secret` estiver configurado e a
  * assinatura nao bater, ignoramos silenciosamente (200, sem processar). Sem secret
  * configurado, a verificacao e pulada (WAHA Core nao assina por padrao); a defesa
  * complementar e o rate-limit por IP (PublicOrderRateLimitFilter cobre esta rota).
@@ -37,6 +40,7 @@ import javax.crypto.spec.SecretKeySpec
 class PublicWhatsAppWebhookController(
     private val botService: WhatsAppBotService,
     private val objectMapper: ObjectMapper,
+    private val dispatchInboundHandler: DispatchInboundHandler,
     @Value("\${menuflow.bot.webhook-secret:}") private val webhookSecret: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -45,11 +49,16 @@ class PublicWhatsAppWebhookController(
     fun receive(
         @PathVariable tenantSlug: String,
         @RequestBody rawBody: String,
-        @RequestHeader(value = "X-WAHA-Signature", required = false) signature: String?,
+        @RequestHeader(value = "X-Webhook-Hmac", required = false) signature: String?,
     ): ResponseEntity<Void> {
         try {
             // Assinatura HMAC opcional (so verifica se configurada).
-            if (webhookSecret.isNotBlank() && !signatureValid(rawBody, signature)) {
+            if (webhookSecret.isBlank()) {
+                log.debug(
+                    "menuflow.bot.webhook-secret vazio; aceitando webhook sem validar HMAC (modo dev) - tenant {}",
+                    tenantSlug,
+                )
+            } else if (!signatureValid(rawBody, signature)) {
                 log.warn("Assinatura de webhook invalida (tenant {}); ignorando", tenantSlug)
                 return ResponseEntity.ok().build()
             }
@@ -61,9 +70,14 @@ class PublicWhatsAppWebhookController(
                 return ResponseEntity.ok().build()
             }
             val from = payload.from?.takeIf { it.isNotBlank() } ?: return ResponseEntity.ok().build()
-            // G3: ignorar mensagens de grupo (@g.us ou participant != null) — B2 fara o roteamento.
+            // B2: mensagens de grupo (@g.us) vao para o roteador do despacho, que valida se e o
+            // grupo de motoboys do tenant, deduplica e processa o aceite — fora do thread HTTP.
             if (from.endsWith("@g.us") || payload.participant != null) {
-                log.debug("Mensagem de grupo ignorada: {} — aguardar B2", from)
+                val participant = payload.participant
+                val msgId = payload.id
+                if (participant != null && !msgId.isNullOrBlank()) {
+                    dispatchInboundHandler.handleAsync(tenantSlug, from, participant, payload.body ?: "", msgId)
+                }
                 return ResponseEntity.ok().build()
             }
             val body = payload.body ?: ""
@@ -78,24 +92,23 @@ class PublicWhatsAppWebhookController(
         return ResponseEntity.ok().build()
     }
 
-    /** HMAC-SHA256 do corpo cru em hex, comparado em tempo constante. */
+    /**
+     * HMAC-SHA512 do corpo cru em hex (header X-Webhook-Hmac do WAHA), comparado em tempo
+     * constante com MessageDigest.isEqual. WAHA envia o digest em hex sem prefixo.
+     */
     private fun signatureValid(rawBody: String, signature: String?): Boolean {
         if (signature.isNullOrBlank()) return false
         return try {
-            val mac = Mac.getInstance("HmacSHA256")
-            mac.init(SecretKeySpec(webhookSecret.toByteArray(Charsets.UTF_8), "HmacSHA256"))
+            val mac = Mac.getInstance("HmacSHA512")
+            mac.init(SecretKeySpec(webhookSecret.toByteArray(Charsets.UTF_8), "HmacSHA512"))
             val computed = mac.doFinal(rawBody.toByteArray(Charsets.UTF_8))
                 .joinToString("") { "%02x".format(it) }
-            constantTimeEquals(computed, signature.trim().removePrefix("sha256="))
+            MessageDigest.isEqual(
+                computed.toByteArray(Charsets.UTF_8),
+                signature.trim().toByteArray(Charsets.UTF_8),
+            )
         } catch (e: Exception) {
             false
         }
-    }
-
-    private fun constantTimeEquals(a: String, b: String): Boolean {
-        if (a.length != b.length) return false
-        var diff = 0
-        for (i in a.indices) diff = diff or (a[i].code xor b[i].code)
-        return diff == 0
     }
 }

@@ -18,6 +18,9 @@ interface DeliveryDriverRepository : JpaRepository<DeliveryDriver, UUID> {
     /** Entregador pelo telefone (digitos), usado para resolver o JID do WhatsApp no despacho. */
     fun findByPhone(phone: String): DeliveryDriver?
 
+    /** Entregador pelo token do link publico de auto-cadastro (Fase C1). Token = "senha" do motoboy. */
+    fun findBySignupToken(signupToken: UUID): DeliveryDriver?
+
     /**
      * Entregadores disponiveis para o auto-assign: ativos, EM TURNO, com localizacao
      * conhecida e SEM oferta OFFERED viva (ociosos). A ausencia de oferta viva evita

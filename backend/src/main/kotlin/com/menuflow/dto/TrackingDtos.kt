@@ -83,3 +83,18 @@ data class TrackingRedirectResponse(
     val medium: String?,
     val campaign: String?,
 )
+
+/**
+ * Resposta pública de rastreio de entrega (GET /public/{slug}/rastreio/{orderId}).
+ * Não expõe endereço completo, telefone nem UUID interno.
+ * status: PREPARING | ASSIGNED | OUT_FOR_DELIVERY | DELIVERED | FAILED
+ */
+data class DeliveryTrackingResponse(
+    val status: String,
+    val restaurantName: String?,
+    val neighborhoodLabel: String?,
+    /** Apenas quando status != PREPARING e != FAILED. Formato: "João S." */
+    val driverName: String?,
+    val driverLicensePlate: String?,
+    val updatedAt: java.time.Instant?,
+)

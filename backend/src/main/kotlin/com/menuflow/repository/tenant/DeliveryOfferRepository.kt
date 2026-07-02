@@ -16,6 +16,13 @@ interface DeliveryOfferRepository : JpaRepository<DeliveryOffer, UUID> {
     /** Ofertas de um pedido num dado status (ex.: a OFFERED viva por pedido). */
     fun findByOrderIdAndStatus(orderId: UUID, status: DeliveryOfferStatus): List<DeliveryOffer>
 
+    /**
+     * Oferta de grupo pelo codigo de aceite (o motoboy digita "ACEITO <codigo>" no grupo).
+     * O accept_code e unico entre as ofertas OFFERED (indice parcial na V40), entao com
+     * status=OFFERED retorna no maximo uma. Chave do aceite no despacho por grupo (B2).
+     */
+    fun findByAcceptCodeAndStatus(acceptCode: String, status: DeliveryOfferStatus): List<DeliveryOffer>
+
     /** Ofertas de um entregador num dado status (fila do app do motoboy). */
     fun findByDriverIdAndStatus(driverId: UUID, status: DeliveryOfferStatus): List<DeliveryOffer>
 

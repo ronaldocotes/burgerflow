@@ -110,12 +110,13 @@ class DispatchService(
      * numero de ofertas expiradas.
      */
     fun expireAndReofferDue(tenantSlug: String): Int {
-        val reoffered: Pair<Int, List<Pair<UUID, UUID>>> = txTemplate.execute exec@{
+        val reoffered: Triple<Int, List<Pair<UUID, UUID>>, List<Pair<UUID, UUID>>> = txTemplate.execute exec@{
             val config = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()
-                ?: return@exec Pair(0, emptyList())
+                ?: return@exec Triple(0, emptyList(), emptyList())
             val now = Instant.now()
             val expired = deliveryOfferRepository.findExpiredGroupOffers(now)
             val newOffers = mutableListOf<Pair<UUID, UUID>>()
+            val escalated = mutableListOf<Pair<UUID, UUID>>()
             expired.forEach { offer ->
                 offer.status = DeliveryOfferStatus.EXPIRED
                 offer.respondedAt = now
@@ -131,19 +132,26 @@ class DispatchService(
                     ) {
                         val next = buildAndSaveOffer(order, config, attempt = offer.attempt + 1)
                         newOffers.add(next.id!! to order.id!!)
-                    } else {
+                    } else if (config.dispatchEnabled && !config.motoboyGroupJid.isNullOrBlank()) {
+                        // Esgotou as tentativas com o despacho ATIVO -> escala ao dono (B2).
+                        escalated.add(offer.id!! to order.id!!)
                         log.warn(
-                            "Pedido {} esgotou {} tentativas de despacho -- escalando (B2)",
+                            "Pedido {} esgotou {} tentativas de despacho -- escalando ao dono",
                             order.orderNumber, config.dispatchMaxAttempts,
                         )
+                    } else {
+                        log.debug("Pedido {} nao reofertado: despacho desativado", order.orderNumber)
                     }
                 }
             }
-            Pair(expired.size, newOffers)
-        } ?: Pair(0, emptyList())
+            Triple(expired.size, newOffers, escalated)
+        } ?: Triple(0, emptyList(), emptyList())
 
         reoffered.second.forEach { (offerId, orderId) ->
             eventPublisher.publishEvent(RideOfferedEvent(tenantSlug, offerId, orderId))
+        }
+        reoffered.third.forEach { (offerId, orderId) ->
+            eventPublisher.publishEvent(RideEscalatedEvent(tenantSlug, offerId, orderId))
         }
         return reoffered.first
     }
@@ -161,22 +169,25 @@ class DispatchService(
      * @Version, sem excecao de lock, sem retry: deterministico e sem envenenar a
      * transacao. Assim SEMPRE emerge exatamente um vencedor.
      */
-    fun acceptOffer(orderNumber: String, driverJid: String, messageId: String): AcceptOutcome {
+    fun acceptOffer(acceptCode: String, driverJid: String, messageId: String): AcceptOutcome {
         if (alreadyProcessed(messageId)) return AcceptOutcome.DUPLICATE
         val tenantSlug = com.menuflow.tenant.TenantContext.getOrThrow()
 
-        // 1. Resolve pedido + oferta viva + motoboy (find-or-create), em transacao.
+        // 1. Resolve a oferta viva pelo CODIGO de aceite (o motoboy digita "ACEITO <codigo>"),
+        //    depois o pedido e o motoboy (find-or-create provisional), em transacao.
         val ctx = txTemplate.execute exec@{
-            val order = orderRepository.findByOrderNumber(orderNumber) ?: return@exec null
             val offer = deliveryOfferRepository
-                .findByOrderIdAndStatus(order.id!!, DeliveryOfferStatus.OFFERED)
-                .firstOrNull() ?: return@exec Triple<Order?, DeliveryOffer?, DeliveryDriver?>(order, null, null)
+                .findByAcceptCodeAndStatus(acceptCode, DeliveryOfferStatus.OFFERED)
+                .firstOrNull() ?: return@exec null
+            val order = orderRepository.findById(offer.orderId).orElse(null)
+                ?: return@exec Triple<Order?, DeliveryOffer?, DeliveryDriver?>(null, offer, null)
             val driver = resolveOrCreateDriver(driverJid, tenantSlug)
             Triple(order, offer, driver)
         }
-        if (ctx == null) return AcceptOutcome.NO_ORDER
+        if (ctx == null) return AcceptOutcome.NO_OFFER
         val (order, offer, driver) = ctx
-        if (offer == null || driver == null || order == null) return AcceptOutcome.NO_OFFER
+        if (offer == null) return AcceptOutcome.NO_OFFER
+        if (order == null || driver == null) return AcceptOutcome.NO_ORDER
 
         // 2. Aceite atomico via CAS: 1 linha afetada = venceu; 0 = corrida ja fechada.
         val won = (
@@ -196,7 +207,7 @@ class DispatchService(
                 action = "RIDE_ACCEPTED",
                 entity = "delivery_offer",
                 entityId = offer.id,
-                after = mapOf("orderNumber" to orderNumber, "driverId" to driver.id),
+                after = mapOf("orderNumber" to order.orderNumber, "driverId" to driver.id),
                 actorUserId = driver.userId,
                 actorRole = "DRIVER",
             )
@@ -269,11 +280,14 @@ class DispatchService(
             ?: throw IllegalStateException("Tenant nao encontrado para provisionar motoboy: $tenantSlug")
         return driverRepository.save(
             DeliveryDriver(
-                name = "Motoboy $phone",
+                name = "Motoboy ${phone.takeLast(4)}",
                 phone = phone,
                 active = true,
                 activeShift = true,
                 tenantId = tenantId,
+                driverType = "FREELANCER",
+                provisional = true,
+                signupToken = UUID.randomUUID(),
             ),
         )
     }

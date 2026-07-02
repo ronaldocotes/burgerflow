@@ -48,7 +48,13 @@ class DriverSettlementTest @Autowired constructor(
 
     private fun newDriver(name: String = "Entregador", active: Boolean = true): UUID {
         val saved = driverRepository.save(
-            DeliveryDriver(name = name, phone = "11999999999", active = active, tenantId = UUID.randomUUID()),
+            DeliveryDriver(
+                name = name,
+                // Telefone unico por driver: a V41 adicionou indice UNICO parcial em phone.
+                phone = "5511" + UUID.randomUUID().toString().filter { it.isDigit() }.take(9).padEnd(9, '0'),
+                active = active,
+                tenantId = UUID.randomUUID(),
+            ),
         )
         return saved.id!!
     }

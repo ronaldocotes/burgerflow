@@ -140,6 +140,34 @@ class WhatsAppService(
         }
     }
 
+    /**
+     * Envio para um chatId CRU (sem normalizar): serve para grupos (@g.us) e para @c.us
+     * direto ja formatado. Usado pelo despacho por grupo (Fase B2) — oferta no grupo, ACK
+     * e respostas ao participante. Fail-open igual aos demais: falha e logada, nunca propaga.
+     * [session] e a sessao WAHA (numero do restaurante); null/vazio usa a "default".
+     *
+     * O disparo AFTER_COMMIT e garantido pelo CHAMADOR: o DispatchService publica os eventos
+     * apos o commit das suas transacoes e o DispatchEventListener so chama sendRaw fora da tx.
+     */
+    fun sendRaw(chatId: String, text: String, session: String?) {
+        if (chatId.isBlank()) return
+        val body = buildMap<String, Any> {
+            put("chatId", chatId)
+            put("text", text)
+            session?.takeIf { it.isNotBlank() }?.let { put("session", it) }
+        }
+        try {
+            client.post()
+                .uri("/api/sendText")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .toBodilessEntity()
+        } catch (e: Exception) {
+            log.warn("WhatsApp sendRaw failed (chatId={}, session={}): {}", chatId, session, e.message)
+        }
+    }
+
     private fun buildMessage(kind: OrderNotificationKind, restaurantName: String): String = when (kind) {
         OrderNotificationKind.PREPARING ->
             "✅ Seu pedido foi aceito! Estamos preparando tudo com carinho. 👨‍🍳"

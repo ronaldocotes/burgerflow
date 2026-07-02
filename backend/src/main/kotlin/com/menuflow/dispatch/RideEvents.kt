@@ -23,3 +23,14 @@ data class RideAssignedEvent(
     val orderId: UUID,
     val driverId: UUID,
 )
+
+/**
+ * Nenhum motoboy aceitou a corrida apos esgotar as tentativas (Fase B2). O consumidor
+ * (DispatchEventListener) recarrega oferta+pedido no banco do tenant e avisa o dono por
+ * WhatsApp. So identificadores + slug trafegam (sem PII, mesmo padrao dos demais).
+ */
+data class RideEscalatedEvent(
+    val tenantSlug: String,
+    val offerId: UUID,
+    val orderId: UUID,
+)

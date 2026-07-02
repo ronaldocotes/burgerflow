@@ -309,6 +309,10 @@ data class TenantConfig(
     @Column(name = "distance_provider", nullable = false, length = 20)
     var distanceProvider: String = "HAVERSINE",
 
+    /** Telefone do DONO para escalacao do despacho (ninguem aceitou). Null = so loga. */
+    @Column(name = "owner_phone", length = 20)
+    var ownerPhone: String? = null,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 
