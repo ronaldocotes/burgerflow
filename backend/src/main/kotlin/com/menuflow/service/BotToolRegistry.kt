@@ -2,12 +2,18 @@ package com.menuflow.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.menuflow.client.AiTool
+import com.menuflow.model.DeliveryDriver
+import com.menuflow.model.DeliveryStatus
 import com.menuflow.model.OrderStatus
+import com.menuflow.repository.control.TenantRepository
 import com.menuflow.repository.tenant.CategoryRepository
+import com.menuflow.repository.tenant.DeliveryDriverRepository
 import com.menuflow.repository.tenant.OrderRepository
 import com.menuflow.repository.tenant.ProductRepository
 import com.menuflow.repository.tenant.TenantConfigRepository
+import com.menuflow.tenant.TenantContext
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -17,6 +23,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.UUID
 
 /**
  * Catalogo de ferramentas do BOT WhatsApp (Fase 4.3) — atendimento ao CLIENTE. E
@@ -40,7 +47,10 @@ class BotToolRegistry(
     private val productRepository: ProductRepository,
     private val orderRepository: OrderRepository,
     private val tenantConfigRepository: TenantConfigRepository,
+    private val deliveryDriverRepository: DeliveryDriverRepository,
+    private val tenantRepository: TenantRepository,
     private val objectMapper: ObjectMapper,
+    @Value("\${menuflow.app.base-url:}") private val appBaseUrl: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val zone = ZoneId.of("America/Sao_Paulo")
@@ -59,6 +69,14 @@ class BotToolRegistry(
             "get_opening_hours",
             "Retorna os horarios de funcionamento da semana e informa se o restaurante esta aberto agora.",
         ),
+        function(
+            "track_order",
+            "Consulta o status do pedido de entrega mais recente do cliente. Use quando o cliente perguntar sobre onde esta o motoboy, se o pedido saiu, cade minha entrega etc.",
+        ),
+        function(
+            "get_driver_signup_link",
+            "Gera ou recupera o link de cadastro para alguem que quer ser entregador parceiro. Use quando alguem perguntar como ser motoboy, fazer entregas ou trabalhar conosco.",
+        ),
     )
 
     /**
@@ -66,7 +84,7 @@ class BotToolRegistry(
      * (vem do webhook, nunca do LLM) — usado por get_order_status para garantir que o
      * cliente so ve o proprio pedido. Roda em transacao curta de leitura no tenant.
      */
-    @Transactional("tenantTransactionManager", readOnly = true)
+    @Transactional("tenantTransactionManager")
     fun execute(name: String, customerPhone: String): String {
         val start = System.currentTimeMillis()
         val result = try {
@@ -74,6 +92,8 @@ class BotToolRegistry(
                 "get_menu_summary" -> getMenuSummary()
                 "get_order_status" -> getOrderStatus(customerPhone)
                 "get_opening_hours" -> getOpeningHours()
+                "track_order" -> trackOrder(customerPhone)
+                "get_driver_signup_link" -> getDriverSignupLink(customerPhone)
                 else -> json(mapOf("error" to "Ferramenta desconhecida: $name"))
             }
         } catch (e: Exception) {
@@ -166,6 +186,84 @@ class BotToolRegistry(
         )
     }
 
+    /**
+     * Rastreio de entrega (Fase D): status do pedido de entrega mais recente do cliente.
+     * O telefone vem do remetente VERIFICADO do webhook -- nunca do LLM (evita IDOR).
+     * Retorna link de rastreio publico quando o motoboy ja foi atribuido.
+     */
+    private fun trackOrder(customerPhone: String): String {
+        if (customerPhone.isBlank()) {
+            return json(mapOf("found" to false, "message" to "Nao foi possivel identificar seu numero."))
+        }
+        val order = orderRepository
+            .findFirstByCustomerPhoneAndDeliveryStatusIsNotNullAndStatusNotOrderByCreatedAtDesc(
+                customerPhone,
+                OrderStatus.CANCELLED,
+            ) ?: return json(mapOf("found" to false, "message" to "Nenhum pedido de entrega em andamento encontrado para o seu numero."))
+
+        val statusLabel = deliveryStatusPt(order.deliveryStatus)
+        val driver = order.driverId?.let { deliveryDriverRepository.findById(it).orElse(null) }
+        val base = appBaseUrl.trim().trimEnd('/')
+        val trackingUrl = if (base.isNotBlank()) "${base}/acompanhar/${order.id}" else null
+
+        return json(
+            buildMap {
+                put("found", true)
+                put("orderNumber", order.orderNumber)
+                put("status", statusLabel)
+                if (driver != null) {
+                    put("driverName", driver.name.split(" ").take(2).joinToString(" "))
+                    driver.licensePlate?.let { put("driverPlate", it) }
+                }
+                trackingUrl?.let { put("trackingUrl", it) }
+            },
+        )
+    }
+
+    /**
+     * Link de cadastro de entregador (Fase D): gera ou recupera o link publico de
+     * auto-cadastro para quem quer ser motoboy. Cria um registro provisional no DB do
+     * tenant quando o numero ainda nao existe -- padrao identico ao DispatchService.
+     */
+    private fun getDriverSignupLink(requesterPhone: String): String {
+        if (requesterPhone.isBlank()) {
+            return json(mapOf("error" to "Nao foi possivel identificar seu numero."))
+        }
+        val existing = deliveryDriverRepository.findByPhone(requesterPhone)
+        if (existing != null) {
+            if (!existing.provisional) {
+                return json(mapOf("alreadyRegistered" to true, "message" to "Voce ja esta cadastrado como entregador!"))
+            }
+            val token = existing.signupToken ?: UUID.randomUUID().also { t ->
+                existing.signupToken = t
+                deliveryDriverRepository.save(existing)
+            }
+            val base = appBaseUrl.trim().trimEnd('/')
+            return json(mapOf("found" to true, "signupUrl" to "${base}/motoboy/cadastro/${token}"))
+        }
+
+        val tenantSlug = TenantContext.get()
+            ?: return json(mapOf("error" to "Contexto de tenant nao disponivel."))
+        val tenantId = tenantRepository.findBySlug(tenantSlug)?.id
+            ?: return json(mapOf("error" to "Tenant nao encontrado."))
+
+        val token = UUID.randomUUID()
+        deliveryDriverRepository.save(
+            DeliveryDriver(
+                name = "Motoboy ${requesterPhone.takeLast(4)}",
+                phone = requesterPhone,
+                active = true,
+                activeShift = false,
+                tenantId = tenantId,
+                driverType = "FREELANCER",
+                provisional = true,
+                signupToken = token,
+            ),
+        )
+        val base = appBaseUrl.trim().trimEnd('/')
+        return json(mapOf("found" to true, "signupUrl" to "${base}/motoboy/cadastro/${token}"))
+    }
+
     // ----------------------------- Helpers -----------------------------
 
     /** Centavos -> "45,00" (formato BR; sem float). */
@@ -173,6 +271,17 @@ class BotToolRegistry(
         val sign = if (cents < 0) "-" else ""
         val abs = kotlin.math.abs(cents)
         return "$sign${abs / 100},${(abs % 100).toString().padStart(2, '0')}"
+    }
+
+    private fun deliveryStatusPt(status: DeliveryStatus?): String = when (status) {
+        DeliveryStatus.PENDING, DeliveryStatus.OFFERED -> "aguardando motoboy"
+        DeliveryStatus.ASSIGNED, DeliveryStatus.ACCEPTED -> "motoboy a caminho do restaurante"
+        DeliveryStatus.ARRIVED_AT_STORE -> "motoboy chegou ao restaurante"
+        DeliveryStatus.PICKED_UP, DeliveryStatus.OUT_FOR_DELIVERY -> "a caminho de voce"
+        DeliveryStatus.ARRIVED_AT_CUSTOMER -> "chegou ao seu endereco"
+        DeliveryStatus.DELIVERED -> "entregue"
+        DeliveryStatus.FAILED -> "falha na entrega"
+        null -> "em preparacao"
     }
 
     private fun statusPt(status: OrderStatus): String = when (status) {

@@ -247,6 +247,9 @@ class WhatsAppBotService(
             Use as ferramentas para consultar dados reais antes de afirmar; nunca invente precos ou status.
             Se o cliente quiser falar com um humano, oriente a digitar "$keyword".
             Limite suas respostas a no maximo 3 paragrafos curtos (WhatsApp tem limite de atencao).${menuLink}
+            Voce tambem tem ferramentas para entregas:
+            - track_order: use quando o cliente perguntar sobre a entrega (cade meu pedido, onde esta o motoboy etc). Resuma o status em linguagem natural e inclua o link de rastreio quando disponivel.
+            - get_driver_signup_link: use quando alguem quiser ser motoboy ou fazer entregas. Seja acolhedor, mencione as vantagens (prioridade nas corridas, extrato semanal, PIX) e forneca o link.
         """.trimIndent()
         val custom = config.botSystemPrompt?.trim()?.ifBlank { null }
         return if (custom == null) base else "$base\n\nInstrucoes do restaurante:\n$custom"

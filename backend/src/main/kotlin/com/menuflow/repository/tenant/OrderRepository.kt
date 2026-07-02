@@ -52,6 +52,16 @@ interface OrderRepository :
     fun findTopByCustomerPhoneOrderByCreatedAtDesc(customerPhone: String): Order?
 
     /**
+     * Ultimo pedido de ENTREGA em andamento para o telefone (Fase D — track_order do bot).
+     * Filtra: deliveryStatus preenchido (pedido ja tem motoboy ou foi despachado) e nao CANCELADO.
+     * O telefone e o do remetente VERIFICADO do webhook.
+     */
+    fun findFirstByCustomerPhoneAndDeliveryStatusIsNotNullAndStatusNotOrderByCreatedAtDesc(
+        customerPhone: String,
+        status: OrderStatus,
+    ): Order?
+
+    /**
      * Há pedido da comanda ainda em produção (PENDING/PREPARING)? Usado por
      * TableService.closeSession para impedir fechar a conta com a cozinha aberta.
      */
