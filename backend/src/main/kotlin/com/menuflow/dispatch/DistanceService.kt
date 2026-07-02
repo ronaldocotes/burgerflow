@@ -3,6 +3,7 @@ package com.menuflow.dispatch
 import com.menuflow.delivery.HaversineUtil
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpStatusCode
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClient
@@ -14,22 +15,34 @@ import java.util.concurrent.ConcurrentHashMap
  * cliente), usada para precificar a entrega e o payout do motoboy pela distancia
  * real percorrida -- nao pela linha reta.
  *
- * Dois provedores:
+ * Tres provedores (escolhidos por [TenantConfig.distanceProvider]):
+ *  - [OsrmDistanceProvider]: primario quando OSRM_BASE_URL esta definido e o tenant
+ *    usa "OSRM". Self-hosted na A1, custo zero, sem limite de chamadas.
  *  - [GoogleRoutesDistanceProvider]: primario quando GOOGLE_ROUTES_API_KEY esta
- *    definido. Rota real de MOTO (TWO_WHEELER), 10k chamadas gratis/mes.
+ *    definido e o tenant usa "GOOGLE". Rota real de MOTO (TWO_WHEELER), 10k/mes
+ *    gratis.
  *  - [HaversineDistanceProvider]: fallback SEM infra externa (linha reta x 1.3).
  *
- * FAIL-OPEN: qualquer falha do Google (timeout, quota, 5xx, corpo inesperado) cai
- * silenciosamente no Haversine -- o despacho nunca trava por indisponibilidade de
- * um servico de rotas. Cache em memoria (a distancia restaurante->casa nao muda):
- * chave "lat1,lng1->lat2,lng2", TTL 24h, teto de 10.000 entradas (descarte simples
+ * CADEIA DE FALLBACK por valor de [provider]:
+ *   "OSRM"     -> OsrmProvider (se configurado) -> googleOrHaversine()
+ *   "GOOGLE"   -> GoogleProvider (se configurado) -> Haversine
+ *   qualquer   -> Haversine
+ *
+ * FAIL-OPEN: qualquer falha do OSRM ou Google (timeout, 5xx, corpo inesperado)
+ * cai silenciosamente no proximo nivel -- o despacho nunca trava por
+ * indisponibilidade de um servico de rotas.
+ *
+ * Cache em memoria (a distancia restaurante->casa nao muda): chave
+ * "lat1,lng1->lat2,lng2", TTL 24h, teto de 10.000 entradas (descarte simples
  * da entrada mais antiga ao estourar).
  */
 @Service
 class DistanceService(
     private val haversine: HaversineDistanceProvider,
     private val google: GoogleRoutesDistanceProvider,
+    private val osrm: OsrmDistanceProvider,
     @Value("\${google.routes.api-key:}") private val googleApiKey: String,
+    @Value("\${osrm.base-url:}") private val osrmBaseUrl: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -40,9 +53,9 @@ class DistanceService(
     private val maxEntries = 10_000
 
     /**
-     * Distancia rodoviaria em metros. Usa o Google quando ha chave configurada (e
-     * o provider nao forcado a HAVERSINE); em qualquer falha, Haversine. Resultado
-     * memoizado por par de coordenadas.
+     * Distancia rodoviaria em metros. Seleciona o provider com base em [provider]
+     * (valor de [TenantConfig.distanceProvider]) seguindo a cadeia OSRM->Google->
+     * Haversine. Resultado memoizado por par de coordenadas.
      */
     fun getRoadDistanceMeters(
         originLat: Double,
@@ -57,8 +70,49 @@ class DistanceService(
             cache.remove(key)
         }
 
-        val useGoogle = googleApiKey.isNotBlank() && provider.uppercase() != "HAVERSINE"
-        val meters = if (useGoogle) {
+        val meters = when (provider.uppercase()) {
+            "OSRM" -> {
+                if (osrmBaseUrl.isNotBlank()) {
+                    runCatching { osrm.distanceMeters(originLat, originLng, destLat, destLng) }
+                        .getOrElse {
+                            log.warn("OSRM falhou ({}); caindo em Google/Haversine", it.message)
+                            googleOrHaversine(originLat, originLng, destLat, destLng)
+                        }
+                } else {
+                    log.debug("OSRM solicitado mas OSRM_BASE_URL nao configurado; usando Google/Haversine")
+                    googleOrHaversine(originLat, originLng, destLat, destLng)
+                }
+            }
+            "GOOGLE" -> {
+                if (googleApiKey.isNotBlank()) {
+                    runCatching { google.distanceMeters(originLat, originLng, destLat, destLng) }
+                        .getOrElse {
+                            log.warn("Google Routes falhou ({}); usando Haversine", it.message)
+                            haversine.distanceMeters(originLat, originLng, destLat, destLng)
+                        }
+                } else {
+                    log.debug("GOOGLE solicitado mas GOOGLE_ROUTES_API_KEY nao configurado; usando Haversine")
+                    haversine.distanceMeters(originLat, originLng, destLat, destLng)
+                }
+            }
+            else -> haversine.distanceMeters(originLat, originLng, destLat, destLng)
+        }
+
+        putCache(key, meters)
+        return meters
+    }
+
+    /**
+     * Subcadeia Google->Haversine: usada como fallback do OSRM quando este falha ou
+     * nao esta configurado.
+     */
+    private fun googleOrHaversine(
+        originLat: Double,
+        originLng: Double,
+        destLat: Double,
+        destLng: Double,
+    ): Long =
+        if (googleApiKey.isNotBlank()) {
             runCatching { google.distanceMeters(originLat, originLng, destLat, destLng) }
                 .getOrElse {
                     log.warn("Google Routes falhou ({}); usando Haversine", it.message)
@@ -67,10 +121,6 @@ class DistanceService(
         } else {
             haversine.distanceMeters(originLat, originLng, destLat, destLng)
         }
-
-        putCache(key, meters)
-        return meters
-    }
 
     private fun putCache(key: String, meters: Long) {
         if (cache.size >= maxEntries) {
@@ -129,7 +179,7 @@ class GoogleRoutesDistanceProvider(
             .onStatus(HttpStatusCode::isError) { _, res ->
                 throw IllegalStateException("Google Routes HTTP ${res.statusCode}")
             }
-            .body(object : org.springframework.core.ParameterizedTypeReference<List<Map<String, Any?>>>() {})
+            .body(object : ParameterizedTypeReference<List<Map<String, Any?>>>() {})
             ?: throw IllegalStateException("Google Routes: corpo vazio")
 
         val element = response.firstOrNull()
@@ -141,4 +191,67 @@ class GoogleRoutesDistanceProvider(
 
     private fun waypoint(lat: Double, lng: Double): Map<String, Any> =
         mapOf("waypoint" to mapOf("location" to mapOf("latLng" to mapOf("latitude" to lat, "longitude" to lng))))
+}
+
+/**
+ * Provedor self-hosted: OSRM Route v1 rodando na A1 (Oracle Ampere, custo zero,
+ * sem limite de chamadas por mes).
+ *
+ * URL base configurada via env [OSRM_BASE_URL] (ex: http://host.docker.internal:5000
+ * ou IP fixo do gateway da A1). Timeout 3s igual ao Google para nao prender thread
+ * do despacho; qualquer falha propaga e o [DistanceService] cai na subcadeia
+ * Google->Haversine.
+ *
+ * ATENCAO: a API do OSRM usa LONGITUDE,LATITUDE (ao contrario do Google que usa
+ * lat,lng). Isso esta correto na construcao da URI abaixo.
+ */
+@Service
+class OsrmDistanceProvider(
+    @Value("\${osrm.base-url:}") baseUrl: String,
+    builder: RestClient.Builder,
+) {
+    private val client: RestClient = builder
+        .baseUrl(baseUrl.ifBlank { "http://localhost:5000" })
+        .requestFactory(
+            org.springframework.http.client.SimpleClientHttpRequestFactory().apply {
+                setConnectTimeout(3000)
+                setReadTimeout(3000)
+            },
+        )
+        .build()
+
+    /**
+     * Calcula a distancia rodoviaria em metros via OSRM Route v1.
+     *
+     * GET /route/v1/driving/{originLng},{originLat};{destLng},{destLat}?overview=false
+     *
+     * @throws IllegalStateException se a resposta for invalida ou vazia (capturado
+     *   pelo [DistanceService] que cai no proximo provider da cadeia).
+     */
+    fun distanceMeters(originLat: Double, originLng: Double, destLat: Double, destLng: Double): Long {
+        // OSRM: longitude primeiro, latitude segundo (diferente do Google).
+        val coords = "$originLng,$originLat;$destLng,$destLat"
+
+        val response = client.get()
+            .uri { builder ->
+                builder
+                    .path("/route/v1/driving/$coords")
+                    .queryParam("overview", "false")
+                    .build()
+            }
+            .retrieve()
+            .onStatus(HttpStatusCode::isError) { _, res ->
+                throw IllegalStateException("OSRM HTTP ${res.statusCode}")
+            }
+            .body(object : ParameterizedTypeReference<Map<String, Any?>>() {})
+            ?: throw IllegalStateException("OSRM: corpo vazio")
+
+        @Suppress("UNCHECKED_CAST")
+        val routes = response["routes"] as? List<Map<String, Any?>>
+            ?: throw IllegalStateException("OSRM: campo routes ausente ou tipo inesperado")
+        val first = routes.firstOrNull()
+            ?: throw IllegalStateException("OSRM: routes vazio (sem rota encontrada)")
+        return (first["distance"] as? Number)?.let { Math.round(it.toDouble()) }
+            ?: throw IllegalStateException("OSRM: campo distance ausente")
+    }
 }

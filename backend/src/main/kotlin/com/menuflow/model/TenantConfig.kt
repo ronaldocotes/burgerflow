@@ -305,7 +305,7 @@ data class TenantConfig(
     @Column(name = "restaurant_lng")
     var restaurantLng: Double? = null,
 
-    /** Provedor de distancia: HAVERSINE (fallback) ou GOOGLE (rota real de moto). */
+    /** Provedor de distancia: HAVERSINE (fallback), GOOGLE (rota real de moto, 10k/mes) ou OSRM (self-hosted A1, custo zero). Ver DistanceService para a cadeia de fallback. */
     @Column(name = "distance_provider", nullable = false, length = 20)
     var distanceProvider: String = "HAVERSINE",
 

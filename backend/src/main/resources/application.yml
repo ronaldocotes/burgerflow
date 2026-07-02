@@ -118,6 +118,14 @@ asaas:
 waha:
   base-url: ${WAHA_BASE_URL:http://127.0.0.1:3030}
 
+# OSRM (Fase B2+) — calculo de distancia rodoviaria self-hosted na A1 (Oracle Ampere,
+# custo zero, sem limite de chamadas). Quando OSRM_BASE_URL esta vazio o provider
+# e ignorado e o DistanceService cai na cadeia Google->Haversine.
+# Capataz confirma o endereco exato do gateway; use host.docker.internal se o
+# backend rodar em container Docker na mesma A1.
+osrm:
+  base-url: ${OSRM_BASE_URL:}
+
 # LiteLLM (Fase 4.1) — gateway OpenAI-compatible self-hosted na A1 que unifica
 # Gemini/Grok/Claude/Mistral. O Copiloto chama POST /chat/completions. A chave e
 # opcional (Bearer); o modelo e configuravel. Defaults inline tambem existem no
