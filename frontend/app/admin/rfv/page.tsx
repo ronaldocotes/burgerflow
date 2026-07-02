@@ -20,8 +20,8 @@ type FilterOption = {
 
 const FILTER_OPTIONS: FilterOption[] = [
   { value: 'ALL',      label: 'Todos',       color: 'text-text-secondary', activeClass: 'bg-primary-700 text-white'   },
-  { value: 'LOYAL',    label: 'Fieis',        color: 'text-green-700',      activeClass: 'bg-green-600 text-white'     },
-  { value: 'AT_RISK',  label: 'Em risco',     color: 'text-yellow-700',     activeClass: 'bg-yellow-500 text-white'    },
+  { value: 'LOYAL',    label: 'Fieis',        color: 'text-green-700',      activeClass: 'bg-green-700 text-white'     },
+  { value: 'AT_RISK',  label: 'Em risco',     color: 'text-yellow-700',     activeClass: 'bg-yellow-700 text-white'    },
   { value: 'INACTIVE', label: 'Inativos',     color: 'text-red-700',        activeClass: 'bg-red-600 text-white'       },
   { value: 'NEW',      label: 'Novos',        color: 'text-blue-700',       activeClass: 'bg-blue-600 text-white'      },
 ]
@@ -66,7 +66,7 @@ function RfvSkeleton() {
           <thead>
             <tr className="border-b border-border-light">
               {['Cliente', 'Ultima compra', 'Pedidos 90d', 'Ticket medio', 'Segmento'].map((h) => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">
+                <th key={h} scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">
                   {h}
                 </th>
               ))}
@@ -226,7 +226,7 @@ export default function RfvPage() {
         {loadState === 'ok' && (
           <div className="space-y-4">
             {/* Cards de resumo — sempre baseados no total */}
-            <SummaryCards customers={filter === 'ALL' ? allCustomers : allCustomers} />
+            <SummaryCards customers={allCustomers} />
 
             {/* Tabela */}
             <div className="rounded-2xl bg-bg-primary shadow-card overflow-hidden">
@@ -237,6 +237,7 @@ export default function RfvPage() {
                       {['Cliente', 'Ultima compra', 'Pedidos 90d', 'Ticket medio', 'Segmento'].map((h) => (
                         <th
                           key={h}
+                          scope="col"
                           className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted whitespace-nowrap"
                         >
                           {h}
@@ -247,13 +248,13 @@ export default function RfvPage() {
                   <tbody>
                     {displayed.map((c) => (
                       <tr key={c.customerId} className="border-b border-border-light hover:bg-bg-secondary">
-                        <td className="px-4 py-3 font-medium text-text-primary">{c.customerName}</td>
+                        <td className="px-4 py-3 font-medium text-text-primary">{c.customerName ?? 'Sem nome'}</td>
                         <td className="px-4 py-3 text-text-secondary">
-                          {c.recencyDays === 0 ? 'Hoje' : `${c.recencyDays} dias atras`}
+                          {c.recencyDays === 0 ? 'Hoje' : c.recencyDays === 1 ? '1 dia atras' : `${c.recencyDays} dias atras`}
                         </td>
                         <td className="px-4 py-3 text-right text-text-secondary">{c.frequency}</td>
                         <td className="px-4 py-3 text-right text-text-secondary">
-                          {formatCents(c.frequency > 0 ? Math.round(c.monetaryValue / c.frequency) : 0)}
+                          {formatCents(c.monetaryValue)}
                         </td>
                         <td className="px-4 py-3">
                           <span

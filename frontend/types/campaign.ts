@@ -63,7 +63,7 @@ export interface CampaignSendResponse {
 
 export interface RfvScoreResponse {
   customerId: string
-  customerName: string
+  customerName: string | null
   recencyDays: number
   frequency: number
   monetaryValue: number
