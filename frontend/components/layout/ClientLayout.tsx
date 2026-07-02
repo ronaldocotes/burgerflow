@@ -6,8 +6,8 @@ import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { CopilotChat } from '@/components/ai/CopilotChat'
 
-// Rotas publicas: sem sidebar/topbar, renderiza children direto
-const PUBLIC_PREFIXES = ['/', '/login', '/cardapio', '/aceitar-convite', '/acompanhar', '/motoboy']
+// Rotas publicas OU com layout proprio (/plataforma): renderiza children direto
+const PUBLIC_PREFIXES = ['/', '/login', '/cardapio', '/aceitar-convite', '/acompanhar', '/motoboy', '/plataforma']
 
 function isPublicRoute(pathname: string): boolean {
   if (pathname === '/') return true
