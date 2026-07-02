@@ -1,7 +1,10 @@
 package com.menuflow.service
 
 import com.menuflow.dto.TotpSetupResponse
+import com.menuflow.ifood.IfoodTokenCipher
+import com.menuflow.repository.control.UserRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.security.SecureRandom
 import java.time.Instant
 import java.util.UUID
@@ -13,37 +16,45 @@ import kotlin.math.pow
 /**
  * Servico de 2FA via TOTP (RFC 6238) para SUPER_ADMINs.
  *
- * NOTA DE PRODUCAO: os segredos sao mantidos em memoria (ConcurrentHashMap).
- * Pendente V15 migration no banco de CONTROLE:
- *   ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret VARCHAR(256);
- * Apos a migration, substituir secrets/pendingSecrets por leitura/escrita no
- * userRepository (criptografar o segredo em repouso — AES-256-GCM, mesmo
- * padrao das credenciais do iFood).
+ * PERSISTENCIA (V15): o segredo ATIVO e cifrado em AES-256-GCM e guardado no banco
+ * de CONTROLE (users.totp_secret_enc / totp_secret_iv), reusando o IfoodTokenCipher.
+ * Assim o 2FA sobrevive a reinicializacoes. A chave de cifra vem de env
+ * (ifood.encryption.key / IFOOD_ENCRYPTION_KEY), nunca do banco.
  *
- * As sessoes intermediarias (sessionToken -> userId, expiry) tambem ficam em
- * memoria; considerar Redis para ambientes multi-instancia.
+ * EM MEMORIA (efemeros por natureza, nao precisam persistir):
+ *  - pendingSecrets: segredo de um setup ainda NAO confirmado (o usuario refaz o
+ *    setup se reiniciar antes de confirmar — comportamento aceitavel);
+ *  - sessions: sessao intermediaria (sessionToken -> userId) de 5 min entre o
+ *    login e o /auth/2fa/verify.
+ * Em ambiente multi-instancia, migrar esses dois para Redis (o segredo ativo ja
+ * esta no banco, entao verify/hasSecret ja funcionam cross-instancia).
  */
 @Service
-class TotpService {
+class TotpService(
+    private val userRepository: UserRepository,
+    private val cipher: IfoodTokenCipher,
+) {
 
     private val random = SecureRandom()
 
-    // segredo confirmado por userId (ativo — 2FA ligado)
-    private val secrets = ConcurrentHashMap<UUID, ByteArray>()
-
-    // segredo pendente de confirmacao por userId (setup iniciado, ainda nao confirmado)
+    // segredo pendente de confirmacao por userId (setup iniciado, ainda nao confirmado) — efemero
     private val pendingSecrets = ConcurrentHashMap<UUID, ByteArray>()
 
-    // token de sessao intermediaria -> (userId, expiry)
+    // token de sessao intermediaria -> (userId, expiry) — efemero
     private val sessions = ConcurrentHashMap<String, Pair<UUID, Instant>>()
 
     // ── API publica ──────────────────────────────────────────────────────────
 
-    fun hasSecret(userId: UUID): Boolean = secrets.containsKey(userId)
+    /** True se o usuario tem 2FA ativo (segredo cifrado presente no banco). */
+    @Transactional("controlTransactionManager", readOnly = true)
+    fun hasSecret(userId: UUID): Boolean {
+        val user = userRepository.findById(userId).orElse(null) ?: return false
+        return user.totpSecretEnc != null && user.totpSecretIv != null
+    }
 
     /**
-     * Inicia o setup: gera um segredo novo, guarda como pendente (nao ativo ainda)
-     * e devolve o URI otpauth:// para o front gerar o QR code.
+     * Inicia o setup: gera um segredo novo, guarda como PENDENTE (em memoria, nao
+     * ativo ainda) e devolve o URI otpauth:// para o front gerar o QR code.
      * O usuario deve confirmar via confirmSetup() com o primeiro codigo do autenticador.
      */
     fun startSetup(userId: UUID): TotpSetupResponse {
@@ -55,25 +66,36 @@ class TotpService {
     }
 
     /**
-     * Confirma o setup verificando o codigo com o segredo pendente.
-     * Se valido, move o segredo de pendente para ativo e retorna true.
-     * Se invalido, o segredo pendente permanece (usuario pode tentar de novo).
+     * Confirma o setup verificando o codigo com o segredo pendente. Se valido, CIFRA
+     * o segredo e o PERSISTE no banco (2FA passa a ativo), remove o pendente e retorna
+     * true. Se invalido, o pendente permanece (usuario tenta de novo).
      */
+    @Transactional("controlTransactionManager")
     fun confirmSetup(userId: UUID, code: String): Boolean {
         val secret = pendingSecrets[userId] ?: return false
         if (!verifyCode(secret, code)) return false
-        secrets[userId] = secret
+
+        val user = userRepository.findById(userId).orElse(null) ?: return false
+        val (enc, iv) = cipher.encrypt(base32Encode(secret)) // guarda o segredo em Base32 cifrado
+        user.totpSecretEnc = enc
+        user.totpSecretIv = iv
+        userRepository.save(user)
+
         pendingSecrets.remove(userId)
         return true
     }
 
     /**
-     * Verifica um codigo TOTP contra o segredo ativo do usuario.
+     * Verifica um codigo TOTP contra o segredo ATIVO do usuario (decifrado do banco).
      * Janela de +/-1 passo (30s) para tolerar pequenas derivas de relogio.
      * Retorna false se o usuario nao tiver 2FA ativo.
      */
+    @Transactional("controlTransactionManager", readOnly = true)
     fun verify(userId: UUID, code: String): Boolean {
-        val secret = secrets[userId] ?: return false
+        val user = userRepository.findById(userId).orElse(null) ?: return false
+        val enc = user.totpSecretEnc ?: return false
+        val iv = user.totpSecretIv ?: return false
+        val secret = base32Decode(cipher.decrypt(enc, iv))
         return verifyCode(secret, code)
     }
 
@@ -153,5 +175,23 @@ class TotpService {
             sb.append(BASE32_ALPHABET[(buffer shl (5 - bitsLeft)) and 0x1F])
         }
         return sb.toString()
+    }
+
+    private fun base32Decode(encoded: String): ByteArray {
+        val clean = encoded.trim().uppercase().filter { it != '=' }
+        val out = ArrayList<Byte>()
+        var buffer = 0
+        var bitsLeft = 0
+        for (ch in clean) {
+            val idx = BASE32_ALPHABET.indexOf(ch)
+            require(idx >= 0) { "caractere Base32 invalido" }
+            buffer = (buffer shl 5) or idx
+            bitsLeft += 5
+            if (bitsLeft >= 8) {
+                bitsLeft -= 8
+                out.add(((buffer ushr bitsLeft) and 0xFF).toByte())
+            }
+        }
+        return out.toByteArray()
     }
 }

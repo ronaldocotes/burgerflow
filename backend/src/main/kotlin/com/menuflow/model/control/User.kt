@@ -49,6 +49,18 @@ data class User(
 
     @Column(name = "last_login_at")
     var lastLoginAt: Instant? = null,
+
+    /**
+     * Segredo TOTP (2FA) cifrado em AES-256-GCM. NULL = 2FA nao configurado.
+     * Emparelhado com [totpSecretIv] (ambos gravados/limpos juntos). Ver TotpService
+     * e IfoodTokenCipher (mesmo esquema de cifra). NUNCA armazenar em claro.
+     */
+    @Column(name = "totp_secret_enc")
+    var totpSecretEnc: ByteArray? = null,
+
+    /** IV de 12 bytes do AES-256-GCM do segredo TOTP. Emparelhado com [totpSecretEnc]. */
+    @Column(name = "totp_secret_iv")
+    var totpSecretIv: ByteArray? = null,
 ) {
     @PreUpdate
     fun preUpdate() {

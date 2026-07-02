@@ -31,8 +31,8 @@ import java.util.UUID
  *
  * F3: SUPER_ADMINs com TOTP ativo recebem status="2FA_REQUIRED" no login normal.
  * O JWT so e emitido apos POST /auth/2fa/verify com o codigo TOTP valido.
- * NOTA DE PRODUCAO: o segredo TOTP fica em memoria enquanto nao houver V15 migration
- * (ALTER TABLE users ADD COLUMN totp_secret VARCHAR(256)) — lost on restart em prod.
+ * O segredo TOTP e persistido CIFRADO (AES-256-GCM) no banco de controle (V15),
+ * entao o 2FA sobrevive a reinicializacoes. Ver TotpService.
  */
 @Service
 class AuthService(

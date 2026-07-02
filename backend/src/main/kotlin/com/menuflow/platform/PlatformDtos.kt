@@ -184,10 +184,8 @@ data class AiUsageResponse(
  * tenantSlug indica em qual hamburgueria o usuario foi criado (SUPER_ADMIN e
  * um papel num tenant real, nao num tenant especial de plataforma).
  *
- * has2FA: true se o usuario completou o setup do TOTP.
- * NOTA DE PRODUCAO: requer V15 migration (ALTER TABLE users ADD COLUMN totp_secret)
- * para persistencia do segredo entre reinicializacoes. Enquanto isso, o valor e
- * derivado do cache em memoria do TotpService.
+ * has2FA: true se o usuario completou o setup do TOTP (segredo cifrado persistido
+ * no banco de controle — V15). Derivado de users.totp_secret_enc via TotpService.
  */
 data class PlatformUserSummary(
     val id: UUID,
