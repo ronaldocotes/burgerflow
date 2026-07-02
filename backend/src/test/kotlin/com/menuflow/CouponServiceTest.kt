@@ -131,6 +131,15 @@ class CouponServiceTest @Autowired constructor(
     }
 
     @Test
+    fun `desconto PERCENT nunca ultrapassa o subtotal`() {
+        bind()
+        // 100% de desconto (10000 = 100%x100) deve ser limitado ao subtotal.
+        val code = newCoupon(type = DiscountType.PERCENT, value = 10_000)
+        val app = couponService.preview(code, subtotalCents = 3_000, customerPhone = null)
+        assertEquals(3_000, app.discountCents, "100% limitado ao subtotal")
+    }
+
+    @Test
     fun `pedido abaixo do minimo lança exceção`() {
         bind()
         val code = newCoupon(minOrder = 5_000)

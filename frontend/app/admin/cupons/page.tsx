@@ -4,7 +4,6 @@ import {
   useCallback,
   useEffect,
   useId,
-  useReducer,
   useRef,
   useState,
 } from 'react'
@@ -219,9 +218,14 @@ function CouponFormModal({
             Codigo <span className="text-error" aria-hidden="true">*</span>
           </label>
           {editing ? (
-            <p className="input-field bg-bg-secondary text-text-muted font-mono cursor-not-allowed">
-              {editing.code}
-            </p>
+            <input
+              id="coupon-code"
+              type="text"
+              className="input-field bg-bg-secondary text-text-muted font-mono cursor-not-allowed"
+              value={editing.code}
+              disabled
+              readOnly
+            />
           ) : (
             <input
               id="coupon-code"
