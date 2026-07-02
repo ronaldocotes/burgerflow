@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Positive
 import jakarta.validation.constraints.PositiveOrZero
 import jakarta.validation.constraints.Size
 import java.time.Instant
+import java.time.LocalDate
 import java.util.UUID
 
 /**
@@ -105,4 +106,25 @@ data class ApplyCouponResponse(
     val valid: Boolean,
     val discountCents: Long,
     val description: String?,
+)
+
+/** Entrada do ranking de cupons no sumário de performance. */
+data class TopCouponEntry(
+    val code: String,
+    val redemptions: Long,
+    val discountCents: Long,
+)
+
+/**
+ * Sumário de performance dos cupons num período (Fase 3.2).
+ * Expõe total de redenções, desconto concedido e top cupons para o
+ * painel de gestão avaliar a eficácia das promoções.
+ * Dinheiro em centavos.
+ */
+data class CouponSummaryResponse(
+    val from: LocalDate,
+    val to: LocalDate,
+    val totalRedemptions: Long,
+    val totalDiscountCents: Long,
+    val topCoupons: List<TopCouponEntry>,
 )

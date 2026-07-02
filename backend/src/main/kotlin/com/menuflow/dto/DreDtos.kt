@@ -41,6 +41,11 @@ data class DreResponse(
     val grossProfitCents: Long,
     val operatingExpensesCents: Long,
     val netProfitCents: Long,
+    // Descontos concedidos — informativos (já embutidos em grossRevenueCents, que
+    // usa o totalCents pós-desconto). Útil para o painel separar promoções.
+    val couponDiscountCents: Long,
+    val manualDiscountCents: Long,
+    val totalDiscountCents: Long,
     // Indicadores
     val orderCount: Long,
     val averageTicketCents: Long,

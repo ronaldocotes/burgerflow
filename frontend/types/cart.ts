@@ -46,6 +46,8 @@ export interface OrderCreateInput {
   discountCents?: number;
   deliveryFeeCents?: number;
   tableNumber?: string | null;
+  /** codigo de cupom pre-validado; o servidor recalcula e aplica o desconto */
+  couponCode?: string;
 }
 
 // Linha do carrinho no PDV. Tem id próprio porque o mesmo produto com escolhas

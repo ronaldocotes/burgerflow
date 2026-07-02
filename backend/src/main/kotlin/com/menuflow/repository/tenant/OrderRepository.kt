@@ -185,7 +185,9 @@ interface OrderRepository :
                COALESCE(SUM(o.marketplaceFeeCents), 0),
                COALESCE(SUM(o.cardFeeCents), 0),
                COALESCE(SUM(o.cogsCents), 0),
-               COUNT(o)
+               COUNT(o),
+               COALESCE(SUM(o.couponDiscountCents), 0),
+               COALESCE(SUM(o.discountCents), 0)
         FROM Order o
         WHERE o.status = com.menuflow.model.OrderStatus.DELIVERED
           AND o.completedAt >= :from AND o.completedAt < :to

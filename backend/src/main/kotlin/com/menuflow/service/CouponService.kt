@@ -3,7 +3,9 @@ package com.menuflow.service
 import com.menuflow.dto.CouponCreateRequest
 import com.menuflow.dto.CouponRedemptionResponse
 import com.menuflow.dto.CouponResponse
+import com.menuflow.dto.CouponSummaryResponse
 import com.menuflow.dto.CouponUpdateRequest
+import com.menuflow.dto.TopCouponEntry
 import com.menuflow.exception.BusinessException
 import com.menuflow.exception.ResourceNotFoundException
 import com.menuflow.model.Coupon
@@ -12,12 +14,15 @@ import com.menuflow.model.DiscountType
 import com.menuflow.repository.tenant.CouponRedemptionRepository
 import com.menuflow.repository.tenant.CouponRepository
 import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
 
 /**
@@ -122,6 +127,49 @@ class CouponService(
         if (!couponRepository.existsById(couponId)) throw ResourceNotFoundException("Cupom não encontrado")
         return redemptionRepository.findByCouponIdOrderByRedeemedAtDesc(couponId, pageable)
             .map { CouponRedemptionResponse.from(it) }
+    }
+
+    // ----------------------------- Sumário de performance -----------------------------
+
+    /**
+     * Sumário de performance dos cupons num período (para o painel de gestão).
+     * Consulta: total de redenções, total de desconto concedido e top-5 cupons por
+     * número de usos. Período dado em datas locais (America/Sao_Paulo).
+     */
+    @Transactional("tenantTransactionManager", readOnly = true)
+    fun summary(from: LocalDate, to: LocalDate): CouponSummaryResponse {
+        if (to.isBefore(from)) throw BusinessException("Período inválido: fim antes do início")
+        val zone = ZoneId.of("America/Sao_Paulo")
+        val fromInst: Instant = from.atStartOfDay(zone).toInstant()
+        val toInst: Instant = to.plusDays(1).atStartOfDay(zone).toInstant()
+
+        val totalRedemptions = redemptionRepository.countInPeriod(fromInst, toInst)
+        val totalDiscount = redemptionRepository.sumDiscountInPeriod(fromInst, toInst) ?: 0L
+
+        // Top-5 por contagem de redenções; resolve código a partir dos ids.
+        val topRows = redemptionRepository.topByRedemptionsInPeriod(fromInst, toInst, PageRequest.of(0, 5))
+        val topIds = topRows.map { it[0] as UUID }
+        val codeById = if (topIds.isEmpty()) emptyMap()
+        else couponRepository.findAllById(topIds).associate { it.id to it.code }
+
+        val topCoupons = topRows.map { row ->
+            val couponId = row[0] as UUID
+            val count = (row[1] as Number).toLong()
+            val discount = (row[2] as Number).toLong()
+            TopCouponEntry(
+                code = codeById[couponId] ?: couponId.toString(),
+                redemptions = count,
+                discountCents = discount,
+            )
+        }
+
+        return CouponSummaryResponse(
+            from = from,
+            to = to,
+            totalRedemptions = totalRedemptions,
+            totalDiscountCents = totalDiscount,
+            topCoupons = topCoupons,
+        )
     }
 
     // ----------------------------- Preview (público) -----------------------------

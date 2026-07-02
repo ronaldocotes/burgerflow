@@ -10,8 +10,8 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, ApiError } from "@/lib/api";
-import { getToken, logout } from "@/lib/auth";
+import { api, ApiError, API_BASE } from "@/lib/api";
+import { getTenant, getToken, logout } from "@/lib/auth";
 import { useModalA11y } from "@/lib/use-modal-a11y";
 import {
   Category,
@@ -34,6 +34,7 @@ import {
   QuoteRequest,
   QuoteResponse,
 } from "@/types/cart";
+import { ApplyCouponResponse } from "@/types/coupon";
 import LoadingSpinner from "@/components/loading-spinner";
 import { ShoppingCart, ShoppingBag, Truck, UtensilsCrossed, Check, CheckCircle, Clock } from "lucide-react";
 
@@ -101,6 +102,16 @@ export default function PdvPage() {
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [quoting, setQuoting] = useState(false);
+
+  // Cupom de desconto: pre-checagem publica (apply-coupon); o desconto REAL e
+  // recalculado no servidor ao criar o pedido (couponCode no POST /orders).
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<ApplyCouponResponse | null>(null);
+  const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const couponDiscountCents =
+    appliedCoupon && appliedCoupon.valid ? appliedCoupon.discountCents : 0;
 
   const [loadingProductId, setLoadingProductId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{
@@ -301,7 +312,104 @@ export default function PdvPage() {
     setCart([]);
     setQuote(null);
     setQuoteError(null);
+    removeCoupon();
   }
+
+  async function applyCoupon() {
+    const code = couponCode.trim().toUpperCase();
+    if (!code || !quote || applyingCoupon) return;
+    setApplyingCoupon(true);
+    setCouponError(null);
+    try {
+      const res = await fetch(
+        `${API_BASE}/public/${getTenant() ?? ""}/apply-coupon`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, subtotalCents: quote.subtotalCents }),
+        },
+      );
+      const data = (await res.json()) as ApplyCouponResponse & {
+        message?: string;
+      };
+      if (!res.ok || !data.valid) {
+        setAppliedCoupon(null);
+        setAppliedCouponCode(null);
+        setCouponError(
+          typeof data.message === "string"
+            ? data.message
+            : "Cupom invalido ou expirado.",
+        );
+      } else {
+        setAppliedCoupon(data);
+        setAppliedCouponCode(code);
+        setCouponCode("");
+      }
+    } catch {
+      setCouponError("Nao foi possivel verificar o cupom. Tente novamente.");
+    } finally {
+      setApplyingCoupon(false);
+    }
+  }
+
+  function removeCoupon() {
+    setAppliedCoupon(null);
+    setAppliedCouponCode(null);
+    setCouponCode("");
+    setCouponError(null);
+  }
+
+  // Revalida o cupom quando o subtotal muda (min_order pode deixar de valer).
+  // Se a rede falhar, mantem o cupom: o servidor revalida ao criar o pedido.
+  useEffect(() => {
+    if (!appliedCouponCode) return;
+    const subtotal = quote?.subtotalCents;
+    if (subtotal == null) {
+      setAppliedCoupon(null);
+      setAppliedCouponCode(null);
+      setCouponError(null);
+      return;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await fetch(
+            `${API_BASE}/public/${getTenant() ?? ""}/apply-coupon`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                code: appliedCouponCode,
+                subtotalCents: subtotal,
+              }),
+            },
+          );
+          const data = (await res.json()) as ApplyCouponResponse & {
+            message?: string;
+          };
+          if (cancelled) return;
+          if (!res.ok || !data.valid) {
+            setAppliedCoupon(null);
+            setAppliedCouponCode(null);
+            setCouponError(
+              typeof data.message === "string"
+                ? data.message
+                : "O cupom deixou de valer para este pedido.",
+            );
+          } else {
+            setAppliedCoupon(data);
+          }
+        } catch {
+          // rede indisponivel: mantem o cupom aplicado
+        }
+      })();
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [quote?.subtotalCents, appliedCouponCode]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -599,14 +707,86 @@ export default function PdvPage() {
                 {quoteError}
               </p>
             )}
+            {/* Cupom de desconto */}
+            {appliedCoupon ? (
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-success/40 bg-success/10 px-3 py-2">
+                <span className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold text-success">
+                  <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span className="truncate">
+                    {appliedCouponCode}: -{formatBRL(couponDiscountCents)}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={removeCoupon}
+                  className="shrink-0 rounded-md px-2 py-2 text-sm font-medium text-text-secondary underline hover:text-error"
+                  aria-label={`Remover cupom ${appliedCouponCode}`}
+                >
+                  Remover
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => {
+                      setCouponCode(e.target.value.toUpperCase());
+                      setCouponError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void applyCoupon();
+                      }
+                    }}
+                    placeholder="Cupom (opcional)"
+                    aria-label="Codigo do cupom"
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    className="input-field min-w-0 flex-1 uppercase"
+                    disabled={cart.length === 0}
+                  />
+                  <button
+                    type="button"
+                    className="btn-outline shrink-0"
+                    onClick={() => void applyCoupon()}
+                    disabled={
+                      !couponCode.trim() || applyingCoupon || !quote || quoting
+                    }
+                  >
+                    {applyingCoupon ? "…" : "Aplicar"}
+                  </button>
+                </div>
+                {couponError && (
+                  <p className="text-sm text-error" role="alert">
+                    {couponError}
+                  </p>
+                )}
+              </div>
+            )}
             <div className="flex items-center justify-between text-sm text-text-secondary">
               <span>Subtotal</span>
               <span>{quote ? formatBRL(quote.subtotalCents) : "—"}</span>
             </div>
+            {couponDiscountCents > 0 && (
+              <div className="flex items-center justify-between text-sm font-medium text-success">
+                <span>Desconto ({appliedCouponCode})</span>
+                <span>- {formatBRL(couponDiscountCents)}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between text-lg font-bold text-text-primary">
               <span>Total</span>
               <span>
-                {quoting ? "…" : quote ? formatBRL(quote.totalCents) : "—"}
+                {quoting
+                  ? "…"
+                  : quote
+                    ? formatBRL(
+                        Math.max(0, quote.totalCents - couponDiscountCents),
+                      )
+                    : "—"}
               </span>
             </div>
             <button
@@ -634,7 +814,7 @@ export default function PdvPage() {
             {cart.reduce((s, l) => s + l.quantity, 0)}
           </span>
           <span className="text-sm font-semibold">
-            {cart.length === 0 ? "Ver pedido" : quoting ? "…" : quote ? formatBRL(quote.totalCents) : "Ver pedido"}
+            {cart.length === 0 ? "Ver pedido" : quoting ? "…" : quote ? formatBRL(Math.max(0, quote.totalCents - couponDiscountCents)) : "Ver pedido"}
           </span>
         </button>
       </div>
@@ -657,6 +837,8 @@ export default function PdvPage() {
           orderType={orderType}
           items={items}
           cart={cart}
+          couponCode={appliedCoupon ? appliedCouponCode : null}
+          couponDiscountCents={couponDiscountCents}
           hasCashSession={hasCashSession}
           onClose={() => setShowPayment(false)}
           onUnauthorized={redirectToLogin}
@@ -1342,6 +1524,8 @@ function PaymentModal({
   orderType,
   items,
   cart,
+  couponCode,
+  couponDiscountCents,
   hasCashSession,
   onClose,
   onUnauthorized,
@@ -1351,6 +1535,8 @@ function PaymentModal({
   orderType: OrderType;
   items: OrderItemInput[];
   cart: CartLine[];
+  couponCode: string | null;
+  couponDiscountCents: number;
   hasCashSession: boolean;
   onClose: () => void;
   onUnauthorized: () => void;
@@ -1372,13 +1558,17 @@ function PaymentModal({
     return Number.isFinite(value) ? Math.round(value * 100) : null;
   }, [received]);
 
+  // Total devido na tela: quote menos o cupom pre-validado. O valor final
+  // continua sendo o do servidor (que revalida o cupom ao criar o pedido).
+  const dueCents = Math.max(0, quote.totalCents - couponDiscountCents);
+
   const changeCents =
     method === "CASH" && receivedCents != null
-      ? receivedCents - quote.totalCents
+      ? receivedCents - dueCents
       : null;
 
   const insufficientCash =
-    method === "CASH" && receivedCents != null && receivedCents < quote.totalCents;
+    method === "CASH" && receivedCents != null && receivedCents < dueCents;
 
   async function confirm() {
     if (submitting) return;
@@ -1389,6 +1579,7 @@ function PaymentModal({
         orderType,
         items,
         paymentMethod: method,
+        couponCode: couponCode ?? undefined,
       };
       const created = await api.post<OrderCreatedResponse>("/orders", body, {
         "Idempotency-Key": crypto.randomUUID(),
@@ -1432,7 +1623,7 @@ function PaymentModal({
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-text-primary">Pagamento</h2>
           <span className="text-lg font-bold text-primary-700">
-            {formatBRL(quote.totalCents)}
+            {formatBRL(dueCents)}
           </span>
         </div>
 
@@ -1455,6 +1646,16 @@ function PaymentModal({
               </div>
             );
           })}
+          {couponCode && couponDiscountCents > 0 && (
+            <div className="flex items-center justify-between gap-2 px-3 py-2">
+              <p className="text-sm font-medium text-success">
+                Cupom {couponCode}
+              </p>
+              <span className="shrink-0 text-sm font-semibold text-success">
+                - {formatBRL(couponDiscountCents)}
+              </span>
+            </div>
+          )}
         </div>
 
         <div

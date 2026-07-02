@@ -51,6 +51,10 @@ class DreService(
         val cardFees = num(agg[2])
         val cogs = num(agg[3])
         val orderCount = num(agg[4])
+        // Descontos adicionados na Fase 3.2 para separar cupons de descontos manuais.
+        val couponDiscount = num(agg[5])
+        val totalDiscount = num(agg[6])
+        val manualDiscount = totalDiscount - couponDiscount
 
         val taxPct = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()?.taxPct ?: BigDecimal.ZERO
         val tax = pctOf(gross, taxPct)
@@ -77,6 +81,9 @@ class DreService(
             grossProfitCents = grossProfit,
             operatingExpensesCents = operatingExpenses,
             netProfitCents = netProfit,
+            couponDiscountCents = couponDiscount,
+            manualDiscountCents = manualDiscount,
+            totalDiscountCents = totalDiscount,
             orderCount = orderCount,
             averageTicketCents = averageTicket,
             grossMarginPct = marginPct(grossProfit, gross),
