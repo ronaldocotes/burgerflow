@@ -13,6 +13,7 @@ import com.menuflow.security.ratelimit.WebhookMessageDeduplicator
 import com.menuflow.tenant.TenantContext
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.scheduling.annotation.Async
@@ -56,6 +57,7 @@ class WhatsAppBotService(
     private val whatsAppService: WhatsAppService,
     private val aiRateLimiter: AiTenantRateLimiter,
     private val deduplicator: WebhookMessageDeduplicator,
+    @Value("\${menuflow.app.base-url:}") private val appBaseUrl: String,
     @Qualifier("tenantTransactionManager") txManager: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -140,7 +142,7 @@ class WhatsAppBotService(
         }
 
         // 7. Conversa com o LLM (ferramentas restritas) e envia a resposta.
-        val reply = runConversation(sessionIdOf(tenantSlug, phone), config, phone, body)
+        val reply = runConversation(sessionIdOf(tenantSlug, phone), config, tenantSlug, phone, body)
         whatsAppService.sendCampaign(phone, reply, session)
     }
 
@@ -150,10 +152,10 @@ class WhatsAppBotService(
      * contagem diaria nem as metricas do copiloto do dono (que filtram role='user').
      * As ferramentas recebem o telefone VERIFICADO do remetente, nunca um do LLM.
      */
-    private fun runConversation(sid: String, config: TenantConfig, phone: String, body: String): String {
+    private fun runConversation(sid: String, config: TenantConfig, tenantSlug: String, phone: String, body: String): String {
         conversationService.save(sid, "bot_user", body)
 
-        val messages = mutableListOf(ChatMessage("system", systemPrompt(config)))
+        val messages = mutableListOf(ChatMessage("system", systemPrompt(config, tenantSlug)))
         conversationService.recentHistory(sid)
             .filter { it.role in setOf("bot_user", "bot_assistant") && !it.content.isNullOrBlank() }
             .forEach { messages.add(ChatMessage(if (it.role == "bot_assistant") "assistant" else "user", it.content)) }
@@ -229,9 +231,14 @@ class WhatsAppBotService(
         AiCopilotService.DEFAULT_BLOCKED_PATTERNS.any { it.containsMatchIn(message) }
 
     /** Prompt de sistema do BOT (cliente). Distinto do copiloto do dono. */
-    private fun systemPrompt(config: TenantConfig): String {
+    private fun systemPrompt(config: TenantConfig, tenantSlug: String): String {
         val name = config.restaurantName?.takeIf { it.isNotBlank() } ?: "o restaurante"
         val keyword = handoffKeyword(config)
+        // G7: link do cardapio injetado no prompt quando APP_BASE_URL esta configurado.
+        val menuLink = appBaseUrl.trim().trimEnd('/')
+            .takeIf { it.isNotBlank() }
+            ?.let { "\nO link do cardapio deste restaurante e: $it/cardapio/$tenantSlug — envie este link quando o cliente quiser ver o cardapio ou fazer um pedido online." }
+            ?: ""
         val base = """
             Voce e o atendente virtual do restaurante $name.
             Responda SEMPRE em portugues brasileiro, de forma amigavel e concisa.
@@ -239,7 +246,7 @@ class WhatsAppBotService(
             Voce NAO pode: fazer pedidos, alterar pedidos nem acessar dados de outros clientes.
             Use as ferramentas para consultar dados reais antes de afirmar; nunca invente precos ou status.
             Se o cliente quiser falar com um humano, oriente a digitar "$keyword".
-            Limite suas respostas a no maximo 3 paragrafos curtos (WhatsApp tem limite de atencao).
+            Limite suas respostas a no maximo 3 paragrafos curtos (WhatsApp tem limite de atencao).${menuLink}
         """.trimIndent()
         val custom = config.botSystemPrompt?.trim()?.ifBlank { null }
         return if (custom == null) base else "$base\n\nInstrucoes do restaurante:\n$custom"

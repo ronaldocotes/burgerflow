@@ -15,6 +15,9 @@ interface DeliveryDriverRepository : JpaRepository<DeliveryDriver, UUID> {
     /** Entregador ligado a um User do banco de controle (elo 1:1). App do motoboy. */
     fun findByUserId(userId: UUID): DeliveryDriver?
 
+    /** Entregador pelo telefone (digitos), usado para resolver o JID do WhatsApp no despacho. */
+    fun findByPhone(phone: String): DeliveryDriver?
+
     /**
      * Entregadores disponiveis para o auto-assign: ativos, EM TURNO, com localizacao
      * conhecida e SEM oferta OFFERED viva (ociosos). A ausencia de oferta viva evita

@@ -76,7 +76,8 @@ data class DriverLocationEvent(
 data class DeliveryOfferResponse(
     val id: UUID,
     val orderId: UUID,
-    val driverId: UUID,
+    // Nullable desde a Fase B1: oferta de grupo nasce sem motoboy pre-escolhido.
+    val driverId: UUID?,
     val status: DeliveryOfferStatus,
     val feeCents: Long,
     val distanceKm: Double?,

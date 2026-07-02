@@ -69,6 +69,8 @@ logging:
 
 # MenuFlow multi-tenant connection template (database-per-tenant)
 menuflow:
+  app:
+    base-url: ${MENUFLOW_APP_BASE_URL:http://localhost:3000}
   tenant:
     host: ${MF_DB_HOST:localhost:5432}
     username: ${MF_DB_USER:menuflow}

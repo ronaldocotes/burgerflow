@@ -53,6 +53,7 @@ yarn/
 # =============================================================================
 backend/build/
 backend/.gradle/
+backend/.kotlin/
 backend/out/
 backend/**/*.iml
 backend/.idea/

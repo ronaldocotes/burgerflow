@@ -255,6 +255,60 @@ data class TenantConfig(
     @Column(name = "delivery_fee_per_km_cents", nullable = false)
     var deliveryFeePerKmCents: Long = 200,
 
+    // --- Fase A2: taxa(cliente) x payout(motoboy) + raio gratis + piso ---
+    /** Raio (metros) isento de cobranca por km: km cobravel = km - esse raio. */
+    @Column(name = "delivery_free_radius_meters", nullable = false)
+    var deliveryFreeRadiusMeters: Long = 0,
+
+    /** Piso da tarifa cobrada do cliente (centavos). */
+    @Column(name = "delivery_min_fee_cents", nullable = false)
+    var deliveryMinFeeCents: Long = 0,
+
+    /** Base do REPASSE ao motoboy (centavos); null = espelha a tarifa base. */
+    @Column(name = "delivery_base_payout_cents")
+    var deliveryBasePayoutCents: Long? = null,
+
+    /** Repasse por km ao motoboy (centavos); null = espelha a tarifa por km. */
+    @Column(name = "delivery_per_km_payout_cents")
+    var deliveryPerKmPayoutCents: Long? = null,
+
+    /** Piso do repasse ao motoboy (centavos); null = espelha o piso da tarifa. */
+    @Column(name = "delivery_min_payout_cents")
+    var deliveryMinPayoutCents: Long? = null,
+
+    // --- Fase B1: despacho por grupo de WhatsApp ---
+    /** Liga o despacho automatico por grupo de WhatsApp (broadcast + aceite atomico). */
+    @Column(name = "dispatch_enabled", nullable = false)
+    var dispatchEnabled: Boolean = false,
+
+    /** JID do grupo de WhatsApp dos motoboys onde a oferta e publicada. */
+    @Column(name = "motoboy_group_jid", length = 100)
+    var motoboyGroupJid: String? = null,
+
+    /** Janela (segundos) para alguem do grupo aceitar antes de expirar/reofertar. */
+    @Column(name = "dispatch_offer_timeout_seconds", nullable = false)
+    var dispatchOfferTimeoutSeconds: Int = 90,
+
+    /** Antecedencia (minutos) para ofertar antes do preparo terminar (motoboy chega a tempo). */
+    @Column(name = "dispatch_ready_lead_minutes", nullable = false)
+    var dispatchReadyLeadMinutes: Int = 8,
+
+    /** Numero maximo de tentativas de reoferta antes de escalar ao dono. */
+    @Column(name = "dispatch_max_attempts", nullable = false)
+    var dispatchMaxAttempts: Int = 3,
+
+    /** Latitude do restaurante (origem da corrida) — usada no calculo de distancia. */
+    @Column(name = "restaurant_lat")
+    var restaurantLat: Double? = null,
+
+    /** Longitude do restaurante (origem da corrida). */
+    @Column(name = "restaurant_lng")
+    var restaurantLng: Double? = null,
+
+    /** Provedor de distancia: HAVERSINE (fallback) ou GOOGLE (rota real de moto). */
+    @Column(name = "distance_provider", nullable = false, length = 20)
+    var distanceProvider: String = "HAVERSINE",
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
 

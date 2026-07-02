@@ -18,6 +18,30 @@ interface OrderRepository :
 
     fun findByOrderNumber(orderNumber: String): Order?
 
+    /**
+     * Candidatos ao despacho por grupo (Fase B1): pedidos de DELIVERY PAGOS, ainda em
+     * producao (PENDING/PREPARING), SEM motoboy atribuido e SEM oferta OFFERED viva.
+     * O corte fino de tempo (updatedAt + prepTime - leadMinutes) e feito em memoria no
+     * DispatchService, pois depende de config por tenant. Sem endereco/geocode nao ha
+     * problema aqui: o pedido entra e o DispatchService cai no fee do pedido.
+     */
+    @Query(
+        """
+        SELECT o FROM Order o
+        WHERE o.orderType = com.menuflow.model.OrderType.DELIVERY
+          AND o.paymentStatus = com.menuflow.model.PaymentStatus.PAID
+          AND o.status IN (com.menuflow.model.OrderStatus.PENDING, com.menuflow.model.OrderStatus.PREPARING)
+          AND o.driverId IS NULL
+          AND NOT EXISTS (
+            SELECT of FROM DeliveryOffer of
+            WHERE of.orderId = o.id
+              AND of.status = com.menuflow.model.DeliveryOfferStatus.OFFERED
+          )
+        ORDER BY o.updatedAt ASC
+        """,
+    )
+    fun findDispatchEligibleOrders(): List<Order>
+
     /** Pedidos mais recentes (qualquer status), para a tool get_recent_orders do Copiloto. */
     fun findAllByOrderByCreatedAtDesc(pageable: Pageable): List<Order>
 

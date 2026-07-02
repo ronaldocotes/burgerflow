@@ -35,6 +35,10 @@ menuflow:
   delivery:
     expiry:
       enabled: false
+  # Motor de despacho por grupo (Fase B1) desligado nos testes: o @Scheduled nao deve
+  # varrer tenants nem criar ofertas contra o Postgres compartilhado da suite.
+  dispatch:
+    enabled: false
 
 # Cifracao de tokens iFood: chave de TESTE valida (32 bytes / 256 bits em Base64).
 # Decodifica para 'testkeytestkeytestkeytestkey1234' (exatamente 32 bytes).

@@ -69,6 +69,10 @@ class OrderService(
     private val cartRecoveryService: CartRecoveryService,
     private val trackingService: TrackingService,
     private val eventPublisher: org.springframework.context.ApplicationEventPublisher,
+    // Fase A2: taxa de entrega server-side (anti-fraude) por distancia + geocode.
+    private val distanceService: com.menuflow.dispatch.DistanceService,
+    private val ridePricingService: com.menuflow.dispatch.RidePricingService,
+    private val geocodingService: com.menuflow.dispatch.GeocodingService,
 ) {
 
     private val dateFmt = DateTimeFormatter.ofPattern("yyMMdd")
@@ -166,13 +170,20 @@ class OrderService(
             }
         }
 
-        // 3. Compute totals (centavos) and persist the order. MESMO cálculo do quote.
-        // Usa o desconto efetivo (cupom quando houver, senão o manual).
-        val (deliveryFee, total) = computeTotals(subtotal, req.orderType, effectiveDiscount, req.deliveryFeeCents)
-
-        // Config do tenant lida UMA vez (aceite automático + alíquotas do DRE).
+        // Config do tenant lida UMA vez (aceite automático + alíquotas do DRE + entrega).
         // Ausência de linha de config = defaults seguros (aceite off, alíquotas 0).
         val config = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()
+
+        // Fase A2 — coordenadas de entrega (request ou geocode) + taxa SERVER-SIDE.
+        // Para DELIVERY geocodificado com restaurante geolocalizado, a taxa vem do
+        // cálculo por distância (RidePricing), IGNORANDO deliveryFeeCents do cliente
+        // (anti-fraude). Sem geocode, mantém o valor do request (fluxo legado).
+        val (deliveryLat, deliveryLng, geocodeSource) = resolveDeliveryGeo(req)
+        val resolvedDeliveryFee = resolveDeliveryFee(req, config, deliveryLat, deliveryLng)
+
+        // 3. Compute totals (centavos) and persist the order. MESMO cálculo do quote.
+        // Usa o desconto efetivo (cupom quando houver, senão o manual).
+        val (deliveryFee, total) = computeTotals(subtotal, req.orderType, effectiveDiscount, resolvedDeliveryFee)
 
         // Aceite automático: com o flag ligado o pedido nasce em PREPARING e vai
         // direto para a cozinha, sem ação manual no PENDING.
@@ -232,6 +243,25 @@ class OrderService(
             cardFeeCents = cardFee,
             estimatedPrepTimeMinutes = (req.items.sumOf { it.quantity } * 5).coerceAtLeast(10),
         )
+        // Fase A2/B1 — grava o endereco de entrega + geocode no pedido de DELIVERY
+        // (o despacho precisa de bairro/coordenadas). Additivo: sem req.delivery os
+        // campos ficam null e nada muda no fluxo legado.
+        if (req.orderType == OrderType.DELIVERY) {
+            req.delivery?.let { addr ->
+                order.deliveryRecipientName = addr.recipientName?.trim()?.takeIf { it.isNotEmpty() }
+                order.deliveryPhone = addr.phone?.trim()?.takeIf { it.isNotEmpty() }
+                order.deliveryCep = addr.cep?.trim()?.takeIf { it.isNotEmpty() }
+                order.deliveryStreet = addr.street?.trim()?.takeIf { it.isNotEmpty() }
+                order.deliveryNumber = addr.number?.trim()?.takeIf { it.isNotEmpty() }
+                order.deliveryComplement = addr.complement?.trim()?.takeIf { it.isNotEmpty() }
+                order.deliveryNeighborhood = addr.neighborhood?.trim()?.takeIf { it.isNotEmpty() }
+                order.deliveryCity = addr.city?.trim()?.takeIf { it.isNotEmpty() }
+                order.deliveryReference = addr.reference?.trim()?.takeIf { it.isNotEmpty() }
+            }
+            order.deliveryLat = deliveryLat
+            order.deliveryLng = deliveryLng
+            order.deliveryGeocodeSource = geocodeSource
+        }
         val saved = orderRepository.save(order)
         items.forEach { it.orderId = saved.id!! }
         saved.items.addAll(items)
@@ -377,6 +407,45 @@ class OrderService(
         val deliveryFee = if (orderType == OrderType.DELIVERY) deliveryFeeCents else 0L
         val total = (subtotal - discountCents + deliveryFee).coerceAtLeast(0)
         return deliveryFee to total
+    }
+
+    /**
+     * Fase A2 — resolve as coordenadas de entrega de um pedido DELIVERY. Usa lat/lng
+     * do request quando presentes (origem MANUAL); senão tenta geocodar o endereço
+     * (Google → origem GOOGLE). Retorna (lat?, lng?, source?) — tudo null se não é
+     * DELIVERY, não há endereço, ou o geocode falhou (fail-safe: nunca lança).
+     */
+    private fun resolveDeliveryGeo(req: OrderCreateRequest): Triple<Double?, Double?, String?> {
+        if (req.orderType != OrderType.DELIVERY) return Triple(null, null, null)
+        val addr = req.delivery ?: return Triple(null, null, null)
+        if (addr.lat != null && addr.lng != null) return Triple(addr.lat, addr.lng, "MANUAL")
+        val geo = geocodingService.geocode(addr.street, addr.neighborhood, addr.city, addr.cep)
+        return if (geo != null) Triple(geo.lat, geo.lng, "GOOGLE") else Triple(null, null, null)
+    }
+
+    /**
+     * Fase A2 (anti-fraude) — taxa de entrega SERVER-SIDE. Para DELIVERY com geocode
+     * do destino E restaurante geolocalizado, IGNORA req.deliveryFeeCents e calcula a
+     * tarifa pela distância rodoviária (RidePricing). Sem geocode (endereço não
+     * resolvido ou restaurante sem coordenadas), mantém o valor do request para não
+     * regredir o fluxo legado em que o operador define a taxa manualmente.
+     */
+    private fun resolveDeliveryFee(
+        req: OrderCreateRequest,
+        config: TenantConfig?,
+        destLat: Double?,
+        destLng: Double?,
+    ): Long {
+        if (req.orderType != OrderType.DELIVERY) return req.deliveryFeeCents
+        val originLat = config?.restaurantLat
+        val originLng = config?.restaurantLng
+        if (originLat == null || originLng == null || destLat == null || destLng == null) {
+            return req.deliveryFeeCents
+        }
+        val meters = distanceService.getRoadDistanceMeters(
+            originLat, originLng, destLat, destLng, config.distanceProvider,
+        )
+        return ridePricingService.feeCents(config, meters)
     }
 
     private data class PricedCart(

@@ -50,6 +50,28 @@ data class OrderCreateRequest(
      * marketing_events apos o pedido ser criado (atribuicao ROAS).
      */
     val trackingLinkId: UUID? = null,
+    /**
+     * Endereco de entrega (DELIVERY). Opcional. Fase A2: quando presente e o
+     * restaurante esta geolocalizado, a taxa de entrega e calculada no SERVIDOR pela
+     * distancia (ignora deliveryFeeCents do cliente) — fecha a fraude de taxa. As
+     * coordenadas vem do request (lat/lng) ou sao resolvidas por geocode.
+     */
+    @field:Valid val delivery: DeliveryAddressRequest? = null,
+)
+
+/** Endereco de entrega do pedido (DELIVERY). Coords opcionais (senao geocode). */
+data class DeliveryAddressRequest(
+    @field:Size(max = 120) val recipientName: String? = null,
+    @field:Size(max = 20) val phone: String? = null,
+    @field:Size(max = 9) val cep: String? = null,
+    @field:Size(max = 200) val street: String? = null,
+    @field:Size(max = 20) val number: String? = null,
+    @field:Size(max = 100) val complement: String? = null,
+    @field:Size(max = 100) val neighborhood: String? = null,
+    @field:Size(max = 100) val city: String? = null,
+    @field:Size(max = 200) val reference: String? = null,
+    val lat: Double? = null,
+    val lng: Double? = null,
 )
 
 data class OrderStatusUpdateRequest(

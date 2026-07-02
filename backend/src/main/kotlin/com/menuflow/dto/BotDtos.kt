@@ -26,6 +26,8 @@ data class WahaWebhookPayload(
     val body: String? = null,
     /** true quando a mensagem foi enviada pelo proprio numero (eco) — ignoramos. */
     val fromMe: Boolean = false,
+    /** Remetente dentro do grupo (ex.: "5511...@c.us"). Presente apenas em msgs de grupo (G3). */
+    val participant: String? = null,
     val timestamp: Long? = null,
 )
 

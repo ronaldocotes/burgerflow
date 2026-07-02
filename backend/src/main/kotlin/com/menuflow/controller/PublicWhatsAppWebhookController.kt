@@ -61,6 +61,11 @@ class PublicWhatsAppWebhookController(
                 return ResponseEntity.ok().build()
             }
             val from = payload.from?.takeIf { it.isNotBlank() } ?: return ResponseEntity.ok().build()
+            // G3: ignorar mensagens de grupo (@g.us ou participant != null) — B2 fara o roteamento.
+            if (from.endsWith("@g.us") || payload.participant != null) {
+                log.debug("Mensagem de grupo ignorada: {} — aguardar B2", from)
+                return ResponseEntity.ok().build()
+            }
             val body = payload.body ?: ""
             val messageId = payload.id ?: ""
 

@@ -69,6 +69,7 @@ services:
       MF_DB_USER: ${MF_DB_USER}
       MF_DB_PASSWORD: ${MF_DB_PASSWORD}
       MF_DB_CONTROL: ${MF_DB_CONTROL:-menuflow_control}
+      MENUFLOW_APP_BASE_URL: https://${SITE_ADDRESS}
       MF_DB_MAINTENANCE: ${MF_DB_CONTROL:-menuflow_control}
       MF_DB_PREFIX: tenant_
       MF_DB_AUTOCREATE: "true"
