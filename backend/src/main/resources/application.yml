@@ -139,6 +139,9 @@ litellm:
 # Integracao iFood (Fase 5.1a). Polling DESABILITADO por padrao: o job so vira
 # bean quando ifood.polling.enabled=true (ver IfoodPollingJob @ConditionalOnProperty).
 ifood:
+  # URL base da API publica do iFood. Default aponta para o ambiente de producao;
+  # sobrescreva IFOOD_API_URL em homologacao. Usado pelo health check de plataforma.
+  base-url: ${IFOOD_API_URL:https://merchant-api.ifood.com.br}
   polling:
     enabled: false
     interval-ms: 30000

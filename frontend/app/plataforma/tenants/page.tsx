@@ -244,7 +244,7 @@ function SkeletonRows({ rows = 5 }: { rows?: number }) {
     <tbody className="divide-y divide-border-light">
       {Array.from({ length: rows }).map((_, i) => (
         <tr key={i} className="animate-pulse">
-          {Array.from({ length: 6 }).map((__, j) => (
+          {Array.from({ length: 7 }).map((__, j) => (
             <td key={j} className="px-4 py-3"><div className="h-4 w-20 rounded bg-bg-tertiary" /></td>
           ))}
         </tr>
@@ -344,6 +344,7 @@ export default function TenantsPage() {
                   <th scope="col" className="px-4 py-2.5 font-semibold text-text-secondary">Plano</th>
                   <th scope="col" className="px-4 py-2.5 font-semibold text-text-secondary">Status</th>
                   <th scope="col" className="px-4 py-2.5 font-semibold text-text-secondary">Expira em</th>
+                  <th scope="col" className="px-4 py-2.5 font-semibold text-text-secondary">Pedidos/mês</th>
                   <th scope="col" className="px-4 py-2.5 font-semibold text-text-secondary">Ações</th>
                 </tr>
               </thead>
@@ -353,7 +354,7 @@ export default function TenantsPage() {
                 <tbody className="divide-y divide-border-light">
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center">
+                      <td colSpan={7} className="px-4 py-12 text-center">
                         <Building2 className="mx-auto mb-2 h-8 w-8 text-text-muted" aria-hidden="true" />
                         <p className="text-sm font-medium text-text-primary">
                           {query ? 'Nenhuma empresa encontrada para a busca' : 'Nenhuma empresa cadastrada'}
@@ -371,6 +372,14 @@ export default function TenantsPage() {
                         <td className="px-4 py-3"><PlanBadge plan={t.plan} /></td>
                         <td className="px-4 py-3"><StatusBadge isActive={t.isActive} /></td>
                         <td className="px-4 py-3 text-text-secondary">{formatDate(t.expiresAt)}</td>
+                        <td className="px-4 py-3 text-text-secondary">
+                          {t.ordersThisMonth != null ? (
+                            t.ordersThisMonth.toLocaleString('pt-BR')
+                          ) : (
+                            // uso detalhado fica na página da empresa (evita N+1 na listagem)
+                            <span className="text-text-muted" title="Ver detalhes" aria-label="Uso disponível na página de detalhes">—</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           <Link
                             href={`/plataforma/tenants/${t.slug}`}

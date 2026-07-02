@@ -21,12 +21,20 @@ class AiUsageService(
 ) {
 
     @Transactional("controlTransactionManager")
-    fun record(tenantId: UUID, tenantSlug: String, monthYear: String, promptTokens: Long, completionTokens: Long) {
+    fun record(
+        tenantId: UUID,
+        tenantSlug: String,
+        monthYear: String,
+        promptTokens: Long,
+        completionTokens: Long,
+        estimatedCostUsdMicros: Long = 0L,
+    ) {
         val existing = repository.findByTenantIdAndMonthYear(tenantId, monthYear)
         if (existing != null) {
             existing.promptTokens += promptTokens
             existing.completionTokens += completionTokens
             existing.totalRequests += 1
+            existing.estimatedCostUsdMicros += estimatedCostUsdMicros
             repository.save(existing)
             return
         }
@@ -39,6 +47,7 @@ class AiUsageService(
                     promptTokens = promptTokens,
                     completionTokens = completionTokens,
                     totalRequests = 1,
+                    estimatedCostUsdMicros = estimatedCostUsdMicros,
                 ),
             )
         } catch (e: DataIntegrityViolationException) {
@@ -47,6 +56,7 @@ class AiUsageService(
             row.promptTokens += promptTokens
             row.completionTokens += completionTokens
             row.totalRequests += 1
+            row.estimatedCostUsdMicros += estimatedCostUsdMicros
             repository.save(row)
         }
     }

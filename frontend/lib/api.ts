@@ -50,7 +50,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path),
+  get: <T>(path: string, signal?: AbortSignal) => request<T>(path, signal ? { signal } : {}),
   post: <T>(path: string, body: unknown, headers?: Record<string, string>) =>
     request<T>(path, { method: "POST", body: JSON.stringify(body), headers }),
   put: <T>(path: string, body: unknown) =>

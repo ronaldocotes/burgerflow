@@ -4,9 +4,12 @@ import com.menuflow.dto.LoginRequest
 import com.menuflow.dto.LogoutRequest
 import com.menuflow.dto.RefreshRequest
 import com.menuflow.dto.TokenResponse
+import com.menuflow.dto.TotpSetupResponse
+import com.menuflow.dto.TwoFactorVerifyRequest
 import com.menuflow.exception.UnauthorizedException
 import com.menuflow.model.control.Tenant
 import com.menuflow.model.control.User
+import com.menuflow.model.control.UserRole
 import com.menuflow.repository.control.TenantRepository
 import com.menuflow.repository.control.UserRepository
 import com.menuflow.security.JwtProperties
@@ -20,17 +23,16 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * Authentication against the CONTROL database. Login resolves the tenant by slug,
- * then the user by (tenantId, email). All failure modes return the SAME 401 to
- * avoid user/tenant enumeration.
+ * Autenticacao contra o banco de CONTROLE. Login resolve o tenant pelo slug, depois
+ * o usuario por (tenantId, email). Todas as falhas retornam o MESMO 401 (anti-enumeracao).
  *
- * Sprint 2: refresh tokens are now PERSISTED and REVOCABLE in the tenant DB. On
- * refresh the token is validated against the store and ROTATED (old revoked, new
- * issued + stored). Logout revokes the presented refresh token.
+ * Sprint 2: refresh tokens sao PERSISTIDOS e REVOGIVEIS no banco do tenant. No refresh,
+ * o token e validado contra o store e ROTACIONADO (antigo revogado, novo emitido + guardado).
  *
- * The refresh-token store lives in the TENANT database, so each control-side
- * operation binds TenantContext to the resolved tenant slug around the
- * RefreshTokenService call, restoring the prior binding afterwards.
+ * F3: SUPER_ADMINs com TOTP ativo recebem status="2FA_REQUIRED" no login normal.
+ * O JWT so e emitido apos POST /auth/2fa/verify com o codigo TOTP valido.
+ * NOTA DE PRODUCAO: o segredo TOTP fica em memoria enquanto nao houver V15 migration
+ * (ALTER TABLE users ADD COLUMN totp_secret VARCHAR(256)) — lost on restart em prod.
  */
 @Service
 class AuthService(
@@ -40,6 +42,7 @@ class AuthService(
     private val jwtService: JwtService,
     private val jwtProps: JwtProperties,
     private val refreshTokenService: RefreshTokenService,
+    private val totpService: TotpService,
 ) {
 
     @Transactional("controlTransactionManager")
@@ -59,8 +62,58 @@ class AuthService(
         user.lastLoginAt = Instant.now()
         userRepository.save(user)
 
+        // SUPER_ADMINs com 2FA ativo recebem uma sessao intermediaria.
+        // O JWT so e emitido apos verificar o codigo TOTP em /auth/2fa/verify.
+        if (user.role == UserRole.SUPER_ADMIN && totpService.hasSecret(user.id!!)) {
+            val sessionToken = totpService.createSession(user.id!!)
+            return TokenResponse(
+                token = "",
+                refreshToken = "",
+                expiresIn = 0,
+                status = "2FA_REQUIRED",
+                sessionToken = sessionToken,
+            )
+        }
+
         return issueAndStoreTokens(user, tenant)
     }
+
+    /**
+     * Verifica o codigo TOTP da sessao intermediaria e emite o JWT completo.
+     * Chamado por POST /auth/2fa/verify apos o login retornar status="2FA_REQUIRED".
+     */
+    @Transactional("controlTransactionManager")
+    fun verifyTwoFactor(request: TwoFactorVerifyRequest): TokenResponse {
+        val userId = totpService.resolveSession(request.sessionToken)
+            ?: throw UnauthorizedException("Sessao 2FA invalida ou expirada")
+
+        if (!totpService.verify(userId, request.code)) {
+            throw UnauthorizedException("Codigo TOTP invalido")
+        }
+
+        val user = userRepository.findById(userId).orElse(null)
+            ?.takeIf { it.isActive }
+            ?: throw UnauthorizedException("Usuario nao encontrado")
+        val tenant = tenantRepository.findById(user.tenantId).orElse(null)
+            ?.takeIf { it.isActive }
+            ?: throw UnauthorizedException("Tenant nao encontrado")
+
+        return issueAndStoreTokens(user, tenant)
+    }
+
+    /**
+     * Inicia o setup de 2FA para o usuario autenticado no SecurityContext.
+     * Retorna o URI otpauth:// para gerar o QR code no front.
+     * Chamado por GET /auth/2fa/setup (requer autenticacao).
+     */
+    fun setupTotp(userId: UUID): TotpSetupResponse = totpService.startSetup(userId)
+
+    /**
+     * Confirma o setup de 2FA verificando o primeiro codigo do autenticador.
+     * Ativa o TOTP para o usuario se o codigo for valido.
+     * Chamado por POST /auth/2fa/confirm (requer autenticacao).
+     */
+    fun confirmTotp(userId: UUID, code: String): Boolean = totpService.confirmSetup(userId, code)
 
     @Transactional("controlTransactionManager")
     fun refresh(request: RefreshRequest): TokenResponse {

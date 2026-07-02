@@ -148,7 +148,9 @@ class AiCopilotService(
 
             // Telemetria de uso (billing) — best-effort: nunca derruba a resposta ao dono.
             try {
-                usageService.record(tenantUuid, tenantSlug, currentMonth(), promptTokens, completionTokens)
+                val llmModel = lastResponse?.model ?: "unknown"
+                val estimatedCost = AiPricingTable.estimateMicros(llmModel, promptTokens, completionTokens)
+                usageService.record(tenantUuid, tenantSlug, currentMonth(), promptTokens, completionTokens, estimatedCost)
             } catch (e: Exception) {
                 log.warn("Falha ao registrar uso de IA (ignorado): {}", e.message)
             }

@@ -9,9 +9,9 @@ import java.util.UUID
  * faturamento ser consolidavel por empresa (o copiloto e cobrado por consumo).
  *
  * Uma linha por (tenant_id, month_year): o acumulado do mes faz upsert sobre essa
- * chave. tenant_id e um UUID SEM foreign key (ver V5__ai_usage.sql) — registro de
+ * chave. tenant_id e um UUID SEM foreign key (ver V5__ai_usage.sql) -- registro de
  * faturamento nao some quando o tenant e removido. O controle roda ddl-auto=validate,
- * entao os @Column abaixo precisam bater exatamente com a migracao V5.
+ * entao os @Column abaixo precisam bater exatamente com as migracoes V5 e V14.
  */
 @Entity
 @Table(name = "ai_usage")
@@ -38,6 +38,15 @@ data class AiUsage(
 
     @Column(name = "total_requests", nullable = false)
     var totalRequests: Long = 0,
+
+    /**
+     * Custo estimado acumulado no mes em micros de USD (1 USD = 1_000_000 micros).
+     * Snapshot calculado por [com.menuflow.service.AiPricingTable] na gravacao --
+     * nao recalcular retroativamente. Linhas anteriores a V14 ficam com 0 (correto:
+     * custo desconhecido, nao custo zero).
+     */
+    @Column(name = "estimated_cost_usd_micros", nullable = false)
+    var estimatedCostUsdMicros: Long = 0L,
 
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),

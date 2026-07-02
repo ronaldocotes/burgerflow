@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController
 @PreAuthorize("hasRole('SUPER_ADMIN')")
 class PlatformTenantController(
     private val provisioningService: TenantProvisioningService,
+    private val tenantUsageService: UsageSnapshotService,
 ) {
 
     @GetMapping
@@ -41,4 +42,13 @@ class PlatformTenantController(
         @PathVariable slug: String,
         @Valid @RequestBody req: UpdateTenantRequest,
     ): TenantSummaryResponse = provisioningService.updateTenant(slug, req)
+
+    /**
+     * Métricas de uso do tenant: pedidos no mês, tamanho do banco, último login.
+     * Dados do snapshot diário gerado às 03:00 (UTC) pelo [UsageSnapshotScheduler].
+     * Se ainda não há snapshot (tenant recém-provisionado), dispara um síncrono.
+     */
+    @GetMapping("/{slug}/usage")
+    fun usage(@PathVariable slug: String): TenantUsageResponse =
+        tenantUsageService.getUsage(slug)
 }

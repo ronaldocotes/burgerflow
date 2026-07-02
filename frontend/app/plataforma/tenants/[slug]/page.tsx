@@ -1,7 +1,7 @@
 'use client'
 
 // Detalhes da Empresa — cabeçalho (plano/status), módulos (toggle),
-// migrations e danger zone (desativação com confirmação por slug).
+// métricas de uso, migrations e danger zone (desativação com confirmação por slug).
 
 import { useCallback, useEffect, useId, useState } from 'react'
 import Link from 'next/link'
@@ -15,6 +15,7 @@ import {
   DatabaseZap,
   ShieldAlert,
   CalendarClock,
+  BarChart3,
 } from 'lucide-react'
 import { api, ApiError } from '@/lib/api'
 import { useSuperAdminGuard } from '@/lib/use-super-admin-guard'
@@ -23,10 +24,12 @@ import {
   type TenantPlan,
   type ModuleStatus,
   type MigrationStatus,
+  type TenantUsageResponse,
   PLANS,
   PLAN_LABELS,
   PLAN_BADGE,
   formatDate,
+  formatDateTime,
 } from '@/lib/platform'
 
 // ── Erro com retry (reutilizado por seção) ───────────────────────────────────
@@ -136,6 +139,11 @@ export default function TenantDetailPage() {
   const [togglingKey, setTogglingKey] = useState<string | null>(null)
   const [toggleErr, setToggleErr] = useState<string | null>(null)
 
+  // Uso (Fase 2) — erro silencioso: não bloqueia a página se o endpoint falhar
+  const [usage, setUsage] = useState<TenantUsageResponse | null>(null)
+  const [usageLoading, setUsageLoading] = useState(true)
+  const [usageError, setUsageError] = useState(false)
+
   // Migrations
   const [migrations, setMigrations] = useState<MigrationStatus[]>([])
   const [migrationsLoading, setMigrationsLoading] = useState(true)
@@ -182,6 +190,19 @@ export default function TenantDetailPage() {
     }
   }, [slug])
 
+  const loadUsage = useCallback(async () => {
+    setUsageLoading(true)
+    setUsageError(false)
+    try {
+      setUsage(await api.get<TenantUsageResponse>(`/admin/tenants/${slug}/usage`))
+    } catch {
+      // silencioso por decisão de UX: uso é informativo, não pode bloquear a página
+      setUsageError(true)
+    } finally {
+      setUsageLoading(false)
+    }
+  }, [slug])
+
   const loadMigrations = useCallback(async () => {
     setMigrationsLoading(true)
     setMigrationsError(null)
@@ -199,8 +220,9 @@ export default function TenantDetailPage() {
   useEffect(() => {
     void loadTenant()
     void loadModules()
+    void loadUsage()
     void loadMigrations()
-  }, [loadTenant, loadModules, loadMigrations])
+  }, [loadTenant, loadModules, loadUsage, loadMigrations])
 
   async function savePlan() {
     if (!tenant || planDraft === tenant.plan) return
@@ -385,6 +407,53 @@ export default function TenantDetailPage() {
           </div>
         )}
         {toggleErr && <p role="alert" className="form-error mt-2">{toggleErr}</p>}
+      </section>
+
+      {/* ── Métricas de uso (Fase 2) ──────────────────────────────────────── */}
+      <section aria-labelledby="usage-title" className="mt-8">
+        <h2 id="usage-title" className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-text-muted">
+          <BarChart3 className="h-4 w-4" aria-hidden="true" />
+          Métricas de uso
+        </h2>
+        {usageLoading ? (
+          <div aria-busy="true" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-20 animate-pulse rounded-xl bg-bg-tertiary" />
+            ))}
+          </div>
+        ) : usageError || !usage ? (
+          // erro silencioso: nota discreta, sem alert — uso não bloqueia a página
+          <p className="rounded-xl border border-border-light bg-bg-primary px-4 py-3 text-sm text-text-muted">
+            Métricas de uso indisponíveis no momento.
+          </p>
+        ) : (
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl border border-border-light bg-bg-primary p-4">
+              <dt className="text-xs font-medium text-text-muted">Pedidos este mês</dt>
+              <dd className="mt-1 text-xl font-bold text-text-primary">
+                {usage.ordersThisMonth.toLocaleString('pt-BR')}
+              </dd>
+            </div>
+            <div className="rounded-xl border border-border-light bg-bg-primary p-4">
+              <dt className="text-xs font-medium text-text-muted">Tamanho do banco</dt>
+              <dd className="mt-1 text-xl font-bold text-text-primary">
+                {usage.dbSizeMb.toLocaleString('pt-BR')} <span className="text-sm font-medium text-text-secondary">MB</span>
+              </dd>
+            </div>
+            <div className="rounded-xl border border-border-light bg-bg-primary p-4">
+              <dt className="text-xs font-medium text-text-muted">Último login</dt>
+              <dd className="mt-1 text-sm font-semibold text-text-primary">
+                {formatDateTime(usage.lastLoginAt)}
+              </dd>
+            </div>
+            <div className="rounded-xl border border-border-light bg-bg-primary p-4">
+              <dt className="text-xs font-medium text-text-muted">Data do snapshot</dt>
+              <dd className="mt-1 text-sm font-semibold text-text-primary">
+                {formatDate(usage.snapshotDate)}
+              </dd>
+            </div>
+          </dl>
+        )}
       </section>
 
       {/* ── Migrations ────────────────────────────────────────────────────── */}

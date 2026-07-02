@@ -1,5 +1,6 @@
 // Tipos e helpers compartilhados do painel super-admin /plataforma.
-// Espelham os DTOs de /api/v1/admin/tenants (backend Fase 1).
+// Espelham os DTOs de /api/v1/admin/tenants (backend Fase 1) e
+// /api/v1/admin/integrations|usage (backend Fase 2).
 
 export type TenantPlan = 'BASIC' | 'PRO' | 'ENTERPRISE'
 
@@ -10,6 +11,8 @@ export interface TenantSummary {
   plan: TenantPlan
   isActive: boolean
   expiresAt: string | null
+  /** pedidos no mês corrente — só vem quando o backend Fase 2 expõe */
+  ordersThisMonth?: number
 }
 
 export interface TenantCreated {
@@ -33,6 +36,34 @@ export interface MigrationStatus {
   currentVersion: string | null
   expectedVersion: string
   status: string
+}
+
+// ── Fase 2: integrações e uso ────────────────────────────────────────────────
+
+export type IntegrationStatus = 'OK' | 'DEGRADED' | 'DOWN'
+
+export interface IntegrationCard {
+  name: string
+  status: IntegrationStatus
+  detail?: string
+}
+
+export interface IntegrationsHealthResponse {
+  updatedAt: string // ISO
+  cards: IntegrationCard[]
+}
+
+export interface TenantUsageResponse {
+  ordersThisMonth: number
+  dbSizeMb: number
+  lastLoginAt?: string
+  snapshotDate?: string
+}
+
+export const INTEGRATION_STATUS_LABELS: Record<IntegrationStatus, string> = {
+  OK: 'Operacional',
+  DEGRADED: 'Degradado',
+  DOWN: 'Indisponível',
 }
 
 export const PLANS: TenantPlan[] = ['BASIC', 'PRO', 'ENTERPRISE']
@@ -59,4 +90,49 @@ export function formatDate(iso: string | null | undefined): string {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+
+// ── Fase 3: uso de IA e usuários da plataforma ───────────────────────────────
+
+export interface AiUsageEntry {
+  tenantSlug: string
+  model: string
+  inputTokens: number
+  outputTokens: number
+  estimatedCostUsdMicros: number
+  callCount: number
+}
+
+export interface AiUsageResponse {
+  month: string
+  entries: AiUsageEntry[]
+  totalCostUsdMicros: number
+  totalCalls: number
+}
+
+export interface PlatformUser {
+  id: string
+  name: string
+  email: string
+  createdAt: string
+  lastLoginAt?: string
+  has2FA: boolean
+}
+
+/** micros de USD → "$X.XXXX". O custo é sempre ESTIMADO (tabela de preços). */
+export function formatUsdMicros(micros: number): string {
+  return `$${(micros / 1_000_000).toFixed(4)}`
+}

@@ -37,6 +37,37 @@ class TenantConfigService(
         req.address?.let         { config.address        = it.trim().ifBlank { null } }
         req.openingHours?.let    { config.openingHours   = it.trim().ifBlank { null } }
         req.merchantCity?.let    { config.merchantCity   = it.trim().ifBlank { null } }
+        // Endereco estruturado + pin do mapa (issue #7): omitido (null) preserva.
+        req.postalCode?.let        { config.postalCode        = it.trim().ifBlank { null } }
+        req.street?.let            { config.street            = it.trim().ifBlank { null } }
+        req.streetNumber?.let      { config.streetNumber      = it.trim().ifBlank { null } }
+        req.addressComplement?.let { config.addressComplement = it.trim().ifBlank { null } }
+        req.neighborhood?.let      { config.neighborhood      = it.trim().ifBlank { null } }
+        req.stateUf?.let           { config.stateUf           = it.trim().uppercase().ifBlank { null } }
+        req.restaurantLat?.let {
+            require(it in -90.0..90.0) { "restaurantLat deve estar entre -90 e 90" }
+            config.restaurantLat = it
+        }
+        req.restaurantLng?.let {
+            require(it in -180.0..180.0) { "restaurantLng deve estar entre -180 e 180" }
+            config.restaurantLng = it
+        }
+        // Tempo por modalidade (issue #9): omitido (null) preserva; enviado sobrescreve.
+        req.deliveryTimeMinMinutes?.let { config.deliveryTimeMinMinutes = it }
+        req.deliveryTimeMaxMinutes?.let { config.deliveryTimeMaxMinutes = it }
+        req.pickupTimeMinMinutes?.let   { config.pickupTimeMinMinutes   = it }
+        req.pickupTimeMaxMinutes?.let   { config.pickupTimeMaxMinutes   = it }
+        req.dineinTimeMinMinutes?.let   { config.dineinTimeMinMinutes   = it }
+        req.dineinTimeMaxMinutes?.let   { config.dineinTimeMaxMinutes   = it }
+        require(config.deliveryTimeMinMinutes <= config.deliveryTimeMaxMinutes) {
+            "tempo minimo de delivery nao pode ser maior que o maximo"
+        }
+        require(config.pickupTimeMinMinutes <= config.pickupTimeMaxMinutes) {
+            "tempo minimo de retirada nao pode ser maior que o maximo"
+        }
+        require(config.dineinTimeMinMinutes <= config.dineinTimeMaxMinutes) {
+            "tempo minimo de consumo local nao pode ser maior que o maximo"
+        }
         // Alíquotas do DRE: omitido (null) preserva; enviado sobrescreve.
         req.marketplaceFeePct?.let { config.marketplaceFeePct = it }
         req.cardFeePct?.let        { config.cardFeePct        = it }

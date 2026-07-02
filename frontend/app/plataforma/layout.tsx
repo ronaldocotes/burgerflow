@@ -39,9 +39,9 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: '/plataforma',             label: 'Visão Geral', icon: LayoutDashboard },
   { href: '/plataforma/tenants',     label: 'Empresas',    icon: Building2 },
-  { href: '/plataforma/integracoes', label: 'Integrações', icon: Plug,         soon: true },
-  { href: '/plataforma/ia',          label: 'Uso de IA',   icon: BrainCircuit, soon: true },
-  { href: '/plataforma/usuarios',    label: 'Usuários',    icon: Users,        soon: true, disabled: true },
+  { href: '/plataforma/integracoes', label: 'Integrações', icon: Plug },
+  { href: '/plataforma/ia',          label: 'Uso de IA',   icon: BrainCircuit },
+  { href: '/plataforma/usuarios',    label: 'Usuários',    icon: Users },
 ]
 
 function isActive(pathname: string, href: string): boolean {

@@ -66,6 +66,7 @@ class OrderService(
     private val realtimePublisher: com.menuflow.service.RealtimePublisher,
     private val auditLogService: AuditLogService,
     private val couponService: CouponService,
+    private val cancellationReasonRepository: com.menuflow.repository.tenant.CancellationReasonRepository,
     private val cartRecoveryService: CartRecoveryService,
     private val trackingService: TrackingService,
     private val eventPublisher: org.springframework.context.ApplicationEventPublisher,
@@ -596,7 +597,18 @@ class OrderService(
             OrderStatus.DELIVERED -> order.completedAt = Instant.now()
             OrderStatus.CANCELLED -> {
                 order.cancelledAt = Instant.now()
-                order.cancelledReason = req.reason ?: "Cancelled"
+                // Motivo pre-cadastrado (issue #10): se um id valido veio, o texto do
+                // catalogo prevalece e fica denormalizado no pedido (sobrevive a
+                // edicao/exclusao do motivo). Id inexistente -> 400. Sem id -> texto livre.
+                val reasonId = req.cancelledReasonId
+                if (reasonId != null) {
+                    val reason = cancellationReasonRepository.findById(reasonId)
+                        .orElseThrow { IllegalArgumentException("Motivo de cancelamento nao encontrado: $reasonId") }
+                    order.cancelledReasonId = reason.id
+                    order.cancelledReason = reason.description
+                } else {
+                    order.cancelledReason = req.reason ?: "Cancelled"
+                }
             }
             else -> {}
         }
