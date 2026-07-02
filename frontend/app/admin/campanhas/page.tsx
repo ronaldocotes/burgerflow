@@ -609,6 +609,7 @@ export default function CampanhasPage() {
   const [campaigns, setCampaigns] = useState<CampaignResponse[]>([])
   const [loadState, setLoadState] = useState<'loading' | 'error' | 'ok' | 'empty'>('loading')
   const [createOpen, setCreateOpen] = useState(false)
+  const [initialSegment, setInitialSegment] = useState<CampaignSegment | undefined>(undefined)
   const [sendsTarget, setSendsTarget] = useState<CampaignResponse | null>(null)
   const [startTarget, setStartTarget] = useState<CampaignResponse | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -628,6 +629,16 @@ export default function CampanhasPage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // Deep-link do RFV: /admin/campanhas?segment=RFV_LOYAL abre o modal ja segmentado
+  useEffect(() => {
+    const seg = new URLSearchParams(window.location.search).get('segment')
+    const valid: readonly string[] = ['RFV_LOYAL', 'RFV_AT_RISK', 'RFV_INACTIVE']
+    if (seg && valid.includes(seg)) {
+      setInitialSegment(seg as CampaignSegment)
+      setCreateOpen(true)
+    }
+  }, [])
 
   async function handleStart(campaign: CampaignResponse) {
     const updated = await api.post<CampaignResponse>(`/campaigns/${campaign.id}/start`, {})
@@ -785,6 +796,7 @@ export default function CampanhasPage() {
 
       {createOpen && (
         <CreateCampaignModal
+          initialSegment={initialSegment}
           onClose={() => setCreateOpen(false)}
           onCreated={() => {
             setCreateOpen(false)
