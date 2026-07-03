@@ -146,6 +146,26 @@ interface OrderRepository :
     fun sumCashSalesForSession(@Param("sessionId") sessionId: UUID): Long
 
     /**
+     * Vendas EFETIVADAS (PAID) de um turno agrupadas por forma de pagamento, para a
+     * reconciliação de fechamento por forma (dinheiro | cartão | pix). Só entra o
+     * que foi carimbado com o turno (cashSessionId) no momento da venda — no PDV o
+     * carimbo acontece em PdvService.pay para CASH, CARD e PIX. Retorna pares
+     * [PaymentMethod, somaCentavos]; formas sem venda simplesmente não aparecem
+     * (o serviço assume 0). Agregado multi-coluna → List<Array<Any>> (o primeiro
+     * elemento é o enum PaymentMethod, o segundo o Long da soma).
+     */
+    @Query(
+        """
+        SELECT o.paymentMethod, COALESCE(SUM(o.totalCents), 0) FROM Order o
+        WHERE o.cashSessionId = :sessionId
+          AND o.paymentStatus = com.menuflow.model.PaymentStatus.PAID
+          AND o.paymentMethod IS NOT NULL
+        GROUP BY o.paymentMethod
+        """,
+    )
+    fun sumSalesByMethodForSession(@Param("sessionId") sessionId: UUID): List<Array<Any>>
+
+    /**
      * Conta as entregas REALIZADAS de um entregador num periodo, para o acerto
      * financeiro (Fase 2.5): pedidos carimbados com o entregador (driver_id),
      * concluidos (status DELIVERED) e completados dentro da janela [from, to).

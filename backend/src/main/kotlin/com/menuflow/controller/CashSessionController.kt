@@ -51,6 +51,15 @@ class CashSessionController(private val service: CashSessionService) {
         @Valid @RequestBody req: CloseSessionRequest,
     ): CashSessionResponse = service.close(id, actorId(), req)
 
+    /**
+     * Relatório de reconciliação de um turno: preview enquanto aberto (Esperado por
+     * forma, sem contado) e snapshot após fechado. É a fonte do "fechar caixa e
+     * imprimir" (frontend imprime este payload) e da reimpressão de um turno passado.
+     */
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','CASHIER')")
+    fun get(@PathVariable id: UUID): CashSessionResponse = service.get(id)
+
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER','CASHIER')")
     fun list(@PageableDefault(size = 20, sort = ["openedAt"]) pageable: Pageable): Page<CashSessionResponse> =

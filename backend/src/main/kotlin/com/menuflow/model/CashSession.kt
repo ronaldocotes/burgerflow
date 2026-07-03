@@ -45,6 +45,31 @@ data class CashSession(
     @Column(name = "closing_expected_cents")
     var closingExpectedCents: Long? = null,
 
+    // Snapshot da reconciliação por forma no fechamento (cartão = crédito+débito;
+    // PIX à parte). Cash já é coberto por closing_counted/expected acima. Ficam
+    // NULL enquanto o turno está aberto; preenchidos em close() com o esperado do
+    // sistema e o contado informado pelo operador. São a verdade histórica do
+    // turno (estorno posterior não reescreve a conferência).
+    @Column(name = "closing_card_counted_cents")
+    var closingCardCountedCents: Long? = null,
+
+    @Column(name = "closing_card_expected_cents")
+    var closingCardExpectedCents: Long? = null,
+
+    @Column(name = "closing_pix_counted_cents")
+    var closingPixCountedCents: Long? = null,
+
+    @Column(name = "closing_pix_expected_cents")
+    var closingPixExpectedCents: Long? = null,
+
+    // Dinheiro retirado da gaveta no fechamento (não afeta o esperado do turno).
+    @Column(name = "withdrawn_at_close_cents")
+    var withdrawnAtCloseCents: Long? = null,
+
+    // Saldo sugerido para a próxima abertura = contado - retirado.
+    @Column(name = "suggested_next_opening_cents")
+    var suggestedNextOpeningCents: Long? = null,
+
     // Coluna gerada pelo banco (contado - esperado). Read-only para o ORM: não
     // entra em INSERT/UPDATE. O serviço calcula a diferença em memória para a
     // resposta (contado - esperado), então este campo fica como a fonte de

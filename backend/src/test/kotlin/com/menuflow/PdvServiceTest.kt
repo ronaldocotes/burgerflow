@@ -71,7 +71,7 @@ class PdvServiceTest @Autowired constructor(
     fun `cash payment closes order as DELIVERED and returns change`() {
         // Venda em dinheiro exige caixa aberto: o pay(CASH) carimba o turno no pedido.
         TenantContext.set(tenant)
-        cashSessionService.open(UUID.randomUUID(), OpenSessionRequest(openingAmountCents = 0))
+        cashSessionService.open(UUID.randomUUID(), OpenSessionRequest(openingAmountCents = 0, confirmZeroOpening = true))
 
         val orderId = newOrderId(priceCents = 2500, qty = 2) // total 5000
 

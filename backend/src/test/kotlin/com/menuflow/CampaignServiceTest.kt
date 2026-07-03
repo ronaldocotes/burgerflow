@@ -149,7 +149,7 @@ class CampaignServiceTest @Autowired constructor(
         TenantContext.set(tenant)
         val customer = Customer(name = "Ana", phoneNumber = "91999990000", loyaltyPoints = 30)
         val score = com.menuflow.model.RfvScore(
-            customerId = UUID.randomUUID(), customerName = "Ana",
+            customerId = UUID.randomUUID(), customerName = "Ana", phoneNumber = null,
             recencyDays = 5, frequency = 2, monetaryValue = 4000, segment = RfvSegment.AT_RISK,
         )
         val msg = campaignService.interpolate("Oi {nome}, voce tem {pontos} pontos e sumiu ha {dias} dias", customer, score)

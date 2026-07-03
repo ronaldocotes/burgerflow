@@ -7,7 +7,9 @@ import com.menuflow.dto.OrderCreateRequest
 import com.menuflow.dto.OrderItemRequest
 import com.menuflow.dto.PdvPaymentRequest
 import com.menuflow.dto.ProductCreateRequest
+import com.menuflow.dto.ReconciliationMethod
 import com.menuflow.exception.ConflictException
+import com.menuflow.exception.UnprocessableEntityException
 import com.menuflow.model.CashEntryType
 import com.menuflow.model.CashSessionStatus
 import com.menuflow.model.PaymentMethod
@@ -114,11 +116,11 @@ class CashSessionTest @Autowired constructor(
         val actor = UUID.randomUUID()
         TenantContext.set(tenant)
 
-        cashSessionService.open(actor, OpenSessionRequest(openingAmountCents = 0))
+        cashSessionService.open(actor, OpenSessionRequest(openingAmountCents = 0, confirmZeroOpening = true))
 
         TenantContext.set(tenant)
         assertThrows(ConflictException::class.java) {
-            cashSessionService.open(actor, OpenSessionRequest(openingAmountCents = 0))
+            cashSessionService.open(actor, OpenSessionRequest(openingAmountCents = 0, confirmZeroOpening = true))
         }
     }
 
@@ -135,6 +137,107 @@ class CashSessionTest @Autowired constructor(
                     paymentMethod = PaymentMethod.CASH,
                 ),
                 userId = UUID.randomUUID(),
+            )
+        }
+    }
+
+    /** Paga um pedido novo com a forma informada; devolve o total do pedido. */
+    private fun sellAndPay(tenant: String, productId: UUID, actor: UUID, qty: Int, method: PdvPaymentMethod, orderMethod: PaymentMethod) {
+        TenantContext.set(tenant)
+        val order = orderService.create(
+            OrderCreateRequest(
+                items = listOf(OrderItemRequest(productId = productId, quantity = qty)),
+                paymentMethod = orderMethod,
+            ),
+            userId = actor,
+        )
+        pdvService.pay(order.id, PdvPaymentRequest(method = method, amountPaidCents = order.totalCents))
+    }
+
+    @Test
+    fun `reconciliation per payment method, suggested next opening and withdrawal at close`() {
+        val tenant = "cashrec_${UUID.randomUUID().toString().take(8)}"
+        val actor = UUID.randomUUID()
+        TenantContext.set(tenant)
+
+        // Abre com R$100 de troco. Vende R$50 dinheiro, R$30 cartão, R$20 pix.
+        val opened = cashSessionService.open(actor, OpenSessionRequest(openingAmountCents = 10_000))
+        val sessionId = opened.id
+        val productId = seedProduct(tenant, priceCents = 1_000)
+        sellAndPay(tenant, productId, actor, qty = 5, method = PdvPaymentMethod.CASH, orderMethod = PaymentMethod.CASH) // 5000
+        sellAndPay(tenant, productId, actor, qty = 3, method = PdvPaymentMethod.CARD, orderMethod = PaymentMethod.CREDIT_CARD) // 3000
+        sellAndPay(tenant, productId, actor, qty = 2, method = PdvPaymentMethod.PIX, orderMethod = PaymentMethod.PIX) // 2000
+
+        // Preview enquanto aberto: esperado por forma, sem contado.
+        TenantContext.set(tenant)
+        val preview = cashSessionService.get(sessionId)
+        val previewCash = preview.reconciliation.first { it.method == ReconciliationMethod.CASH }
+        assertEquals(15_000, previewCash.expectedCents) // 10000 abertura + 5000 dinheiro
+        assertEquals(null, previewCash.countedCents)
+        assertEquals(3_000, preview.reconciliation.first { it.method == ReconciliationMethod.CARD }.expectedCents)
+        assertEquals(2_000, preview.reconciliation.first { it.method == ReconciliationMethod.PIX }.expectedCents)
+
+        // Fecha: dinheiro confere (15000), cartão confere (3000), pix falta 100 (1900),
+        // retira R$140 do caixa -> sobra sugerida = 15000 - 14000 = 1000.
+        TenantContext.set(tenant)
+        val closed = cashSessionService.close(
+            sessionId, actor,
+            CloseSessionRequest(
+                countedAmountCents = 15_000,
+                countedCardCents = 3_000,
+                countedPixCents = 1_900,
+                withdrawnAmountCents = 14_000,
+            ),
+        )
+
+        assertEquals(CashSessionStatus.CLOSED, closed.status)
+        val cash = closed.reconciliation.first { it.method == ReconciliationMethod.CASH }
+        assertEquals(15_000, cash.expectedCents)
+        assertEquals(15_000, cash.countedCents)
+        assertEquals(0, cash.differenceCents)
+        val card = closed.reconciliation.first { it.method == ReconciliationMethod.CARD }
+        assertEquals(3_000, card.expectedCents)
+        assertEquals(3_000, card.countedCents)
+        assertEquals(0, card.differenceCents)
+        val pix = closed.reconciliation.first { it.method == ReconciliationMethod.PIX }
+        assertEquals(2_000, pix.expectedCents)
+        assertEquals(1_900, pix.countedCents)
+        assertEquals(-100, pix.differenceCents) // falta 1 real no pix
+
+        assertEquals(14_000, closed.withdrawnAtCloseCents)
+        assertEquals(1_000, closed.suggestedNextOpeningCents) // 15000 - 14000
+    }
+
+    @Test
+    fun `opening with zero and no explicit confirmation is rejected`() {
+        val tenant = "cashzero_${UUID.randomUUID().toString().take(8)}"
+        val actor = UUID.randomUUID()
+        TenantContext.set(tenant)
+
+        assertThrows(UnprocessableEntityException::class.java) {
+            cashSessionService.open(actor, OpenSessionRequest(openingAmountCents = 0))
+        }
+
+        // Com confirmação explícita a abertura zerada passa.
+        TenantContext.set(tenant)
+        val opened = cashSessionService.open(actor, OpenSessionRequest(openingAmountCents = 0, confirmZeroOpening = true))
+        assertEquals(CashSessionStatus.OPEN, opened.status)
+        assertEquals(0, opened.openingAmountCents)
+    }
+
+    @Test
+    fun `withdrawing more than counted cash at close is rejected`() {
+        val tenant = "cashwd_${UUID.randomUUID().toString().take(8)}"
+        val actor = UUID.randomUUID()
+        TenantContext.set(tenant)
+
+        val opened = cashSessionService.open(actor, OpenSessionRequest(openingAmountCents = 5_000))
+
+        TenantContext.set(tenant)
+        assertThrows(UnprocessableEntityException::class.java) {
+            cashSessionService.close(
+                opened.id, actor,
+                CloseSessionRequest(countedAmountCents = 5_000, withdrawnAmountCents = 6_000),
             )
         }
     }

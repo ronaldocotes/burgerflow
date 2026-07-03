@@ -24,6 +24,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-cache")
+    implementation("com.github.ben-manes.caffeine:caffeine")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     // AOP: necessario para os aspectos do Resilience4j (@CircuitBreaker/@Retry).
     implementation("org.springframework.boot:spring-boot-starter-aop")

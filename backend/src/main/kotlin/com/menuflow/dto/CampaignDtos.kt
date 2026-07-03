@@ -88,6 +88,8 @@ data class CampaignSendResponse(
 data class RfvScoreResponse(
     val customerId: UUID,
     val customerName: String?,
+    /** Telefone usado em campanhas WhatsApp e na exportacao CSV. */
+    val phoneNumber: String?,
     val recencyDays: Int,
     val frequency: Int,
     val monetaryValue: Long,
@@ -95,12 +97,25 @@ data class RfvScoreResponse(
 ) {
     companion object {
         fun from(s: RfvScore) = RfvScoreResponse(
-            customerId = s.customerId,
-            customerName = s.customerName,
-            recencyDays = s.recencyDays,
-            frequency = s.frequency,
+            customerId    = s.customerId,
+            customerName  = s.customerName,
+            phoneNumber   = s.phoneNumber,
+            recencyDays   = s.recencyDays,
+            frequency     = s.frequency,
             monetaryValue = s.monetaryValue,
-            segment = s.segment,
+            segment       = s.segment,
         )
     }
 }
+
+/**
+ * Sumario de contagem RFV por segmento (GET /rfv/summary).
+ * newCustomers: clientes com apenas 1 pedido na vida (segmento NEW).
+ */
+data class RfvSummaryResponse(
+    val loyal: Long,
+    val atRisk: Long,
+    val inactive: Long,
+    val newCustomers: Long,
+    val total: Long,
+)

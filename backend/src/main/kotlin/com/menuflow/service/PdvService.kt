@@ -90,13 +90,15 @@ class PdvService(
             )
         }
 
-        // Venda em dinheiro: precisa de um turno aberto e carimba o pedido com ele,
-        // para entrar no esperado da gaveta. Cartão/PIX não tocam o caixa.
-        if (req.method == PdvPaymentMethod.CASH) {
-            val session = cashSessionRepository.findFirstByStatus(CashSessionStatus.OPEN)
-                ?: throw ConflictException("Abra o caixa para registrar vendas em dinheiro")
-            order.cashSessionId = session.id
+        // Carimbo do turno de caixa. Dinheiro EXIGE caixa aberto (entra no esperado
+        // da gaveta). Cartão/PIX não exigem caixa, mas se houver um turno aberto o
+        // pedido é carimbado com ele para entrar na reconciliação por forma de
+        // pagamento do fechamento (issue #1: Esperado|Em caixa|Diferença por forma).
+        val openSession = cashSessionRepository.findFirstByStatus(CashSessionStatus.OPEN)
+        if (req.method == PdvPaymentMethod.CASH && openSession == null) {
+            throw ConflictException("Abra o caixa para registrar vendas em dinheiro")
         }
+        order.cashSessionId = openSession?.id
 
         val change = if (req.method == PdvPaymentMethod.CASH) {
             req.amountPaidCents - order.totalCents

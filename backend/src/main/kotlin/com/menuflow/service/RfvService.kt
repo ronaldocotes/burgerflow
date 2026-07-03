@@ -1,9 +1,13 @@
 package com.menuflow.service
 
+import com.menuflow.dto.RfvSummaryResponse
 import com.menuflow.model.RfvScore
 import com.menuflow.model.RfvSegment
 import com.menuflow.repository.tenant.CustomerRepository
 import com.menuflow.repository.tenant.OrderRepository
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.cache.annotation.Cacheable
+import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -13,13 +17,12 @@ import java.util.UUID
 
 /**
  * Classificacao RFV (Recencia, Frequencia, Valor) dos clientes do tenant (Fase 3.4).
- * Calculada sobre os pedidos NAO cancelados do banco do TENANT:
- *  - Recencia: dias desde o ultimo pedido (sobre TODA a historia).
- *  - Frequencia: numero de pedidos nos ultimos 90 dias.
- *  - Valor: ticket medio (centavos) nos ultimos 90 dias.
+ * Calculada sobre os pedidos NAO cancelados do banco do TENANT.
  *
- * A classificacao em [RfvSegment] usa limiares fixos (ver [classify]); e a base de
- * segmentacao das campanhas (CampaignService.buildRecipients).
+ * Cache: scoreAll e anotado com @Cacheable("rfv-scores"). A chave inclui o slug
+ * do tenant (TenantContext.get()) para isolamento cross-tenant. TTL 10 min
+ * (configurado em CacheConfig). A chamada via self (proxy injetado via @Lazy)
+ * garante que o Spring intercepte a anotacao (auto-invocacao nao passa pelo proxy).
  */
 @Service
 class RfvService(
@@ -27,16 +30,31 @@ class RfvService(
     private val customerRepository: CustomerRepository,
 ) {
 
-    /** Score RFV de todos os clientes que ja fizeram ao menos um pedido. */
+    /**
+     * Referencia ao proprio proxy Spring para garantir que @Cacheable seja interceptado
+     * em chamadas internas (scoresBySegment/scoreMap/summary -> scoreAll).
+     * @Lazy evita dependencia circular no contexto.
+     */
+    @Lazy
+    @Autowired
+    private lateinit var self: RfvService
+
+    /**
+     * Score RFV de todos os clientes que ja fizeram ao menos um pedido.
+     * Resultado cacheado por tenant (chave = slug do tenant) com TTL 10 min.
+     */
+    @Cacheable("rfv-scores", key = "T(com.menuflow.tenant.TenantContext).INSTANCE.get()")
     @Transactional("tenantTransactionManager", readOnly = true)
     fun scoreAll(): List<RfvScore> {
         val now = Instant.now()
         val windowStart = now.minus(WINDOW_DAYS, ChronoUnit.DAYS)
         val rows = orderRepository.rfvAggregate(windowStart)
 
-        // Nomes para a resposta: 1 query (findAllById), evita N+1.
+        if (rows.isEmpty()) return emptyList()
+
+        // Nomes e telefones: 1 query batch, sem N+1.
         val ids = rows.mapNotNull { it[0] as? UUID }
-        val names = customerRepository.findAllById(ids).associate { it.id to it.name }
+        val customers = customerRepository.findAllById(ids).associateBy { it.id }
 
         return rows.mapNotNull { row ->
             val customerId = row[0] as? UUID ?: return@mapNotNull null
@@ -47,9 +65,11 @@ class RfvService(
 
             val recencyDays = ChronoUnit.DAYS.between(lastOrder, now).toInt().coerceAtLeast(0)
             val monetaryValue = if (freq90 > 0) sum90 / freq90 else 0L
+            val customer = customers[customerId]
             RfvScore(
                 customerId = customerId,
-                customerName = names[customerId],
+                customerName = customer?.name,
+                phoneNumber = customer?.phoneNumber,
                 recencyDays = recencyDays,
                 frequency = freq90,
                 monetaryValue = monetaryValue,
@@ -61,40 +81,54 @@ class RfvService(
     /** Score por segmento (para o endpoint GET /rfv?segment=). */
     @Transactional("tenantTransactionManager", readOnly = true)
     fun scoresBySegment(segment: RfvSegment?): List<RfvScore> {
-        val all = scoreAll()
+        val all = self.scoreAll()
         return if (segment == null) all else all.filter { it.segment == segment }
     }
 
     /** Mapa customerId -> score, usado pelo CampaignService.buildRecipients. */
-    fun scoreMap(): Map<UUID, RfvScore> = scoreAll().associateBy { it.customerId }
+    fun scoreMap(): Map<UUID, RfvScore> = self.scoreAll().associateBy { it.customerId }
 
-    /** Converte o resultado de MAX(createdAt) (pode vir Instant/Timestamp/OffsetDateTime). */
+    /**
+     * Sumario de contagem por segmento para GET /rfv/summary.
+     * Reutiliza o resultado cacheado de scoreAll(); sem query adicional.
+     */
+    fun summary(): RfvSummaryResponse {
+        val all = self.scoreAll()
+        val counts = all.groupingBy { it.segment }.eachCount()
+        return RfvSummaryResponse(
+            loyal        = (counts[RfvSegment.LOYAL]    ?: 0).toLong(),
+            atRisk       = (counts[RfvSegment.AT_RISK]  ?: 0).toLong(),
+            inactive     = (counts[RfvSegment.INACTIVE] ?: 0).toLong(),
+            newCustomers = (counts[RfvSegment.NEW]      ?: 0).toLong(),
+            total        = all.size.toLong(),
+        )
+    }
+
+    /** Converte o resultado de MAX(createdAt): pode chegar como Instant/Timestamp/OffsetDateTime. */
     private fun toInstant(v: Any?): Instant? = when (v) {
-        is Instant -> v
+        is Instant            -> v
         is java.sql.Timestamp -> v.toInstant()
-        is OffsetDateTime -> v.toInstant()
-        else -> null
+        is OffsetDateTime     -> v.toInstant()
+        else                  -> null
     }
 
     companion object {
-        /** Janela (dias) para frequencia e valor. */
         const val WINDOW_DAYS = 90L
 
         /**
-         * Classifica o cliente em [RfvSegment] de forma TOTAL e deterministica:
-         *  1. lifetime <= 1            -> NEW       (apenas 1 pedido na vida)
-         *  2. recencyDays > 45         -> INACTIVE  (sumido)
-         *  3. recencyDays < 14 e freq90 >= 3 -> LOYAL (recente e frequente)
-         *  4. caso contrario           -> AT_RISK   (tem historia, nem sumiu nem e fiel)
+         * Classifica o cliente em RfvSegment de forma TOTAL e deterministica:
+         *  1. lifetime <= 1                   -> NEW
+         *  2. recencyDays > 45                -> INACTIVE
+         *  3. recencyDays < 14 && freq90 >= 3 -> LOYAL
+         *  4. caso contrario                  -> AT_RISK
          *
-         * AT_RISK e o catch-all do cliente ativo-mas-nao-fiel: o objetivo de marketing
-         * e justamente reengaja-lo. Pura (sem I/O) para teste unitario direto.
+         * Funcao pura (sem I/O) — testavel diretamente.
          */
         fun classify(recencyDays: Int, freq90: Int, lifetimeOrders: Int): RfvSegment = when {
-            lifetimeOrders <= 1 -> RfvSegment.NEW
-            recencyDays > 45 -> RfvSegment.INACTIVE
+            lifetimeOrders <= 1              -> RfvSegment.NEW
+            recencyDays > 45                -> RfvSegment.INACTIVE
             recencyDays < 14 && freq90 >= 3 -> RfvSegment.LOYAL
-            else -> RfvSegment.AT_RISK
+            else                            -> RfvSegment.AT_RISK
         }
     }
 }

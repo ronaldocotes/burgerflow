@@ -10,6 +10,8 @@ import java.util.UUID
 data class RfvScore(
     val customerId: UUID,
     val customerName: String?,
+    /** Telefone do cliente — usado na exportacao CSV e nas campanhas WhatsApp. */
+    val phoneNumber: String?,
     /** Dias desde o ultimo pedido (toda a historia). */
     val recencyDays: Int,
     /** Numero de pedidos nos ultimos 90 dias. */
