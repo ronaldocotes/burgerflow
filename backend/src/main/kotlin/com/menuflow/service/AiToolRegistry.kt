@@ -8,7 +8,10 @@ import com.menuflow.model.CampaignSegment
 import com.menuflow.model.CartSessionStatus
 import com.menuflow.model.DiscountType
 import com.menuflow.model.RfvSegment
+import com.menuflow.model.CashSessionStatus
+import com.menuflow.model.OrderStatus
 import com.menuflow.repository.tenant.CartSessionRepository
+import com.menuflow.repository.tenant.CashSessionRepository
 import com.menuflow.repository.tenant.CustomerRepository
 import com.menuflow.repository.tenant.LoyaltyRewardRepository
 import com.menuflow.repository.tenant.LoyaltyTransactionRepository
@@ -49,6 +52,7 @@ class AiToolRegistry(
     private val cartSessionRepository: CartSessionRepository,
     private val loyaltyTransactionRepository: LoyaltyTransactionRepository,
     private val loyaltyRewardRepository: LoyaltyRewardRepository,
+    private val cashSessionRepository: CashSessionRepository,
     private val objectMapper: ObjectMapper,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -119,6 +123,16 @@ class AiToolRegistry(
             ),
             required = listOf("name", "message", "segment"),
         ),
+        function(
+            "get_pending_orders",
+            "Pedidos em aberto agora (PENDING ou PREPARING) — visao do KDS em tempo real.",
+            mapOf("limit" to intProp("Quantos pedidos (1-50)", 1, 50)),
+        ),
+        function(
+            "get_cash_session",
+            "Resumo do turno de caixa atual (se aberto): abertura, tempo decorrido e saldo esperado.",
+            emptyMap(),
+        ),
     )
 
     /**
@@ -143,6 +157,8 @@ class AiToolRegistry(
                 "get_customers_at_risk" -> getCustomersAtRisk(argInt(args, "limit") ?: 10)
                 "create_coupon" -> createCoupon(args, actorUserId, userRoles)
                 "schedule_campaign" -> scheduleCampaign(args, userRoles)
+                "get_pending_orders" -> getPendingOrders(argInt(args, "limit") ?: 10)
+                "get_cash_session" -> getCashSession()
                 else -> json(mapOf("error" to "Ferramenta desconhecida: $name"))
             }
         } catch (e: Exception) {
@@ -308,6 +324,36 @@ class AiToolRegistry(
                 "name" to campaign.name,
                 "estimatedRecipients" to campaign.totalRecipients,
                 "status" to campaign.status.name,
+            ),
+        )
+    }
+
+    private fun getPendingOrders(limit: Int): String {
+        val orders = orderRepository.findByStatusInOrderByCreatedAtAsc(
+            listOf(OrderStatus.PENDING, OrderStatus.PREPARING),
+        ).take(limit.coerceIn(1, 50))
+        val list = orders.map { o ->
+            mapOf(
+                "numero" to o.orderNumber,
+                "status" to o.status.name,
+                "totalReais" to reais(o.totalCents),
+                "canal" to o.salesChannel.name,
+                "criadoEm" to o.createdAt.toString(),
+            )
+        }
+        return json(mapOf("totalEmAberto" to orders.size, "pedidos" to list))
+    }
+
+    private fun getCashSession(): String {
+        val session = cashSessionRepository.findFirstByStatus(CashSessionStatus.OPEN)
+            ?: return json(mapOf("aberto" to false, "mensagem" to "Nenhum caixa aberto no momento."))
+        val minutesOpen = java.time.Duration.between(session.openedAt, java.time.Instant.now()).toMinutes()
+        return json(
+            mapOf(
+                "aberto" to true,
+                "abertoHa" to "${minutesOpen / 60}h ${minutesOpen % 60}min",
+                "aberturaReais" to reais(session.openingAmountCents),
+                "aberturaEm" to session.openedAt.toString(),
             ),
         )
     }

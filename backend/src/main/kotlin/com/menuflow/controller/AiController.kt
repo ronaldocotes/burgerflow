@@ -65,5 +65,8 @@ class AiController(
      */
     @GetMapping("/metrics")
     @PreAuthorize("hasRole('ADMIN')")
-    fun metrics(): AiMetricsResponse = metricsService.metrics()
+    fun metrics(): AiMetricsResponse {
+        val p = SecurityUtils.currentPrincipalOrThrow()
+        return metricsService.metrics(p.tenantUuid)
+    }
 }

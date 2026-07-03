@@ -3,6 +3,8 @@ package com.menuflow.repository.tenant
 import com.menuflow.model.AiConversation
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
+import org.springframework.data.jpa.repository.Modifying
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
 import java.time.Instant
@@ -43,4 +45,14 @@ interface AiConversationRepository : JpaRepository<AiConversation, UUID> {
     /** Latencia media (ms) de TODAS as execucoes de ferramenta desde [from]. */
     @Query("SELECT COALESCE(AVG(c.latencyMs), 0) FROM AiConversation c WHERE c.role = 'tool' AND c.latencyMs IS NOT NULL AND c.createdAt >= :from")
     fun avgToolLatencySince(@Param("from") from: Instant): Double
+
+    /**
+     * Limpeza de historico antigo (AiConversationCleanupJob). Apaga todas as mensagens
+     * com created_at anterior a [cutoff]. Retorna o total de linhas removidas.
+     */
+    @Modifying(flushAutomatically = true)
+    @Transactional
+    @Query("DELETE FROM AiConversation c WHERE c.createdAt < :cutoff")
+    fun deleteByCreatedAtBefore(@Param("cutoff") cutoff: Instant): Int
+
 }

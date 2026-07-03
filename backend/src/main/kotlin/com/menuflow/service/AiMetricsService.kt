@@ -3,12 +3,15 @@ package com.menuflow.service
 import com.menuflow.dto.AiMetricsResponse
 import com.menuflow.dto.DayMetrics
 import com.menuflow.dto.ToolUsageStats
+import com.menuflow.repository.control.AiUsageRepository
 import com.menuflow.repository.tenant.AiConversationRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.UUID
 
 /**
  * Observabilidade do Copiloto (Fase 4.2) a partir do historico no banco do TENANT.
@@ -20,11 +23,12 @@ import java.time.ZoneId
 @Service
 class AiMetricsService(
     private val repository: AiConversationRepository,
+    private val aiUsageRepository: AiUsageRepository,
 ) {
     private val zone = ZoneId.of("America/Sao_Paulo")
 
     @Transactional("tenantTransactionManager", readOnly = true)
-    fun metrics(): AiMetricsResponse {
+    fun metrics(tenantId: UUID): AiMetricsResponse {
         val today = LocalDate.now(zone)
         val startToday = today.atStartOfDay(zone).toInstant()
         val start7 = today.minusDays(6).atStartOfDay(zone).toInstant()
@@ -37,12 +41,17 @@ class AiMetricsService(
             )
         }
 
+        val monthYear = today.format(DateTimeFormatter.ofPattern("yyyy-MM"))
+        val estimatedCost = aiUsageRepository.findByTenantIdAndMonthYear(tenantId, monthYear)
+            ?.estimatedCostUsdMicros ?: 0L
+
         return AiMetricsResponse(
             today = dayMetrics(startToday),
             last7Days = dayMetrics(start7),
             topTools = topTools,
             avgLatencyMs = repository.avgToolLatencySince(start7).toLong(),
             blockedRequests = repository.countByRoleAndCreatedAtGreaterThanEqual("blocked", startToday).toInt(),
+            estimatedCostUsdMicros = estimatedCost,
         )
     }
 

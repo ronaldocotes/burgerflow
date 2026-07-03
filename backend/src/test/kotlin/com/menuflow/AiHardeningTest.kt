@@ -1,6 +1,7 @@
 package com.menuflow
 
 import com.menuflow.client.AiTool
+import com.menuflow.dto.AiChatResponse
 import com.menuflow.client.ChatMessage
 import com.menuflow.client.ChatResponse
 import com.menuflow.client.LiteLLMClient
@@ -15,6 +16,7 @@ import com.menuflow.service.AiEvalService
 import com.menuflow.service.TenantConfigService
 import com.menuflow.tenant.TenantContext
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -186,6 +188,33 @@ class AiHardeningTest @Autowired constructor(
         assertThrows(TooManyRequestsException::class.java) {
             chat("rl", "estouro")
         }
+    }
+
+    @Test
+    fun `ferramenta desconhecida devolve JSON de erro sem lancar excecao (nao e 500)`() {
+        bind()
+        enableAi()
+        // O LLM pede uma ferramenta inexistente; o segundo turno devolve o texto final.
+        val unknownToolResp = ChatResponse(
+            content = null,
+            toolCalls = listOf(ToolCall(id = "call_x", name = "tool_que_nao_existe", arguments = emptyMap(), argumentsJson = "{}")),
+            model = "test-model",
+            promptTokens = 5,
+            completionTokens = 2,
+        )
+        Mockito.`when`(liteLLMClient.chat(anyArg<List<ChatMessage>>(), anyArg<List<AiTool>?>(), Mockito.anyInt()))
+            .thenReturn(unknownToolResp, textResp("Nao encontrei essa ferramenta, mas posso ajudar de outra forma."))
+
+        // Nao deve lancar nenhuma excecao (tool desconhecida e tratada como erro JSON).
+        val r = assertDoesNotThrow<AiChatResponse> { chat("unk", "use a ferramenta invalida") }
+        assertTrue(r.text.isNotBlank(), "resposta nao pode ser vazia")
+
+        // A mensagem de tool no historico deve conter o campo "error" (nao 500).
+        TenantContext.set(tenant)
+        val msgs = tenantTx.run { aiConversationRepository.findBySessionIdOrderByCreatedAtAsc("unk") }
+        val toolMsg = msgs.firstOrNull { it.role == "tool" && it.toolName == "tool_que_nao_existe" }
+        assertTrue(toolMsg != null, "mensagem de tool deve estar no historico")
+        assertTrue(toolMsg!!.toolResult?.contains("error") == true, "resultado deve conter campo error")
     }
 
     /** Mapeia o texto da pergunta do golden set para a ferramenta esperada (fidelidade=errada). */

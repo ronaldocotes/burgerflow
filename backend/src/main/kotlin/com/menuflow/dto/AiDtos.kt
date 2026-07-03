@@ -50,6 +50,8 @@ data class AiMetricsResponse(
     val topTools: List<ToolUsageStats>,
     val avgLatencyMs: Long,
     val blockedRequests: Int,
+    /** Custo estimado acumulado no mes corrente em microdolares (1 USD = 1_000_000). */
+    val estimatedCostUsdMicros: Long = 0L,
 )
 
 // ----------------------------- Avaliacao / golden set (Fase 4.2) -----------------------------
