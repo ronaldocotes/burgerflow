@@ -17,6 +17,30 @@ function timeAgo(iso: string): string {
   return `Ha ${Math.floor(hrs / 24)} d`
 }
 
+function waitMinutes(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 60_000)
+}
+
+function WaitBadge({ createdAt }: { createdAt: string }) {
+  const mins = waitMinutes(createdAt)
+  const cls =
+    mins < 5
+      ? 'bg-green-100 text-green-700'
+      : mins < 30
+        ? 'bg-yellow-100 text-yellow-800'
+        : 'bg-red-100 text-red-700'
+  return (
+    <span
+      className={[
+        'mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 text-xs font-medium',
+        cls,
+      ].join(' ')}
+    >
+      Aguardando {timeAgo(createdAt).toLowerCase()}
+    </span>
+  )
+}
+
 function parseHours(val: string | null): { enabled: boolean; open: string; close: string } {
   if (!val) return { enabled: false, open: '08:00', close: '22:00' }
   const [open, close] = val.split('-')
@@ -139,7 +163,11 @@ function HandoffCard({ handoff, resolving, onResolve }: HandoffCardProps) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-mono text-sm font-semibold text-text-primary">{handoff.customerPhone}</p>
-          <p className="mt-0.5 text-sm text-text-muted">{timeAgo(handoff.createdAt)}</p>
+          {handoff.resolved ? (
+            <p className="mt-0.5 text-sm text-text-muted">{timeAgo(handoff.createdAt)}</p>
+          ) : (
+            <WaitBadge createdAt={handoff.createdAt} />
+          )}
         </div>
         {handoff.resolved ? (
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
@@ -185,6 +213,7 @@ function HandoffsSection({ pendingCount, onPendingCountChange }: {
   const [page, setPage]           = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [resolving, setResolving] = useState<Set<string>>(new Set())
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const load = useCallback(async (p: number, resolved: boolean) => {
     setLoadState('loading')
@@ -226,14 +255,17 @@ function HandoffsSection({ pendingCount, onPendingCountChange }: {
   }, [filter, page, load, refreshPendingCount])
 
   async function handleResolve(id: string) {
+    setActionError(null)
     setResolving((prev) => new Set(prev).add(id))
     try {
       await api.post<void>(`/bot/handoffs/${id}/resolve`, {})
       setHandoffs((prev) => prev.filter((h) => h.id !== id))
       onPendingCountChange(Math.max(0, (pendingCount ?? 1) - 1))
       if (handoffs.length === 1) setLoadState('empty')
-    } catch {
-      // silencioso — nao bloquear UX
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError ? err.message : 'Nao foi possivel resolver o handoff. Tente novamente.',
+      )
     } finally {
       setResolving((prev) => {
         const next = new Set(prev)
@@ -275,6 +307,13 @@ function HandoffsSection({ pendingCount, onPendingCountChange }: {
           ))}
         </div>
       </div>
+
+      {/* Erro de acao (resolver) */}
+      {actionError && (
+        <div role="alert" className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
 
       {/* Estado: carregando */}
       {loadState === 'loading' && <HandoffSkeleton />}
@@ -385,27 +424,30 @@ function ConfigSection() {
   const [saving,  setSaving]  = useState(false)
   const [error,   setError]   = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [loadState, setLoadState] = useState<'loading' | 'error' | 'ok'>('loading')
+
+  const loadConfig = useCallback(async () => {
+    setLoadState('loading')
+    try {
+      const data = await api.get<Partial<BotConfig>>('/config')
+      const merged: BotConfig = { ...DEFAULT_CONFIG, ...data }
+      setDraft(merged)
+      // inicializar estado dos dias
+      const d: Record<string, DayState> = {}
+      for (const key of DAY_KEYS) {
+        d[key as string] = parseHours(merged[key] as string | null)
+      }
+      setDays(d)
+      setLoadState('ok')
+    } catch {
+      // NAO exibir o form com defaults: salvar sobrescreveria a config real do tenant
+      setLoadState('error')
+    }
+  }, [])
 
   useEffect(() => {
-    void (async () => {
-      try {
-        const data = await api.get<Partial<BotConfig>>('/config')
-        const merged: BotConfig = { ...DEFAULT_CONFIG, ...data }
-        setDraft(merged)
-        // inicializar estado dos dias
-        const d: Record<string, DayState> = {}
-        for (const key of DAY_KEYS) {
-          d[key as string] = parseHours(merged[key] as string | null)
-        }
-        setDays(d)
-      } catch {
-        // defaults permanecem
-        const d: Record<string, DayState> = {}
-        for (const key of DAY_KEYS) d[key as string] = { enabled: false, open: '08:00', close: '22:00' }
-        setDays(d)
-      }
-    })()
-  }, [])
+    void loadConfig()
+  }, [loadConfig])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -443,6 +485,34 @@ function ConfigSection() {
         </h3>
       </div>
 
+      {loadState === 'loading' && (
+        <div
+          className="animate-pulse space-y-4 rounded-2xl bg-bg-primary p-6 shadow-card"
+          aria-busy="true"
+          aria-label="Carregando configuracao..."
+        >
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-8 rounded bg-bg-tertiary" aria-hidden="true" />
+          ))}
+        </div>
+      )}
+
+      {loadState === 'error' && (
+        <div
+          role="alert"
+          className="flex flex-col items-center gap-4 rounded-2xl bg-bg-primary p-12 text-center shadow-card"
+        >
+          <p className="text-sm text-text-secondary">
+            Nao foi possivel carregar a configuracao do bot. O formulario foi bloqueado para nao
+            sobrescrever as configuracoes atuais.
+          </p>
+          <button className="btn-primary" onClick={() => void loadConfig()}>
+            Tentar novamente
+          </button>
+        </div>
+      )}
+
+      {loadState === 'ok' && (
       <div className="rounded-2xl bg-bg-primary shadow-card p-5 lg:p-6">
         <form onSubmit={(e) => void handleSave(e)} className="space-y-6">
           {/* Toggle ativo */}
@@ -691,6 +761,7 @@ function ConfigSection() {
           </button>
         </form>
       </div>
+      )}
     </section>
   )
 }

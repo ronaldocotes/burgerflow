@@ -128,9 +128,11 @@ function CreateLinkModal({ onClose, onCreated }: CreateLinkModalProps) {
   const [copied, setCopied] = useState(false)
 
   function copyShareUrl(url: string) {
-    void navigator.clipboard.writeText(url).then(() => {
+    navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    }).catch(() => {
+      // clipboard indisponivel — a URL fica visivel na tela para copia manual
     })
   }
 
@@ -427,6 +429,10 @@ export default function TrackingPage() {
   }
 
   async function handleDelete(link: TrackingLinkResponse) {
+    const confirmed = window.confirm(
+      `Excluir o link "${link.name}"? Os dados de cliques deste link serao perdidos.`,
+    )
+    if (!confirmed) return
     setActionError(null)
     try {
       await api.del<void>(`/tracking/links/${link.id}`)
@@ -441,9 +447,11 @@ export default function TrackingPage() {
   }
 
   function handleCopyUrl(url: string, id: string) {
-    void navigator.clipboard.writeText(url).then(() => {
+    navigator.clipboard.writeText(url).then(() => {
       setCopiedId(id)
       setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 2000)
+    }).catch(() => {
+      setActionError('Nao foi possivel copiar a URL automaticamente. Copie manualmente: ' + url)
     })
   }
 

@@ -120,30 +120,31 @@ function Toggle({
   id: string
 }) {
   return (
-    <label htmlFor={id} className="flex min-h-11 cursor-pointer items-center gap-3">
-      <div className="relative">
-        <input
-          id={id}
-          type="checkbox"
-          className="sr-only"
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-        />
-        <div
+    <div className="flex items-center gap-3">
+      <button
+        id={id}
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={[
+          'relative inline-flex h-11 w-12 shrink-0 items-center rounded-full transition-colors',
+          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700',
+          checked ? 'bg-primary-700' : 'bg-bg-tertiary',
+        ].join(' ')}
+      >
+        <span
           className={[
-            'h-11 w-12 rounded-full transition-colors duration-200',
-            checked ? 'bg-primary-700' : 'bg-bg-tertiary',
+            'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+            checked ? 'translate-x-6' : 'translate-x-1',
           ].join(' ')}
+          aria-hidden="true"
         />
-        <div
-          className={[
-            'absolute top-1.5 left-1 h-8 w-8 rounded-full bg-white shadow transition-transform duration-200',
-            checked ? 'translate-x-2' : 'translate-x-0',
-          ].join(' ')}
-        />
-      </div>
-      <span className="text-sm font-medium text-text-primary">{label}</span>
-    </label>
+      </button>
+      <label htmlFor={id} className="cursor-pointer select-none text-sm font-medium text-text-primary">
+        {label}
+      </label>
+    </div>
   )
 }
 
@@ -494,6 +495,7 @@ function DispatchesSection() {
   const [data, setData]                 = useState<ConversionDispatchPage | null>(null)
   const [loadState, setLoadState]       = useState<LoadState>('loading')
   const [errorMsg, setErrorMsg]         = useState<string | null>(null)
+  const [actionError, setActionError]   = useState<string | null>(null)
 
   const load = useCallback(async (p: number, status: FilterStatus) => {
     setLoadState('loading')
@@ -520,8 +522,13 @@ function DispatchesSection() {
   }
 
   async function handleRetry(id: string) {
-    await api.post<void>(`/conversions/dispatches/${id}/retry`, {})
-    void load(page, filterStatus)
+    setActionError(null)
+    try {
+      await api.post<void>(`/conversions/dispatches/${id}/retry`, {})
+      void load(page, filterStatus)
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Erro ao reenviar dispatch.')
+    }
   }
 
   return (
@@ -546,6 +553,12 @@ function DispatchesSection() {
           ))}
         </div>
       </div>
+
+      {actionError && (
+        <div role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
 
       {loadState === 'loading' && <TableSkeleton />}
 
@@ -620,12 +633,16 @@ export default function ConversoesPage() {
   }, [])
 
   return (
-    <div className="flex flex-col gap-8 p-6">
-      <div>
-        <h1 className="text-xl font-bold text-text-primary">Conversoes</h1>
-        <p className="mt-1 text-sm text-text-secondary">
-          Configure Meta CAPI e Google sGTM para rastreamento server-side de conversoes.
-        </p>
+    <div className="flex min-h-screen flex-col bg-bg-secondary">
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-4 py-8">
+      <div className="flex items-start gap-3">
+        <Zap className="mt-1 h-6 w-6 shrink-0 text-primary-700" aria-hidden="true" />
+        <div>
+          <h2 className="text-2xl font-bold text-text-primary">Conversoes</h2>
+          <p className="mt-1 text-sm text-text-secondary">
+            Configure Meta CAPI e Google sGTM para rastreamento server-side de conversoes.
+          </p>
+        </div>
       </div>
 
       {/* Configuracao */}
@@ -656,6 +673,7 @@ export default function ConversoesPage() {
 
       {/* Dispatches */}
       <DispatchesSection />
+      </main>
     </div>
   )
 }

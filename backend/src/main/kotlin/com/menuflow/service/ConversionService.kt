@@ -155,8 +155,13 @@ class ConversionService(
         }
     }
 
-    /** Retry manual de um despacho (endpoint admin). Roteia para o tenant atual. */
-    @Transactional("tenantTransactionManager", readOnly = true)
+    /** Retry manual de um despacho (endpoint admin). Roteia para o tenant atual.
+     *
+     * NAO usa @Transactional aqui: os dois loads iniciais sao auto-commit (safe fora de tx);
+     * os writes de attemptDispatch correm em suas proprias txs via TransactionTemplate.
+     * A anotacao readOnly=true anterior causava que os txTemplate.execute internos (com
+     * PROPAGATION_REQUIRED) participassem da tx readOnly do chamador, arriscando
+     * "Connection is read-only" em runtime. */
     fun retryOne(id: UUID): Boolean {
         val config = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()
             ?: throw com.menuflow.exception.ResourceNotFoundException("Configuracao do tenant inexistente")

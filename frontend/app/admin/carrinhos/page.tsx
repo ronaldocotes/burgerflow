@@ -21,6 +21,17 @@ function fmtDate(iso: string | null): string {
   return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 }
 
+/** Tempo relativo curto: "agora", "ha 5 min", "ha 2 h", "ha 3 dias". */
+function fmtRelative(iso: string): string {
+  const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000)
+  if (min < 1) return 'agora'
+  if (min < 60) return `ha ${min} min`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `ha ${h} h`
+  const d = Math.floor(h / 24)
+  return `ha ${d} ${d === 1 ? 'dia' : 'dias'}`
+}
+
 // ── Badge de status ──────────────────────────────────────────────────────────────────
 
 const STATUS_MAP: Record<CartSessionStatus, { label: string; className: string }> = {
@@ -188,19 +199,22 @@ function ConfigPanel() {
             onClick={() =>
               setDraft((d) => ({ ...d, cartRecoveryEnabled: !d.cartRecoveryEnabled }))
             }
-            className={[
-              'relative inline-flex h-11 w-12 shrink-0 items-center rounded-full transition-colors',
-              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700',
-              draft.cartRecoveryEnabled ? 'bg-primary-700' : 'bg-bg-tertiary',
-            ].join(' ')}
+            className="relative inline-flex h-11 w-14 shrink-0 items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
           >
             <span
               className={[
-                'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
-                draft.cartRecoveryEnabled ? 'translate-x-6' : 'translate-x-1',
+                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
+                draft.cartRecoveryEnabled ? 'bg-primary-700' : 'bg-bg-tertiary',
               ].join(' ')}
               aria-hidden="true"
-            />
+            >
+              <span
+                className={[
+                  'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform',
+                  draft.cartRecoveryEnabled ? 'translate-x-[22px]' : 'translate-x-0.5',
+                ].join(' ')}
+              />
+            </span>
           </button>
         </div>
 
@@ -500,8 +514,11 @@ export default function CarrinhosPage() {
                           <td className="px-4 py-3">
                             <CartStatusBadge status={s.status} />
                           </td>
-                          <td className="px-4 py-3 text-text-secondary whitespace-nowrap">
-                            {fmtDate(s.createdAt)}
+                          <td
+                            className="px-4 py-3 text-text-secondary whitespace-nowrap"
+                            title={fmtDate(s.createdAt)}
+                          >
+                            {fmtRelative(s.createdAt)}
                           </td>
                           <td className="px-4 py-3 text-text-secondary whitespace-nowrap">
                             {fmtDate(s.recoveryMessageSentAt)}

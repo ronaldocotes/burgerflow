@@ -37,6 +37,13 @@ function localToIso(local: string): string {
   return new Date(local).toISOString()
 }
 
+/** Agora no formato do input datetime-local (YYYY-MM-DDTHH:mm), em hora local. */
+function nowLocalInput(): string {
+  const d = new Date()
+  d.setSeconds(0, 0)
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+}
+
 // ── Badge de status da campanha ───────────────────────────────────────────────
 
 function CampaignStatusBadge({ status }: { status: string }) {
@@ -106,7 +113,7 @@ function TableSkeleton() {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border-light">
-            {['Nome', 'Segmento', 'Status', 'Destinatarios', 'Enviados', 'Falhas', 'Acoes'].map((h) => (
+            {['Nome', 'Segmento', 'Status', 'Envio', 'Destinatarios', 'Enviados', 'Falhas', 'Acoes'].map((h) => (
               <th
                 key={h}
                 className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted"
@@ -119,7 +126,7 @@ function TableSkeleton() {
         <tbody>
           {Array.from({ length: 4 }).map((_, i) => (
             <tr key={i} className="border-b border-border-light">
-              {Array.from({ length: 7 }).map((__, j) => (
+              {Array.from({ length: 8 }).map((__, j) => (
                 <td key={j} className="px-4 py-3">
                   <div className="h-4 rounded bg-bg-tertiary" aria-hidden="true" />
                 </td>
@@ -317,10 +324,15 @@ function CreateCampaignModal({ initialSegment, onClose, onCreated }: CreateModal
             <input
               id="camp-scheduled"
               type="datetime-local"
+              min={nowLocalInput()}
               value={scheduledAt}
               onChange={(e) => setScheduledAt(e.target.value)}
               className="input-field w-full"
             />
+            <p className="mt-1.5 text-sm text-text-muted">
+              O disparo automatico no horario agendado ainda nao esta ativo &mdash; campanhas
+              agendadas precisam do botao Disparar.
+            </p>
           </div>
 
           {error && (
@@ -575,6 +587,11 @@ function ConfirmStartModal({ campaign, onClose, onConfirm }: ConfirmStartModalPr
           . Confirma o disparo de{' '}
           <span className="font-semibold">{campaign.name}</span>?
         </p>
+        {campaign.totalRecipients === 0 && (
+          <p className="mb-4 rounded-lg bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
+            Nenhum destinatario elegivel (com opt-in) neste segmento. Nada sera enviado.
+          </p>
+        )}
         {error && (
           <p role="alert" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
@@ -586,7 +603,7 @@ function ConfirmStartModal({ campaign, onClose, onConfirm }: ConfirmStartModalPr
           </button>
           <button
             onClick={() => void handle()}
-            disabled={loading}
+            disabled={loading || campaign.totalRecipients === 0}
             className="btn-primary flex items-center gap-2 disabled:opacity-50"
           >
             {loading && (
@@ -614,15 +631,15 @@ export default function CampanhasPage() {
   const [startTarget, setStartTarget] = useState<CampaignResponse | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoadState('loading')
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoadState('loading')
     try {
       const data = await api.get<CampaignPage<CampaignResponse>>('/campaigns?page=0&size=20')
       const list = data.content
       setCampaigns(list)
       setLoadState(list.length === 0 ? 'empty' : 'ok')
     } catch {
-      setLoadState('error')
+      if (!silent) setLoadState('error')
     }
   }, [])
 
@@ -640,10 +657,19 @@ export default function CampanhasPage() {
     }
   }, [])
 
+  // Enquanto houver campanha RUNNING, atualiza os contadores a cada 10s (silencioso).
+  useEffect(() => {
+    if (!campaigns.some((c) => c.status === 'RUNNING')) return
+    const t = setInterval(() => void load(true), 10_000)
+    return () => clearInterval(t)
+  }, [campaigns, load])
+
   async function handleStart(campaign: CampaignResponse) {
-    const updated = await api.post<CampaignResponse>(`/campaigns/${campaign.id}/start`, {})
-    setCampaigns((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+    // O start apenas valida e delega ao dispatcher ASSINCRONO: o response ainda vem
+    // DRAFT/PAUSED. Recarrega para capturar o RUNNING (o polling assume dali em diante).
+    await api.post<CampaignResponse>(`/campaigns/${campaign.id}/start`, {})
     setStartTarget(null)
+    setTimeout(() => void load(true), 1500)
   }
 
   async function handlePause(campaign: CampaignResponse) {
@@ -717,11 +743,14 @@ export default function CampanhasPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border-light">
-                    {['Nome', 'Segmento', 'Status', 'Destinatarios', 'Enviados', 'Falhas', 'Acoes'].map(
+                    {['Nome', 'Segmento', 'Status', 'Envio', 'Destinatarios', 'Enviados', 'Falhas', 'Acoes'].map(
                       (h) => (
                         <th
                           key={h}
-                          className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted whitespace-nowrap"
+                          className={[
+                            'px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-muted whitespace-nowrap',
+                            ['Destinatarios', 'Enviados', 'Falhas'].includes(h) ? 'text-right' : 'text-left',
+                          ].join(' ')}
                         >
                           {h}
                         </th>
@@ -744,6 +773,13 @@ export default function CampanhasPage() {
                       <td className="px-4 py-3">
                         <CampaignStatusBadge status={c.status} />
                       </td>
+                      <td className="px-4 py-3 text-text-secondary whitespace-nowrap">
+                        {c.startedAt
+                          ? fmtDate(c.startedAt)
+                          : c.scheduledAt
+                            ? `Agendada: ${fmtDate(c.scheduledAt)}`
+                            : '—'}
+                      </td>
                       <td className="px-4 py-3 text-right text-text-secondary">
                         {c.totalRecipients.toLocaleString('pt-BR')}
                       </td>
@@ -755,14 +791,14 @@ export default function CampanhasPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          {c.status === 'DRAFT' && (
+                          {(c.status === 'DRAFT' || c.status === 'PAUSED') && (
                             <button
                               onClick={() => setStartTarget(c)}
-                              aria-label={`Disparar campanha ${c.name}`}
+                              aria-label={`${c.status === 'PAUSED' ? 'Retomar' : 'Disparar'} campanha ${c.name}`}
                               className="flex items-center gap-1 rounded-lg border border-primary-700 px-2.5 py-1 text-xs font-medium text-primary-700 hover:bg-primary-700 hover:text-white transition-colors"
                             >
                               <Play className="h-3.5 w-3.5" aria-hidden="true" />
-                              Disparar
+                              {c.status === 'PAUSED' ? 'Retomar' : 'Disparar'}
                             </button>
                           )}
                           {c.status === 'RUNNING' && (

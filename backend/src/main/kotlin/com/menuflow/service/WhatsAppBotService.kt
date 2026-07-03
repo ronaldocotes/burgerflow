@@ -192,12 +192,15 @@ class WhatsAppBotService(
      */
     fun resolveHandoff(handoffId: UUID) {
         val handoff = txTemplate.execute {
-            botHandoffRepository.findById(handoffId).orElse(null)?.also {
-                it.resolved = true
-                it.resolvedAt = Instant.now()
-                botHandoffRepository.save(it)
-            }
-        } ?: throw ResourceNotFoundException("Handoff nao encontrado")
+            val h = botHandoffRepository.findById(handoffId).orElse(null)
+                ?: throw ResourceNotFoundException("Handoff nao encontrado")
+            // Idempotencia: se ja esta resolvido nao re-salva nem re-avisa o cliente.
+            if (h.resolved) return@execute null
+            h.resolved = true
+            h.resolvedAt = Instant.now()
+            botHandoffRepository.save(h)
+            h
+        } ?: return // ja resolvido ou nao encontrado (404 lancado acima)
 
         val session = txTemplate.execute { tenantConfigRepository.findFirstByOrderByCreatedAtAsc()?.wahaPrimaryPhone }
         // Aviso opcional ao cliente (fail-open: nunca derruba o encerramento).
@@ -211,11 +214,16 @@ class WhatsAppBotService(
     // ----------------------------- Helpers -----------------------------
 
     private fun notifyOwner(config: TenantConfig, text: String) {
-        // Aviso ao dono/atendente. O numero do dono e tratado como o numero do
-        // restaurante (wahaPrimaryPhone). Roteamento exato e infra do WAHA (FOLLOW-UP:
-        // numero de notificacao dedicado por tenant). Best-effort: sendCampaign nunca lanca.
-        val owner = config.wahaPrimaryPhone?.trim()?.ifBlank { null } ?: return
-        whatsAppService.sendCampaign(owner, text, null)
+        // Prefere ownerPhone (numero pessoal do dono) quando configurado; cai no numero
+        // do restaurante como fallback. Usar wahaPrimaryPhone como destino significa
+        // enviar para o proprio WAHA — funciona em WhatsApp Web mas e semanticamente
+        // errado: o dono recebe na caixa de entrada, nao num chat separado.
+        // Best-effort: sendCampaign nunca lanca excecao.
+        val dest = config.ownerPhone?.trim()?.ifBlank { null }
+            ?: config.wahaPrimaryPhone?.trim()?.ifBlank { null }
+            ?: return
+        val session = config.wahaPrimaryPhone?.trim()?.ifBlank { null }
+        whatsAppService.sendCampaign(dest, text, session)
     }
 
     /** "5511999999999@c.us" -> "5511999999999" (so digitos). */
