@@ -224,6 +224,96 @@ class CampaignServiceTest @Autowired constructor(
         Mockito.verify(whatsAppService, Mockito.times(2)).sendCampaign(anyArg(), anyArg(), Mockito.any())
     }
 
+    // ---- agendamento (CampaignSchedulerJob -> startDueScheduled) ----
+
+    @Test
+    fun `create com scheduledAt nasce SCHEDULED`() {
+        TenantContext.set(tenant)
+        val created = campaignService.create(
+            CampaignCreateRequest(
+                name = "Agendada", messageTemplate = "Oi", segment = CampaignSegment.ALL_OPT_IN,
+                scheduledAt = Instant.now().plus(1, ChronoUnit.HOURS),
+            ),
+        )
+        assertEquals(CampaignStatus.SCHEDULED, created.status)
+    }
+
+    @Test
+    fun `campanha agendada no passado dispara UMA vez e nao redispara`() {
+        zeroDelay()
+        newCustomer("Agendado", optIn = true)
+        TenantContext.set(tenant)
+        val created = campaignService.create(
+            CampaignCreateRequest(
+                name = "Agendada", messageTemplate = "Oi {nome}", segment = CampaignSegment.ALL_OPT_IN,
+                scheduledAt = Instant.now().minus(5, ChronoUnit.MINUTES),
+            ),
+        )
+        assertEquals(CampaignStatus.SCHEDULED, created.status)
+
+        TenantContext.set(tenant)
+        assertEquals(1, campaignService.startDueScheduled(tenant), "primeiro tick reivindica e dispara")
+        // Segundo tick: a transicao atomica ja aconteceu -> nada a disparar.
+        TenantContext.set(tenant)
+        assertEquals(0, campaignService.startDueScheduled(tenant), "segundo tick NAO redispara")
+
+        // O despacho e assincrono (mesmo caminho do start manual); aguarda concluir.
+        awaitStatus(created.id, CampaignStatus.COMPLETED)
+        TenantContext.set(tenant)
+        val campaign = campaignRepository.findById(created.id).get()
+        assertEquals(1, campaign.sentCount)
+        // O WAHA (mock) recebeu exatamente UM envio: sem duplicidade.
+        Mockito.verify(whatsAppService, Mockito.times(1)).sendCampaign(anyArg(), anyArg(), Mockito.any())
+    }
+
+    @Test
+    fun `campanha PAUSED com horario vencido nao dispara pelo agendador`() {
+        TenantContext.set(tenant)
+        val created = campaignService.create(
+            CampaignCreateRequest(
+                name = "Pausada", messageTemplate = "Oi", segment = CampaignSegment.ALL_OPT_IN,
+                scheduledAt = Instant.now().minus(5, ChronoUnit.MINUTES),
+            ),
+        )
+        TenantContext.set(tenant)
+        campaignRepository.findById(created.id).get().let {
+            it.status = CampaignStatus.PAUSED
+            campaignRepository.save(it)
+        }
+
+        TenantContext.set(tenant)
+        assertEquals(0, campaignService.startDueScheduled(tenant))
+        TenantContext.set(tenant)
+        assertEquals(CampaignStatus.PAUSED, campaignRepository.findById(created.id).get().status)
+    }
+
+    @Test
+    fun `campanha agendada no futuro ainda nao dispara`() {
+        TenantContext.set(tenant)
+        val created = campaignService.create(
+            CampaignCreateRequest(
+                name = "Futura", messageTemplate = "Oi", segment = CampaignSegment.ALL_OPT_IN,
+                scheduledAt = Instant.now().plus(1, ChronoUnit.HOURS),
+            ),
+        )
+        TenantContext.set(tenant)
+        assertEquals(0, campaignService.startDueScheduled(tenant))
+        TenantContext.set(tenant)
+        assertEquals(CampaignStatus.SCHEDULED, campaignRepository.findById(created.id).get().status)
+    }
+
+    /** Aguarda (ate 10s) o status esperado — o dispatch roda em thread @Async. */
+    private fun awaitStatus(id: UUID, expected: CampaignStatus) {
+        val deadline = System.currentTimeMillis() + 10_000
+        while (System.currentTimeMillis() < deadline) {
+            TenantContext.set(tenant)
+            if (campaignRepository.findById(id).get().status == expected) return
+            Thread.sleep(100)
+        }
+        TenantContext.set(tenant)
+        assertEquals(expected, campaignRepository.findById(id).get().status, "timeout aguardando status")
+    }
+
     /** Zera o delay anti-ban no tenant_config para o teste nao dormir de verdade. */
     private fun zeroDelay() {
         TenantContext.set(tenant)

@@ -2,6 +2,7 @@ package com.menuflow.service
 
 import com.menuflow.dto.TenantConfigResponse
 import com.menuflow.dto.TenantConfigUpdateRequest
+import com.menuflow.ifood.IfoodTokenCipher
 import com.menuflow.model.TenantConfig
 import com.menuflow.repository.tenant.TenantConfigRepository
 import com.menuflow.util.ColorContrast
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class TenantConfigService(
     private val repository: TenantConfigRepository,
+    private val cipher: IfoodTokenCipher,
 ) {
 
     @Transactional("tenantTransactionManager", readOnly = true)
@@ -96,6 +98,19 @@ class TenantConfigService(
         req.metaTestEventCode?.let     { config.metaTestEventCode   = it.trim().ifBlank { null } }
         req.googleSgtmUrl?.let         { config.googleSgtmUrl       = it.trim().ifBlank { null } }
         req.googleMeasurementId?.let   { config.googleMeasurementId = it.trim().ifBlank { null } }
+        // api_secret do GA4 (write-only): "" limpa; valor e cifrado (AES-256-GCM,
+        // IfoodTokenCipher) e persistido como enc+iv. NUNCA devolvido no GET.
+        req.googleApiSecret?.let {
+            val value = it.trim()
+            if (value.isBlank()) {
+                config.googleApiSecretEnc = null
+                config.googleApiSecretIv = null
+            } else {
+                val (enc, iv) = cipher.encrypt(value)
+                config.googleApiSecretEnc = enc
+                config.googleApiSecretIv = iv
+            }
+        }
         req.conversionTrackingEnabled?.let { config.conversionTrackingEnabled = it }
         // Copiloto do dono: IA (Fase 4.1): omitido (null) preserva; enviado sobrescreve.
         req.aiEnabled?.let      { config.aiEnabled      = it }

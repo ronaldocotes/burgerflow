@@ -85,6 +85,9 @@ enum class CampaignSegment {
 /** Ciclo de vida da campanha. */
 enum class CampaignStatus {
     DRAFT,
+
+    /** Agendada (scheduledAt definido); o CampaignSchedulerJob promove para RUNNING na hora marcada. */
+    SCHEDULED,
     RUNNING,
     PAUSED,
     COMPLETED,

@@ -98,6 +98,8 @@ data class TenantConfigResponse(
     val metaTestEventCode: String?,
     val googleSgtmUrl: String?,
     val googleMeasurementId: String?,
+    /** true quando ha api_secret do GA4 salvo (o VALOR nunca e exposto — write-only). */
+    val googleApiSecretConfigured: Boolean,
     val conversionTrackingEnabled: Boolean,
     // Copiloto do dono: IA (Fase 4.1).
     val aiEnabled: Boolean,
@@ -173,6 +175,7 @@ data class TenantConfigResponse(
                 metaTestEventCode         = c.metaTestEventCode,
                 googleSgtmUrl             = c.googleSgtmUrl,
                 googleMeasurementId       = c.googleMeasurementId,
+                googleApiSecretConfigured = c.googleApiSecretEnc != null && c.googleApiSecretIv != null,
                 conversionTrackingEnabled = c.conversionTrackingEnabled,
                 aiEnabled                 = c.aiEnabled,
                 aiSystemPrompt            = c.aiSystemPrompt,
@@ -297,6 +300,9 @@ data class TenantConfigUpdateRequest(
     val googleSgtmUrl: String? = null,
     @field:Size(max = 50)
     val googleMeasurementId: String? = null,
+    /** api_secret do GA4 Measurement Protocol (write-only): gravado CIFRADO; "" limpa; nunca devolvido no GET. */
+    @field:Size(max = 200)
+    val googleApiSecret: String? = null,
     val conversionTrackingEnabled: Boolean? = null,
     // Copiloto do dono: IA (Fase 4.1). Omitido (null) = preservar valor atual.
     val aiEnabled: Boolean? = null,

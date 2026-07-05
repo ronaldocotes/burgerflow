@@ -19,10 +19,13 @@ import com.menuflow.repository.tenant.CampaignSendRepository
 import com.menuflow.repository.tenant.CustomerRepository
 import com.menuflow.repository.tenant.TenantConfigRepository
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 import java.util.UUID
 
@@ -44,8 +47,10 @@ class CampaignService(
     private val rfvService: RfvService,
     private val campaignDispatcher: CampaignDispatcher,
     private val objectMapper: ObjectMapper,
+    @Qualifier("tenantTransactionManager") txManager: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+    private val txTemplate = TransactionTemplate(txManager)
 
     /** Destinatario resolvido: cliente + score RFV (quando ele ja comprou). */
     data class Recipient(val customer: Customer, val rfvScore: RfvScore?)
@@ -77,7 +82,9 @@ class CampaignService(
                 messageTemplate = req.messageTemplate,
                 segment = req.segment,
                 segmentParams = req.segmentParams?.let { objectMapper.writeValueAsString(it) },
-                status = CampaignStatus.DRAFT,
+                // Com scheduledAt a campanha nasce SCHEDULED: o CampaignSchedulerJob
+                // a promove para RUNNING (atomicamente) quando o horario chegar.
+                status = if (req.scheduledAt != null) CampaignStatus.SCHEDULED else CampaignStatus.DRAFT,
                 scheduledAt = req.scheduledAt,
             ),
         )
@@ -132,17 +139,58 @@ class CampaignService(
 
     /**
      * Dispara a campanha. Marca a intencao e delega o envio ao dispatcher ASSINCRONO
-     * (delay anti-ban roda fora do thread HTTP). So DRAFT/PAUSED podem iniciar.
+     * (delay anti-ban roda fora do thread HTTP). So DRAFT/PAUSED/SCHEDULED podem
+     * iniciar — SCHEDULED via transicao atomica, competindo com o scheduler (quem
+     * ganhar o UPDATE dispara; o outro leva 409 e nada e enviado em dobro).
      */
     @Transactional("tenantTransactionManager")
     fun start(id: UUID, tenantSlug: String): CampaignResponse {
         val campaign = load(id)
-        if (campaign.status !in listOf(CampaignStatus.DRAFT, CampaignStatus.PAUSED)) {
-            throw ConflictException("Campanha nao pode ser iniciada no estado ${campaign.status}")
+        when (campaign.status) {
+            CampaignStatus.DRAFT, CampaignStatus.PAUSED -> Unit
+            CampaignStatus.SCHEDULED -> {
+                val claimed = campaignRepository.transitionStatus(
+                    id, CampaignStatus.SCHEDULED, CampaignStatus.RUNNING, Instant.now(),
+                )
+                if (claimed != 1) throw ConflictException("Campanha ja foi disparada pelo agendador")
+                campaign.status = CampaignStatus.RUNNING // reflete o UPDATE no objeto da resposta
+            }
+            else -> throw ConflictException("Campanha nao pode ser iniciada no estado ${campaign.status}")
         }
         // O dispatcher (async) recarrega e marca RUNNING; aqui so validamos o estado.
         campaignDispatcher.dispatchAsync(tenantSlug, id)
         return CampaignResponse.from(campaign)
+    }
+
+    /**
+     * Dispara as campanhas SCHEDULED cujo horario ja venceu (chamado pelo
+     * CampaignSchedulerJob a cada tick, com o TenantContext ja vinculado).
+     * A promocao SCHEDULED -> RUNNING e um UPDATE atomico com guard no status:
+     * so quem "ganha" o UPDATE (1 linha) despacha — reexecucao do job, replica
+     * concorrente ou start manual simultaneo NUNCA redisparam a mesma campanha.
+     * PAUSED/RUNNING/COMPLETED/FAILED nao entram (guard duplo: query + UPDATE).
+     * O envio reusa o MESMO caminho do start manual (dispatchAsync -> delays
+     * anti-ban + recheque de opt-in por envio). Retorna quantas dispararam.
+     */
+    fun startDueScheduled(tenantSlug: String, now: Instant = Instant.now()): Int {
+        val dueIds = txTemplate.execute {
+            campaignRepository.findByStatusAndScheduledAtLessThanEqual(CampaignStatus.SCHEDULED, now)
+                .mapNotNull { it.id }
+        } ?: emptyList()
+
+        var started = 0
+        for (id in dueIds) {
+            // Claim atomico em tx propria e curta; o dispatch so acontece APOS o commit.
+            val claimed = txTemplate.execute {
+                campaignRepository.transitionStatus(id, CampaignStatus.SCHEDULED, CampaignStatus.RUNNING, Instant.now())
+            } ?: 0
+            if (claimed == 1) {
+                log.info("Campanha agendada {} vencida; disparando", id)
+                campaignDispatcher.dispatchAsync(tenantSlug, id)
+                started++
+            }
+        }
+        return started
     }
 
     /** Pausa uma campanha em andamento. O loop de despacho aborta na proxima iteracao. */

@@ -1,6 +1,9 @@
 package com.menuflow
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.menuflow.dto.TenantConfigUpdateRequest
 import com.menuflow.event.OrderPaidEvent
+import com.menuflow.ifood.IfoodTokenCipher
 import com.menuflow.model.ConversionDispatch
 import com.menuflow.model.ConversionPlatform
 import com.menuflow.model.ConversionStatus
@@ -10,8 +13,11 @@ import com.menuflow.repository.tenant.ConversionDispatchRepository
 import com.menuflow.repository.tenant.OrderRepository
 import com.menuflow.repository.tenant.TenantConfigRepository
 import com.menuflow.service.ConversionService
+import com.menuflow.service.TenantConfigService
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -35,9 +41,15 @@ class ConversionServiceTest @Autowired constructor(
     private val conversionDispatchRepository: ConversionDispatchRepository,
     private val tenantConfigRepository: TenantConfigRepository,
     private val orderRepository: OrderRepository,
+    private val tenantConfigService: TenantConfigService,
+    private val cipher: IfoodTokenCipher,
+    private val objectMapper: ObjectMapper,
 ) : IntegrationTestBase() {
 
     private lateinit var tenant: String
+
+    /** api_secret de teste (em claro so no teste; no banco vai cifrado). */
+    private val googleSecretPlain = "ga4-secret-teste"
 
     @AfterEach
     fun clear() = com.menuflow.tenant.TenantContext.clear()
@@ -48,8 +60,17 @@ class ConversionServiceTest @Autowired constructor(
         return tenant
     }
 
-    /** Liga/desliga o rastreamento e define quais plataformas estao configuradas. */
-    private fun setupConfig(enabled: Boolean, meta: Boolean = false, google: Boolean = false) {
+    /**
+     * Liga/desliga o rastreamento e define quais plataformas estao configuradas.
+     * googleSecret permite simular o tenant com sgtm_url mas SEM api_secret
+     * (caso do bug: o envio deve ser pulado, nunca sair com api_secret vazio).
+     */
+    private fun setupConfig(
+        enabled: Boolean,
+        meta: Boolean = false,
+        google: Boolean = false,
+        googleSecret: Boolean = google,
+    ) {
         com.menuflow.tenant.TenantContext.set(tenant)
         val config = tenantConfigRepository.findFirstByOrderByCreatedAtAsc() ?: TenantConfig()
         config.conversionTrackingEnabled = enabled
@@ -57,6 +78,14 @@ class ConversionServiceTest @Autowired constructor(
         config.metaAccessToken = if (meta) "EAAtoken-secreto" else null
         config.googleSgtmUrl = if (google) "https://sgtm.exemplo.com" else null
         config.googleMeasurementId = if (google) "G-ABC12345" else null
+        if (googleSecret) {
+            val (enc, iv) = cipher.encrypt(googleSecretPlain)
+            config.googleApiSecretEnc = enc
+            config.googleApiSecretIv = iv
+        } else {
+            config.googleApiSecretEnc = null
+            config.googleApiSecretIv = null
+        }
         tenantConfigRepository.save(config)
     }
 
@@ -181,6 +210,87 @@ class ConversionServiceTest @Autowired constructor(
         val after = conversionDispatchRepository.findById(saved.id!!).orElseThrow()
         assertEquals(ConversionStatus.SKIPPED, after.status)
         assertEquals(3, after.attempts) // nao tentou de novo
+    }
+
+    // ---- api_secret do Google (fix sGTM) ----
+
+    @Test
+    fun `Google sem api_secret nao agenda despacho`() {
+        bind()
+        setupConfig(enabled = true, google = true, googleSecret = false)
+        val order = newOrder()
+
+        conversionService.scheduleConversions(event(order.id!!))
+
+        assertTrue(dispatches().isEmpty(), "sem api_secret o despacho GOOGLE nem e criado")
+    }
+
+    @Test
+    fun `conversao Google monta a URL com o api_secret decifrado`() {
+        bind()
+        setupConfig(enabled = true, google = true)
+        com.menuflow.tenant.TenantContext.set(tenant)
+        val config = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()!!
+
+        val url = conversionService.buildGoogleCollectUrl(config)
+
+        assertNotNull(url)
+        assertTrue(url!!.contains("api_secret=$googleSecretPlain"), "api_secret deve ir PREENCHIDO na URL")
+        assertTrue(url.contains("measurement_id=G-ABC12345"))
+        assertFalse(url.endsWith("api_secret="), "nunca mais api_secret vazio")
+    }
+
+    @Test
+    fun `despacho GOOGLE pendente sem api_secret vira SKIPPED sem tentativa HTTP`() {
+        bind()
+        setupConfig(enabled = true, google = true, googleSecret = false)
+        val order = newOrder()
+        com.menuflow.tenant.TenantContext.set(tenant)
+        val saved = conversionDispatchRepository.save(
+            ConversionDispatch(
+                orderId = order.id!!,
+                platform = ConversionPlatform.GOOGLE,
+                status = ConversionStatus.PENDING,
+                eventId = "order-${order.id}",
+            ),
+        )
+
+        conversionService.processDispatches(tenant)
+
+        com.menuflow.tenant.TenantContext.set(tenant)
+        val after = conversionDispatchRepository.findById(saved.id!!).orElseThrow()
+        assertEquals(ConversionStatus.SKIPPED, after.status)
+        assertEquals(0, after.attempts) // nenhuma tentativa de rede foi contada
+        assertTrue(after.responseBody!!.contains("api_secret"))
+    }
+
+    @Test
+    fun `PATCH config grava o api_secret cifrado e GET nao vaza o valor`() {
+        bind()
+        com.menuflow.tenant.TenantContext.set(tenant)
+        tenantConfigService.update(
+            TenantConfigUpdateRequest(autoAcceptOrders = false, googleApiSecret = googleSecretPlain),
+        )
+
+        // Persistido cifrado (enc+iv), com round-trip integro.
+        com.menuflow.tenant.TenantContext.set(tenant)
+        val entity = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()!!
+        assertNotNull(entity.googleApiSecretEnc)
+        assertNotNull(entity.googleApiSecretIv)
+        assertEquals(googleSecretPlain, cipher.decrypt(entity.googleApiSecretEnc!!, entity.googleApiSecretIv!!))
+
+        // GET /config: apenas o flag; o valor NUNCA aparece no JSON serializado.
+        com.menuflow.tenant.TenantContext.set(tenant)
+        val response = tenantConfigService.get()
+        assertTrue(response.googleApiSecretConfigured)
+        val json = objectMapper.writeValueAsString(response)
+        assertFalse(json.contains(googleSecretPlain), "GET /config nao pode vazar o api_secret")
+
+        // "" limpa o segredo (write-only com clear explicito).
+        com.menuflow.tenant.TenantContext.set(tenant)
+        tenantConfigService.update(TenantConfigUpdateRequest(autoAcceptOrders = false, googleApiSecret = ""))
+        com.menuflow.tenant.TenantContext.set(tenant)
+        assertFalse(tenantConfigService.get().googleApiSecretConfigured)
     }
 
     /** SHA-256 hex de referencia (independente da implementacao do servico). */

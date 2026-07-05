@@ -3,6 +3,7 @@ package com.menuflow.service
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.menuflow.dto.ConversionDispatchResponse
 import com.menuflow.event.OrderPaidEvent
+import com.menuflow.ifood.IfoodTokenCipher
 import com.menuflow.model.ConversionDispatch
 import com.menuflow.model.ConversionPlatform
 import com.menuflow.model.ConversionStatus
@@ -23,6 +24,7 @@ import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
 import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.client.RestClient
+import java.net.URLEncoder
 import java.security.MessageDigest
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -52,6 +54,7 @@ class ConversionService(
     private val tenantConfigRepository: TenantConfigRepository,
     private val orderRepository: OrderRepository,
     private val objectMapper: ObjectMapper,
+    private val cipher: IfoodTokenCipher,
     @Qualifier("tenantTransactionManager") txManager: PlatformTransactionManager,
     builder: RestClient.Builder,
 ) {
@@ -99,7 +102,16 @@ class ConversionService(
                     createDispatch(event.orderId, ConversionPlatform.META)
                 }
                 if (!config.googleSgtmUrl.isNullOrBlank()) {
-                    createDispatch(event.orderId, ConversionPlatform.GOOGLE)
+                    // Sem api_secret o GA4 descarta o evento em silencio: nem agenda.
+                    if (config.googleApiSecretEnc != null && config.googleApiSecretIv != null) {
+                        createDispatch(event.orderId, ConversionPlatform.GOOGLE)
+                    } else {
+                        log.warn(
+                            "Tenant {}: google_sgtm_url configurada SEM google_api_secret — conversao Google do pedido {} NAO agendada (configure em PATCH /config)",
+                            event.tenantSlug,
+                            event.orderId,
+                        )
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -194,6 +206,18 @@ class ConversionService(
             return false
         }
 
+        // Google exige o api_secret do Measurement Protocol: sem ele o GA4 responde
+        // 204 mas descarta o evento em silencio. Pular com log claro (e sem contar
+        // tentativa) e melhor que "enviar" para o nada.
+        if (dispatch.platform == ConversionPlatform.GOOGLE && buildGoogleCollectUrl(config) == null) {
+            log.warn(
+                "Despacho de conversao {} pulado: google_api_secret nao configurado no tenant (configure em PATCH /config)",
+                id,
+            )
+            txTemplate.execute { markSkippedWithReason(id, "google_api_secret nao configurado") }
+            return false
+        }
+
         val order = txTemplate.execute { orderRepository.findById(dispatch.orderId).orElse(null) }
         if (order == null) {
             txTemplate.execute { recordResult(id, success = false, code = null, body = "pedido inexistente", payloadHash = null) }
@@ -272,7 +296,8 @@ class ConversionService(
     }
 
     /**
-     * Google via sGTM: POST {sgtmUrl}/mp/collect?measurement_id=...&api_secret=
+     * Google via sGTM: POST {sgtmUrl}/mp/collect?measurement_id=...&api_secret=...
+     * (api_secret decifrado de tenant_config — ver [buildGoogleCollectUrl]).
      * Payload Measurement Protocol GA4 (purchase). SEM PII no corpo — o sGTM faz o
      * enriquecimento server-side. client_id usa o orderId (estavel e anonimo).
      */
@@ -291,9 +316,10 @@ class ConversionService(
             ),
         )
         val json = objectMapper.writeValueAsString(payload)
-        val base = config.googleSgtmUrl!!.trimEnd('/')
-        val measurementId = config.googleMeasurementId ?: ""
-        val url = "$base/mp/collect?measurement_id=$measurementId&api_secret="
+        // URL com o api_secret decifrado. O chamador (attemptDispatch) ja garantiu a
+        // configuracao; o error() aqui e so cinto de seguranca (vira FAILED, nao envia).
+        val url = buildGoogleCollectUrl(config)
+            ?: error("google_api_secret nao configurado")
         val response = http.post()
             .uri(url)
             .header("Content-Type", "application/json")
@@ -301,6 +327,32 @@ class ConversionService(
             .retrieve()
             .toEntity(String::class.java)
         return HttpOutcome(response.statusCode.value(), response.body?.take(2000), sha256(json))
+    }
+
+    /**
+     * Monta a URL do Measurement Protocol (GA4) com o api_secret DECIFRADO na query.
+     * Retorna null quando o tenant nao tem sgtm_url ou api_secret configurados —
+     * nesse caso o envio Google e pulado (NUNCA mandamos sem secret). Publica para
+     * teste; a URL contem segredo e NUNCA deve ser logada.
+     */
+    fun buildGoogleCollectUrl(config: TenantConfig): String? {
+        val base = config.googleSgtmUrl?.trimEnd('/')?.takeIf { it.isNotBlank() } ?: return null
+        val secret = decryptGoogleApiSecret(config) ?: return null
+        val measurementId = URLEncoder.encode(config.googleMeasurementId ?: "", Charsets.UTF_8)
+        return "$base/mp/collect?measurement_id=$measurementId&api_secret=${URLEncoder.encode(secret, Charsets.UTF_8)}"
+    }
+
+    /** Decifra o api_secret (AES-256-GCM). Null = nao configurado ou cifra invalida (logado). */
+    private fun decryptGoogleApiSecret(config: TenantConfig): String? {
+        val enc = config.googleApiSecretEnc ?: return null
+        val iv = config.googleApiSecretIv ?: return null
+        return try {
+            cipher.decrypt(enc, iv)
+        } catch (e: Exception) {
+            // Chave trocada/ciphertext corrompido: trata como nao configurado (sem vazar detalhes).
+            log.error("Falha ao decifrar google_api_secret do tenant: {}", e.message)
+            null
+        }
     }
 
     // ---------------------------------------------------------------------------
@@ -328,6 +380,17 @@ class ConversionService(
         conversionDispatchRepository.findById(id).orElse(null)?.let {
             if (it.status != ConversionStatus.SENT) {
                 it.status = ConversionStatus.SKIPPED
+                conversionDispatchRepository.save(it)
+            }
+        }
+    }
+
+    /** Marca SKIPPED com motivo legivel (ex.: configuracao incompleta), sem contar tentativa. */
+    private fun markSkippedWithReason(id: UUID, reason: String) {
+        conversionDispatchRepository.findById(id).orElse(null)?.let {
+            if (it.status != ConversionStatus.SENT) {
+                it.status = ConversionStatus.SKIPPED
+                it.responseBody = reason
                 conversionDispatchRepository.save(it)
             }
         }

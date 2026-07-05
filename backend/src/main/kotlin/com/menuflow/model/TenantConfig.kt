@@ -204,6 +204,19 @@ data class TenantConfig(
     @Column(name = "google_measurement_id", length = 50)
     var googleMeasurementId: String? = null,
 
+    /**
+     * api_secret do Measurement Protocol GA4 (SEGREDO), cifrado em AES-256-GCM
+     * (IfoodTokenCipher — mesma chave dos tokens iFood/TOTP; IV em
+     * [googleApiSecretIv]). Nunca devolvido no GET /config: a resposta expoe
+     * apenas o flag googleApiSecretConfigured. Ambos gravados/limpos JUNTOS.
+     */
+    @Column(name = "google_api_secret_enc")
+    var googleApiSecretEnc: ByteArray? = null,
+
+    /** IV de 12 bytes do AES-256-GCM do api_secret. Emparelhado com [googleApiSecretEnc]. */
+    @Column(name = "google_api_secret_iv")
+    var googleApiSecretIv: ByteArray? = null,
+
     /** Liga/desliga o rastreamento de conversao (master switch). */
     @Column(name = "conversion_tracking_enabled", nullable = false)
     var conversionTrackingEnabled: Boolean = false,
