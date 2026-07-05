@@ -11,7 +11,7 @@ import type {
   EarningsSummary,
 } from '@/types/delivery';
 
-/** PREVISTO — perfil do entregador logado (backend resolve o driver pelo token). */
+/** EXISTE — perfil do entregador logado (backend resolve o driver pelo token). */
 export const getMe = () => get<DriverProfile>('/delivery/me');
 
 /** EXISTE — liga/desliga turno. DRIVER so pode no proprio id (validado no servidor). */
@@ -22,7 +22,7 @@ export const setShift = (driverId: string, activeShift: boolean) =>
 export const sendLocation = (body: { lat: number; lng: number; batteryPct?: number }) =>
   post<DriverProfile>('/delivery/location', body);
 
-/** PREVISTO — ofertas pendentes do motoboy logado (fallback de polling do STOMP). */
+/** EXISTE — ofertas pendentes do motoboy logado (fallback de polling do STOMP). */
 export const getMyOffers = () => get<DeliveryOffer[]>('/delivery/offers/my');
 
 /** EXISTE — aceite de oferta (so o dono; corrida validada no servidor). */
@@ -44,5 +44,40 @@ export const getMyOrders = () => get<DeliveryOrder[]>('/delivery/orders/my');
 export const updateOrderStatus = (orderId: string, deliveryStatus: DeliveryStatus) =>
   put<DeliveryOrder>(`/delivery/orders/${orderId}/status`, { deliveryStatus });
 
-/** PREVISTO — resumo de ganhos (dia/semana) do motoboy logado. Centavos. */
-export const getMyEarnings = () => get<EarningsSummary>('/delivery/earnings/my');
+/**
+ * EXISTE — GET /delivery/earnings/my?from&to (yyyy-MM-dd; sempre o driver do token).
+ * O backend consolida por intervalo ({deliveriesCount, deliveryEarningsCents});
+ * o app faz duas chamadas (hoje e ultimos 7 dias) e adapta para EarningsSummary.
+ */
+interface EarningsRangeResponse {
+  from: string;
+  to: string;
+  deliveriesCount: number;
+  deliveryEarningsCents: number;
+  perDeliveryCents: number | null;
+  dailyRateCents: number | null;
+  perKmCents: number | null;
+  hasConfig: boolean;
+}
+
+const localDate = (d: Date) => {
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+};
+
+export const getMyEarnings = async (): Promise<EarningsSummary> => {
+  const now = new Date();
+  const today = localDate(now);
+  const weekStart = localDate(new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000));
+  const [day, week] = await Promise.all([
+    get<EarningsRangeResponse>(`/delivery/earnings/my?from=${today}&to=${today}`),
+    get<EarningsRangeResponse>(`/delivery/earnings/my?from=${weekStart}&to=${today}`),
+  ]);
+  return {
+    todayCents: day.deliveryEarningsCents,
+    todayDeliveries: day.deliveriesCount,
+    weekCents: week.deliveryEarningsCents,
+    weekDeliveries: week.deliveriesCount,
+  };
+};
