@@ -7,9 +7,13 @@ import {
 } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { getToken } from '@/lib/auth';
+import { setOnUnauthorized } from '@/lib/api';
+import { clearSession, getToken } from '@/lib/auth';
+import { isDriverToken } from '@/lib/jwt';
 import LoginScreen from '@/screens/LoginScreen';
 import AppTabs from './AppTabs';
+import DriverTabs from './DriverTabs';
+import { resetToLogin } from './navRef';
 
 // ---------------------------------------------------------------------------
 // Tipos do stack raiz
@@ -17,6 +21,7 @@ import AppTabs from './AppTabs';
 export type RootStackParamList = {
   Login: undefined;
   Tabs: undefined;
+  DriverTabs: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -39,30 +44,40 @@ function SplashScreen() {
 }
 
 // ---------------------------------------------------------------------------
-// Navigator raiz: verifica token → direciona para Login ou Tabs
+// Navigator raiz: verifica token -> Login, Tabs (equipe) ou DriverTabs (motoboy).
+// Todas as rotas ficam registradas; a inicial vem da sessao persistida.
 // ---------------------------------------------------------------------------
 export default function RootNavigator() {
-  const [loading, setLoading] = useState(true);
-  const [hasToken, setHasToken] = useState(false);
+  const [initialRoute, setInitialRoute] = useState<keyof RootStackParamList | null>(null);
 
   useEffect(() => {
     getToken()
-      .then((t) => setHasToken(!!t))
-      .catch(() => setHasToken(false))
-      .finally(() => setLoading(false));
+      .then((t) =>
+        setInitialRoute(t ? (isDriverToken(t) ? 'DriverTabs' : 'Tabs') : 'Login'),
+      )
+      .catch(() => setInitialRoute('Login'));
   }, []);
 
-  if (loading) {
+  // 401 em qualquer chamada (sessao morta/revogada) -> limpa e volta ao Login.
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      clearSession().finally(resetToLogin);
+    });
+    return () => setOnUnauthorized(null);
+  }, []);
+
+  if (!initialRoute) {
     return <SplashScreen />;
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
-      {hasToken ? (
-        <Stack.Screen name="Tabs" component={AppTabs} />
-      ) : (
-        <Stack.Screen name="Login" component={LoginScreen} />
-      )}
+    <Stack.Navigator
+      initialRouteName={initialRoute}
+      screenOptions={{ headerShown: false, animation: 'fade' }}
+    >
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Tabs" component={AppTabs} />
+      <Stack.Screen name="DriverTabs" component={DriverTabs} />
     </Stack.Navigator>
   );
 }

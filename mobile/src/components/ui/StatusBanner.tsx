@@ -8,6 +8,8 @@ import type { FeedStatus } from '@/lib/ws';
 
 interface StatusBannerProps {
   feedStatus: FeedStatus;
+  /** Texto do modo polling (default: intervalo do KDS). */
+  pollingLabel?: string;
 }
 
 const BANNER_CONFIG: Partial<
@@ -33,18 +35,21 @@ const BANNER_CONFIG: Partial<
   },
 };
 
-export function StatusBanner({ feedStatus }: StatusBannerProps) {
+export function StatusBanner({ feedStatus, pollingLabel }: StatusBannerProps) {
   // Não exibir enquanto conectando (estado transitório curto)
   if (feedStatus === 'connecting') return null;
 
   const config = BANNER_CONFIG[feedStatus];
   if (!config) return null;
 
+  const label =
+    feedStatus === 'polling' && pollingLabel ? pollingLabel : config.label;
+
   return (
     <View
       accessibilityRole="alert"
       accessibilityLiveRegion="polite"
-      accessibilityLabel={config.label}
+      accessibilityLabel={label}
       style={{
         backgroundColor: config.bg,
         flexDirection: 'row',
@@ -63,7 +68,7 @@ export function StatusBanner({ feedStatus }: StatusBannerProps) {
         {config.icon}
       </Text>
       <Text style={{ fontSize: 12, fontWeight: '600', color: config.fg }}>
-        {config.label}
+        {label}
       </Text>
     </View>
   );

@@ -15,6 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { post, ApiError } from '@/lib/api';
 import { saveSession } from '@/lib/auth';
+import { isDriverToken } from '@/lib/jwt';
 import { RootStackParamList } from '@/navigation/RootNavigator';
 
 // ---------------------------------------------------------------------------
@@ -207,7 +208,10 @@ export default function LoginScreen() {
       await saveSession(res.token, res.refreshToken, slug.trim());
 
       // Reseta o stack — impede voltar ao Login com backswipe
-      navigation.reset({ index: 0, routes: [{ name: 'Tabs' }] });
+      navigation.reset({
+        index: 0,
+        routes: [{ name: isDriverToken(res.token) ? 'DriverTabs' : 'Tabs' }],
+      });
     } catch (err) {
       if (err instanceof ApiError) {
         setErrors({
