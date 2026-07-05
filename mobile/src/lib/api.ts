@@ -12,6 +12,13 @@ export class ApiError extends Error {
   }
 }
 
+// Handler global de 401 (sessao invalida/revogada). Registrado pelo RootNavigator
+// para limpar a sessao e voltar ao Login. Mantido aqui para valer para TODA chamada.
+let onUnauthorized: (() => void) | null = null;
+export function setOnUnauthorized(handler: (() => void) | null) {
+  onUnauthorized = handler;
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -29,6 +36,8 @@ async function request<T>(
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
+    // 401 com token presente = sessao morta -> derruba para o Login.
+    if (res.status === 401 && token && onUnauthorized) onUnauthorized();
     const msg = await res.text().catch(() => res.statusText);
     throw new ApiError(res.status, msg);
   }

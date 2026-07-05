@@ -31,3 +31,21 @@ export const theme = {
   border: { light: '#e2e8f0', medium: '#cbd5e1' },
   brand: '#047857',
 } as const;
+
+/**
+ * Fase 6.2 — status de entrega (app do motoboy). Status NUNCA e comunicado so por
+ * cor (sempre icone + texto); estes tokens dao o reforco visual.
+ */
+export const delivery = {
+  pending: '#64748b',        // aguardando despacho
+  offered: '#b45309',        // oferta no ar (amber-700: contraste AA sobre claro)
+  accepted: '#1e40af',       // aceita / indo ao restaurante
+  arrivedAtStore: '#1e40af', // no restaurante
+  pickedUp: '#0369a1',       // pedido coletado
+  outForDelivery: '#047857', // entregando
+  arrivedAtCustomer: '#047857',
+  delivered: '#065f46',
+  failed: '#991b1b',
+  online: '#047857',
+  offline: '#475569',
+} as const;
