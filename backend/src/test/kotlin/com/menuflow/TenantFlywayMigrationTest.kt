@@ -64,9 +64,9 @@ class TenantFlywayMigrationTest @Autowired constructor(
 
         provision(slug)
 
-        // V1..V51 + V56/V57 applied exactly once each in the tenant's history table
-        // (V52-V55 reservadas para outra branch; Flyway aceita gaps).
-        assertEquals(53, countSchemaVersionRows(slug), "tenant schema_version must have exactly fifty-three applied migrations (V1..V51 + V56 + V57)")
+        // V1..V52 + V56/V57 applied exactly once each in the tenant's history table
+        // (V53-V55 livres; Flyway aceita gaps).
+        assertEquals(54, countSchemaVersionRows(slug), "tenant schema_version must have exactly fifty-four applied migrations (V1..V52 + V56 + V57)")
 
         // Ledger got at least one success row for this tenant.
         assertTrue(ledgerCount(slug) >= 1, "control ledger must record the successful migration")
@@ -79,7 +79,7 @@ class TenantFlywayMigrationTest @Autowired constructor(
         provision(slug)
         val firstCount = countSchemaVersionRows(slug)
         val firstLedger = ledgerCount(slug)
-        assertEquals(53, firstCount)
+        assertEquals(54, firstCount)
 
         // Re-provision: the pool already exists, so we drop it to force a fresh
         // build that re-invokes the migrator against the SAME (already-migrated)
@@ -87,7 +87,7 @@ class TenantFlywayMigrationTest @Autowired constructor(
         routing.evictPool(slug)
         provision(slug)
 
-        assertEquals(53, countSchemaVersionRows(slug), "re-running migrate must NOT add duplicate rows")
+        assertEquals(54, countSchemaVersionRows(slug), "re-running migrate must NOT add duplicate rows")
         // The migrator still logs each invocation; a fresh successful no-op run
         // appends one more ledger row (audit of the attempt), so it grows by one.
         assertEquals(firstLedger + 1, ledgerCount(slug), "each migrate invocation appends one ledger row")

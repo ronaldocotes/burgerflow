@@ -6,6 +6,7 @@ import com.menuflow.dto.DriverRegistrationResponse
 import com.menuflow.exception.BusinessException
 import com.menuflow.exception.ConflictException
 import com.menuflow.exception.ResourceNotFoundException
+import com.menuflow.model.DeliveryDriver
 import com.menuflow.repository.tenant.DeliveryDriverRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -19,6 +20,12 @@ import java.util.UUID
  * partir do slug da URL). Como o modelo e db-per-tenant, o token de cadastro so e
  * encontrado no banco do proprio restaurante: um token de outro tenant simplesmente
  * nao existe neste banco (isolamento fisico) -> 404. Nao ha login: o token e a "senha".
+ *
+ * Expiracao (auditoria M2): o token vale ate signup_token_expires_at (V52; 72h no
+ * fluxo do dispatch). Link expirado — ou sem validade registrada (fail-closed) —
+ * responde o MESMO 404 do token inexistente, sem vazar qual dos casos ocorreu.
+ * Sem expiracao, o link WhatsApp virava uma senha eterna: sequestro do link
+ * permitiria concluir o cadastro apontando a chave PIX de repasse para o atacante.
  *
  * O complete() e transacional no tenantTransactionManager para que a mudanca do
  * driver e o registro de auditoria sejam atomicos (o AuditLogService.log e REQUIRED
@@ -34,6 +41,11 @@ class DriverRegistrationService(
     fun preview(token: UUID): DeliveryDriverPreviewResponse {
         val driver = driverRepository.findBySignupToken(token)
             ?: throw ResourceNotFoundException("Link de cadastro invalido")
+        // Cadastro ja concluido continua visivel (alreadyCompleted orienta a tela);
+        // pendente com link vencido = 404 generico.
+        if (driver.registrationCompletedAt == null && isTokenExpired(driver)) {
+            throw ResourceNotFoundException("Link de cadastro invalido")
+        }
         return DeliveryDriverPreviewResponse(
             name = driver.name,
             phoneMasked = maskPhone(driver.phone),
@@ -55,6 +67,10 @@ class DriverRegistrationService(
 
         if (driver.registrationCompletedAt != null) {
             throw ConflictException("Cadastro ja concluido")
+        }
+
+        if (isTokenExpired(driver)) {
+            throw ResourceNotFoundException("Link de cadastro invalido")
         }
 
         val now = Instant.now()
@@ -83,6 +99,15 @@ class DriverRegistrationService(
         )
 
         return DriverRegistrationResponse("Cadastro concluido com sucesso!")
+    }
+
+    /**
+     * Fail-closed: token sem validade registrada conta como expirado (a V52 faz o
+     * backfill dos pendentes legados; o dispatch novo sempre grava a validade).
+     */
+    private fun isTokenExpired(driver: DeliveryDriver): Boolean {
+        val expiresAt = driver.signupTokenExpiresAt ?: return true
+        return expiresAt.isBefore(Instant.now())
     }
 
     /** Mascara o telefone para o preview: "96 9****-1234" (nunca devolve o numero cheio). */

@@ -43,7 +43,11 @@ class PublicOrderRateLimitFilter(
         // por IP como o clique de tracking.
         val isMenuLinkResolve = request.method == "GET" &&
             uri.contains("/public/") && uri.contains("/l/")
-        return !(isPublicWrite || isTrackingClick || isMenuLinkResolve)
+        // Auto-cadastro do motoboy (Fase C1 / auditoria M2): o token do path e uma
+        // "senha" sujeita a forca bruta e o POST grava chave PIX de repasse — GET
+        // (preview) e POST (conclusao) limitados por IP como os demais publicos.
+        val isDriverSignup = uri.contains("/public/") && uri.contains("/motoboy/cadastro/")
+        return !(isPublicWrite || isTrackingClick || isMenuLinkResolve || isDriverSignup)
     }
 
     override fun doFilterInternal(

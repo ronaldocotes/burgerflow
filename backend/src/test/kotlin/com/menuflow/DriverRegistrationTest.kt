@@ -3,6 +3,7 @@ package com.menuflow
 import com.menuflow.dto.DriverRegistrationRequest
 import com.menuflow.exception.BusinessException
 import com.menuflow.exception.ConflictException
+import com.menuflow.exception.ResourceNotFoundException
 import com.menuflow.model.DeliveryDriver
 import com.menuflow.repository.tenant.DeliveryDriverRepository
 import com.menuflow.service.AuditLogService
@@ -43,7 +44,11 @@ class DriverRegistrationTest {
         service = DriverRegistrationService(driverRepository, auditLogService)
     }
 
-    private fun provisionalDriver(completedAt: Instant? = null) = DeliveryDriver(
+    private fun provisionalDriver(
+        completedAt: Instant? = null,
+        // M2: token valido por padrao; os casos de expiracao passam outro valor.
+        expiresAt: Instant? = Instant.now().plusSeconds(3600),
+    ) = DeliveryDriver(
         id = UUID.randomUUID(),
         name = "Motoboy 1234",
         phone = "96991231234",
@@ -51,6 +56,7 @@ class DriverRegistrationTest {
         driverType = "FREELANCER",
         provisional = true,
         signupToken = token,
+        signupTokenExpiresAt = expiresAt,
         registrationCompletedAt = completedAt,
     )
 
@@ -110,5 +116,34 @@ class DriverRegistrationTest {
         assertThrows(BusinessException::class.java) {
             service.complete(token, req)
         }
+    }
+    @Test
+    fun completeRegistration_expiredToken() {
+        // M2: link vencido responde o MESMO 404 do token inexistente (nao vaza o caso).
+        val expired = provisionalDriver(expiresAt = Instant.now().minusSeconds(60))
+        Mockito.`when`(driverRepository.findBySignupToken(token)).thenReturn(expired)
+
+        assertThrows(ResourceNotFoundException::class.java) {
+            service.complete(token, validRequest())
+        }
+        Mockito.verify(driverRepository, Mockito.never()).save(expired)
+    }
+
+    @Test
+    fun preview_expiredOrMissingExpiryToken() {
+        // Vencido -> 404.
+        val expired = provisionalDriver(expiresAt = Instant.now().minusSeconds(60))
+        Mockito.`when`(driverRepository.findBySignupToken(token)).thenReturn(expired)
+        assertThrows(ResourceNotFoundException::class.java) { service.preview(token) }
+
+        // Sem validade registrada -> fail-closed, tambem 404.
+        val noExpiry = provisionalDriver(expiresAt = null)
+        Mockito.`when`(driverRepository.findBySignupToken(token)).thenReturn(noExpiry)
+        assertThrows(ResourceNotFoundException::class.java) { service.preview(token) }
+
+        // Cadastro JA concluido continua visivel (alreadyCompleted orienta a tela).
+        val done = provisionalDriver(completedAt = Instant.now(), expiresAt = null)
+        Mockito.`when`(driverRepository.findBySignupToken(token)).thenReturn(done)
+        assertEquals(true, service.preview(token).alreadyCompleted)
     }
 }
