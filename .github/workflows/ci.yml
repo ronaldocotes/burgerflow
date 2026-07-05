@@ -217,9 +217,12 @@ jobs:
           cache-dependency-path: ia/requirements.txt
       
       - name: Install dependencies
+        # Sem --no-cache-dir: o setup-python declara cache: pip, e o post-step
+        # de salvar o cache FALHA O JOB quando ~/.cache/pip nao existe (mesmo
+        # com os testes verdes).
         run: |
           cd ia
-          pip install --no-cache-dir -r requirements.txt
+          pip install -r requirements.txt
       
       - name: Run Unit Tests
         run: |
