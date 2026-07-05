@@ -288,6 +288,8 @@ class DispatchService(
                 driverType = "FREELANCER",
                 provisional = true,
                 signupToken = UUID.randomUUID(),
+                // M2: o link de auto-cadastro expira (72h); NULL = invalido (fail-closed).
+                signupTokenExpiresAt = Instant.now().plusSeconds(72 * 3600L),
             ),
         )
     }

@@ -75,6 +75,13 @@ data class DeliveryDriver(
     @Column(name = "signup_token")
     var signupToken: UUID? = null,
 
+    /**
+     * Validade do link de auto-cadastro (V52, auditoria M2). O codigo trata NULL
+     * como expirado (fail-closed): link sem validade registrada nao vale.
+     */
+    @Column(name = "signup_token_expires_at")
+    var signupTokenExpiresAt: Instant? = null,
+
     /** Momento em que o convite de cadastro foi enviado (evita reenvio). */
     @Column(name = "recruitment_sent_at")
     var recruitmentSentAt: Instant? = null,

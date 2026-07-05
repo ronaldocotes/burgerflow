@@ -5,21 +5,28 @@ import com.menuflow.dto.DeliveryOfferResponse
 import com.menuflow.dto.DeliveryOrderResponse
 import com.menuflow.dto.DeliveryStatusUpdateRequest
 import com.menuflow.dto.DriverCreateRequest
+import com.menuflow.dto.DriverEarningsResponse
 import com.menuflow.dto.DriverLocationEvent
+import com.menuflow.dto.DriverMeResponse
 import com.menuflow.dto.DriverResponse
 import com.menuflow.dto.LocationUpdateRequest
+import com.menuflow.dto.OrderStatusUpdateRequest
 import com.menuflow.exception.BusinessException
 import com.menuflow.exception.ConflictException
 import com.menuflow.exception.ResourceNotFoundException
 import com.menuflow.model.DeliveryDriver
 import com.menuflow.model.DeliveryOfferStatus
 import com.menuflow.model.DeliveryStatus
+import com.menuflow.model.OrderStatus
 import com.menuflow.model.OrderType
+import com.menuflow.model.control.UserRole
 import com.menuflow.repository.tenant.DeliveryDriverRepository
 import com.menuflow.repository.tenant.DeliveryOfferRepository
+import com.menuflow.repository.tenant.DriverConfigRepository
 import com.menuflow.repository.tenant.OrderRepository
 import com.menuflow.security.AuthPrincipal
 import com.menuflow.security.SecurityUtils
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -41,6 +48,12 @@ class DeliveryService(
     private val realtimePublisher: RealtimePublisher,
     private val tenantConfigRepository: com.menuflow.repository.tenant.TenantConfigRepository,
     private val eventPublisher: org.springframework.context.ApplicationEventPublisher,
+    // Fase 6.2 (app do motoboy): config de remuneracao (ganhos) e vinculo com o
+    // usuario do banco de CONTROLE (o repo de controle tem seu proprio EMF/TM,
+    // entao le fora da transacao do tenant sem conflito).
+    private val driverConfigRepository: DriverConfigRepository,
+    private val controlUserRepository: com.menuflow.repository.control.UserRepository,
+    private val orderService: OrderService,
 ) {
     private val saoPaulo = ZoneId.of("America/Sao_Paulo")
 
@@ -90,19 +103,64 @@ class DeliveryService(
     }
 
     /**
-     * Courier updates dispatch status (ASSIGNED -> OUT_FOR_DELIVERY -> DELIVERED).
-     * Order must already be assigned to a driver. Publishes to the delivery topic.
+     * Atualiza o status do despacho (FSM em [validateTransition]).
+     *
+     * Anti-BOLA (auditoria A1): um DRIVER "puro" (sem papel de gestao) so avanca a
+     * PROPRIA entrega — o pedido precisa estar carimbado com o driver ligado ao user
+     * do token (order.driverId == driver do JWT); senao 403. Gestores
+     * (ADMIN/MANAGER/OPERATOR) seguem podendo mexer em qualquer despacho do tenant.
+     *
+     * Idempotencia p/ retry do app: repetir o MESMO status alvo e no-op (devolve o
+     * estado atual, sem re-publicar nem re-notificar) — reenvio por rede instavel
+     * nao vira 400 de transicao invalida.
+     *
+     * Ao virar DELIVERED: (a) se a cozinha ja marcou READY, promove o pedido a
+     * DELIVERED via OrderService (fonte unica do FSM de cozinha, completedAt, KDS e
+     * notificacao WhatsApp) — e esse carimbo (status DELIVERED + completedAt) que o
+     * acerto financeiro e o /earnings/my contam; (b) carimba firstDeliveryAt do
+     * entregador (gatilho do funil de recrutamento do freelancer, Fase B2/C1).
      */
     @Transactional("tenantTransactionManager")
     fun updateStatus(orderId: UUID, req: DeliveryStatusUpdateRequest): DeliveryOrderResponse {
+        val principal = SecurityUtils.currentPrincipalOrThrow()
         val order = orderRepository.findById(orderId)
             .orElseThrow { ResourceNotFoundException("Order not found: $orderId") }
         val current = order.deliveryStatus
             ?: throw BusinessException("Order ${order.orderNumber} has not been assigned to a driver")
+
+        // Anti-BOLA: quem nao e gestor so age na propria entrega.
+        if (principal.roles.none { it in fleetRoles }) {
+            val driver = currentDriverOrThrow()
+            if (order.driverId != driver.id) {
+                throw AccessDeniedException("Entrega de outro entregador")
+            }
+        }
+
+        if (req.deliveryStatus == current) {
+            // Retry idempotente: mesmo alvo, nada a fazer.
+            return DeliveryOrderResponse.from(order)
+        }
         validateTransition(current, req.deliveryStatus)
 
         order.deliveryStatus = req.deliveryStatus
-        val saved = orderRepository.save(order)
+        var saved = orderRepository.save(order)
+
+        if (req.deliveryStatus == DeliveryStatus.DELIVERED) {
+            if (saved.status == OrderStatus.READY) {
+                // READY -> DELIVERED e transicao valida do FSM de cozinha; delegar ao
+                // OrderService evita duplicar completedAt/KDS/notificacao aqui.
+                orderService.updateStatus(saved.id!!, OrderStatusUpdateRequest(status = OrderStatus.DELIVERED))
+                saved = orderRepository.findById(saved.id!!).orElse(saved)
+            }
+            saved.driverId?.let { driverId ->
+                driverRepository.findById(driverId).orElse(null)?.let { d ->
+                    if (d.firstDeliveryAt == null) {
+                        d.firstDeliveryAt = Instant.now()
+                        driverRepository.save(d)
+                    }
+                }
+            }
+        }
 
         val payload = DeliveryOrderResponse.from(saved)
         realtimePublisher.publishDelivery(currentTenantSlug(), payload)
@@ -185,10 +243,16 @@ class DeliveryService(
      * O motoboy reporta sua posicao (GPS). Resolve o entregador pelo user do token
      * assinado (nunca por id do corpo — anti-IDOR), atualiza a ultima localizacao e
      * publica a posicao ao vivo no topico de entrega do tenant.
+     *
+     * LGPD (auditoria B1): fora de turno o app nao coleta posicao — 409 orienta o
+     * app a ligar o turno antes de enviar GPS.
      */
     @Transactional("tenantTransactionManager")
     fun updateLocation(req: LocationUpdateRequest): DriverResponse {
         val driver = currentDriverOrThrow()
+        if (!driver.activeShift) {
+            throw ConflictException("Turno inativo: ligue o turno para enviar localizacao")
+        }
         driver.lastLat = req.lat
         driver.lastLng = req.lng
         driver.batteryPct = req.batteryPct
@@ -265,6 +329,116 @@ class DeliveryService(
     fun myOrders(): List<DeliveryOrderResponse> {
         val driver = currentDriverOrThrow()
         return orderRepository.findActiveOrdersForDriver(driver.id!!).map { DeliveryOrderResponse.from(it) }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Fase 6.2 — perfil, ofertas pendentes, ganhos e vinculo user<->driver
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Perfil do motoboy logado (app): dados basicos + turno + config de remuneracao
+     * (o motoboy VE o proprio combinado; quem EDITA e o gestor via /drivers/{id}/config).
+     * Resolve SEMPRE pelo user do token assinado — nunca por id de fora.
+     */
+    @Transactional("tenantTransactionManager", readOnly = true)
+    fun me(): DriverMeResponse {
+        val driver = currentDriverOrThrow()
+        val config = driverConfigRepository.findByDriverId(driver.id!!)
+        return DriverMeResponse.from(driver, config)
+    }
+
+    /** Liga/desliga o turno do PROPRIO motoboy logado (app), sem id na rota. */
+    @Transactional("tenantTransactionManager")
+    fun setOwnShift(activeShift: Boolean): DriverResponse {
+        val driver = currentDriverOrThrow()
+        driver.activeShift = activeShift
+        return DriverResponse.from(driverRepository.save(driver))
+    }
+
+    /**
+     * Ofertas PENDENTES do motoboy logado (status OFFERED e ainda dentro do prazo),
+     * mais proxima de expirar primeiro. Ofertas de grupo (driverId nulo ate o aceite)
+     * nao entram — o aceite delas acontece pelo WhatsApp (Fase B2).
+     */
+    @Transactional("tenantTransactionManager", readOnly = true)
+    fun myOffers(): List<DeliveryOfferResponse> {
+        val driver = currentDriverOrThrow()
+        val now = Instant.now()
+        return offerRepository.findByDriverIdAndStatus(driver.id!!, DeliveryOfferStatus.OFFERED)
+            .filter { it.expiresAt.isAfter(now) }
+            .sortedBy { it.expiresAt }
+            .map { DeliveryOfferResponse.from(it) }
+    }
+
+    /**
+     * Ganhos do motoboy logado no periodo [from, to] (datas em America/Sao_Paulo,
+     * default: hoje). Conta as MESMAS entregas do acerto financeiro
+     * (countDeliveriesByDriverAndPeriod: status DELIVERED + completedAt na janela) e
+     * aplica a config de remuneracao — assim o que o app mostra bate com o que o
+     * restaurante paga. Sem config: contagem com valores zerados e hasConfig=false.
+     * A diaria e o km sao informativos (dias trabalhados/km sao apurados no acerto).
+     */
+    @Transactional("tenantTransactionManager", readOnly = true)
+    fun myEarnings(from: LocalDate?, to: LocalDate?): DriverEarningsResponse {
+        val driver = currentDriverOrThrow()
+        val today = LocalDate.now(saoPaulo)
+        val start = from ?: today
+        val end = to ?: today
+        if (end.isBefore(start)) {
+            throw BusinessException("Periodo invalido: fim antes do inicio")
+        }
+        if (start.plusDays(366).isBefore(end)) {
+            throw BusinessException("Periodo maximo de 366 dias")
+        }
+        val fromInstant = start.atStartOfDay(saoPaulo).toInstant()
+        val toInstant = end.plusDays(1).atStartOfDay(saoPaulo).toInstant()
+        val deliveries = orderRepository.countDeliveriesByDriverAndPeriod(driver.id!!, fromInstant, toInstant)
+        val config = driverConfigRepository.findByDriverId(driver.id!!)
+        return DriverEarningsResponse(
+            from = start,
+            to = end,
+            deliveriesCount = deliveries,
+            deliveryEarningsCents = deliveries * (config?.perDeliveryCents ?: 0L),
+            perDeliveryCents = config?.perDeliveryCents ?: 0L,
+            dailyRateCents = config?.dailyRateCents ?: 0L,
+            perKmCents = config?.perKmCents ?: 0L,
+            hasConfig = config != null,
+        )
+    }
+
+    /**
+     * Vincula (ou desvincula, userId nulo) o entregador a um usuario do banco de
+     * CONTROLE com papel DRIVER — e este elo que permite o login do app resolver o
+     * driver do tenant ([currentDriverOrThrow]). So gestao chama (RBAC no controller).
+     *
+     * Guardas: o usuario tem de existir, estar ativo e pertencer AO MESMO tenant do
+     * token (404 generico — nao vaza existencia de usuario de outro restaurante) e
+     * ter papel DRIVER (400). O indice UNICO parcial da V35 (user_id) barra o mesmo
+     * usuario em dois entregadores: corrida vira 409.
+     */
+    @Transactional("tenantTransactionManager")
+    fun linkDriverUser(driverId: UUID, userId: UUID?): DriverResponse {
+        val principal = SecurityUtils.currentPrincipalOrThrow()
+        val driver = driverRepository.findById(driverId)
+            .orElseThrow { ResourceNotFoundException("Entregador nao encontrado: $driverId") }
+        if (userId == null) {
+            driver.userId = null
+            return DriverResponse.from(driverRepository.save(driver))
+        }
+        val user = controlUserRepository.findById(userId).orElse(null)
+            ?.takeIf { it.tenantId == principal.tenantUuid && it.isActive }
+            ?: throw ResourceNotFoundException("Usuario nao encontrado neste restaurante")
+        if (user.role != UserRole.DRIVER) {
+            throw BusinessException("Usuario precisa ter o papel DRIVER para ser vinculado a um entregador")
+        }
+        driver.userId = userId
+        return try {
+            // saveAndFlush: forca o INSERT/UPDATE agora para o indice unico parcial
+            // (uq_delivery_drivers_user_id) acusar o conflito DENTRO deste metodo.
+            DriverResponse.from(driverRepository.saveAndFlush(driver))
+        } catch (e: DataIntegrityViolationException) {
+            throw ConflictException("Usuario ja vinculado a outro entregador")
+        }
     }
 
     /** Entregador ligado ao user do token assinado; 403 se o user nao for um motoboy. */

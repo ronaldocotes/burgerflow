@@ -4,6 +4,7 @@ import com.menuflow.model.DeliveryDriver
 import com.menuflow.model.DeliveryOffer
 import com.menuflow.model.DeliveryOfferStatus
 import com.menuflow.model.DeliveryStatus
+import com.menuflow.model.DriverConfig
 import com.menuflow.model.Order
 import jakarta.validation.constraints.DecimalMax
 import jakarta.validation.constraints.DecimalMin
@@ -12,6 +13,7 @@ import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import java.time.Instant
+import java.time.LocalDate
 import java.util.UUID
 
 data class DriverCreateRequest(
@@ -169,3 +171,70 @@ data class DeliveryOrderResponse(
         )
     }
 }
+
+// ---------------------------------------------------------------------------
+// Fase 6.2 — app do motoboy: perfil, ganhos e vinculo user<->driver
+// ---------------------------------------------------------------------------
+
+/** Config de remuneração exposta no perfil (o motoboy vê o PRÓPRIO combinado; leitura). */
+data class DriverPayConfigView(
+    val dailyRateCents: Long,
+    val perDeliveryCents: Long,
+    val perKmCents: Long,
+)
+
+/** Perfil do motoboy logado (GET /delivery/me). payConfig nulo = gestor ainda não configurou. */
+data class DriverMeResponse(
+    val id: UUID,
+    val name: String,
+    val phone: String,
+    val licensePlate: String?,
+    val active: Boolean,
+    val activeShift: Boolean,
+    val driverType: String,
+    val provisional: Boolean,
+    val lastLocationAt: Instant?,
+    val payConfig: DriverPayConfigView?,
+) {
+    companion object {
+        fun from(d: DeliveryDriver, c: DriverConfig?) = DriverMeResponse(
+            id = d.id!!,
+            name = d.name,
+            phone = d.phone,
+            licensePlate = d.licensePlate,
+            active = d.active,
+            activeShift = d.activeShift,
+            driverType = d.driverType,
+            provisional = d.provisional,
+            lastLocationAt = d.lastLocationAt,
+            payConfig = c?.let {
+                DriverPayConfigView(
+                    dailyRateCents = it.dailyRateCents,
+                    perDeliveryCents = it.perDeliveryCents,
+                    perKmCents = it.perKmCents,
+                )
+            },
+        )
+    }
+}
+
+/**
+ * Ganhos do motoboy no período (GET /delivery/earnings/my). Dinheiro em CENTAVOS.
+ * deliveryEarningsCents = deliveriesCount x perDeliveryCents (mesma contagem do
+ * acerto financeiro). Diária/km são informativos: fecham no acerto do gestor.
+ */
+data class DriverEarningsResponse(
+    val from: LocalDate,
+    val to: LocalDate,
+    val deliveriesCount: Long,
+    val deliveryEarningsCents: Long,
+    val perDeliveryCents: Long,
+    val dailyRateCents: Long,
+    val perKmCents: Long,
+    val hasConfig: Boolean,
+)
+
+/** Vínculo driver ↔ usuário DRIVER do banco de controle. userId nulo desvincula. */
+data class DriverUserLinkRequest(
+    val userId: UUID?,
+)
