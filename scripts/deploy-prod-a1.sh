@@ -48,13 +48,16 @@ fi
 
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" config >/dev/null
 
+# Env de producao carregado uma vez: backup (MF_DB_*) e seed do tenant demo
+# (MF_DEMO_*) leem daqui.
+# shellcheck source=/dev/null
+set -a
+source "$ENV_FILE"
+set +a
+
 section "backup if postgres is already running"
 mkdir -p "$BACKUP_DIR"
 if docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps --status running postgres | grep -q menuflow-postgres; then
-  # shellcheck source=/dev/null
-  set -a
-  source "$ENV_FILE"
-  set +a
   stamp="$(date +%Y%m%d-%H%M%S)"
   backup_file="$BACKUP_DIR/menuflow-control-$stamp.sql.gz"
   docker exec menuflow-postgres pg_dump -U "$MF_DB_USER" "$MF_DB_CONTROL" | gzip > "$backup_file"
@@ -79,9 +82,25 @@ for service in postgres redis backend frontend; do
   done
 done
 
+section "seed demo tenant (idempotente)"
+# O DevDataSeeder so roda no perfil dev; sem este passo um deploy limpo sobe
+# sem o tenant demo e o cardapio publico (NEXT_PUBLIC_TENANT_SLUG=demo) fica
+# fora do ar com 404. Requer MF_DEMO_ADMIN_PASSWORD no .env.prod.
+if [[ -n "${MF_DEMO_ADMIN_PASSWORD:-}" ]]; then
+  MF_PUBLIC_URL="$PUBLIC_URL" "$ROOT/scripts/seed-demo-prod.sh"
+else
+  echo "AVISO: MF_DEMO_ADMIN_PASSWORD nao definido em $ENV_FILE; pulando o seed" >&2
+  echo "       do tenant demo. Se o tenant nao existir, /cardapio fica fora do ar." >&2
+fi
+
 section "public smoke"
 curl --fail --show-error --location --max-time 20 "$PUBLIC_URL/" >/dev/null
 curl --fail --show-error --location --max-time 20 "$HEALTH_URL"
+if [[ -n "${MF_DEMO_ADMIN_PASSWORD:-}" ]]; then
+  curl --fail --show-error --location --max-time 20 \
+    "$PUBLIC_URL/api/v1/public/${MF_DEMO_TENANT_SLUG:-demo}/menu" >/dev/null
+  echo "cardapio publico OK"
+fi
 
 section "done"
 git -C "$ROOT" log -1 --oneline || true

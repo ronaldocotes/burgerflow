@@ -49,14 +49,22 @@ Os arquivos `docker/docker-compose.prod.yml` e `docker/Caddyfile` ficam como ref
    ```bash
    scripts/deploy-prod-a1.sh
    ```
-7. **Migrations:** o Flyway do banco de **controle** roda no boot do app; cada
+7. **Tenant demo (cardápio público):** o frontend é buildado com
+   `NEXT_PUBLIC_TENANT_SLUG=demo`, e o `DevDataSeeder` que cria esse tenant só
+   roda no perfil `dev` — em prod ninguém o cria sozinho. O
+   `scripts/deploy-prod-a1.sh` chama `scripts/seed-demo-prod.sh`
+   (idempotente: tenant + admin no controle via `docker exec` no Postgres +
+   `seed-demo-official.py` pela API) desde que `MF_DEMO_ADMIN_PASSWORD` esteja
+   no `.env.prod`. Sem essa variável o seed é pulado com aviso e, num banco
+   novo, `/cardapio` fica fora do ar (404 em `/api/v1/public/demo/menu`).
+8. **Migrations:** o Flyway do banco de **controle** roda no boot do app; cada
    **tenant** migra no 1º acesso. Para migrar bancos já existentes fora de banda:
    ```
    scripts/apply-migrations.sh \
      "jdbc:postgresql://localhost:5432/menuflow_control?user=U&password=P" \
      "jdbc:postgresql://localhost:5432/tenant_<slug>?user=U&password=P"
    ```
-8. Validar:
+9. Validar:
    ```bash
    curl -fsS https://menuflow.duckdns.org/
    curl -fsS https://menuflow.duckdns.org/api/v1/actuator/health
