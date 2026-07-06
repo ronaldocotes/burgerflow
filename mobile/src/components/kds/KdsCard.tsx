@@ -1,10 +1,13 @@
 // Card individual de pedido no board do KDS.
-// Todos os botões >= 48dp. Avançar: barra inteira no fundo do card.
-// Cancelar: Alert nativo (sem modal — cozinheiro precisa de feedback rápido).
+// Todos os botões >= 48dp. Avançar: barra inteira no fundo do card, com trava
+// de duplo toque. Cancelar: abre o CancelModal (motivo obrigatório) na tela.
+// Número principal: ID do canal externo quando houver (iFood etc.); o número
+// interno vira referência secundária — mesma regra do KDS web.
 
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { AgingBar } from './AgingBar';
+import { OriginBadge } from './OriginBadge';
 import { kds, semantic, theme } from '@/theme/colors';
 import type { KdsOrder, OrderStatus } from '@/types/kds';
 
@@ -104,22 +107,13 @@ export function KdsCard({ order, now, onAdvance, onCancel }: KdsCardProps) {
     }
   }
 
-  function handleCancel() {
-    Alert.alert(
-      'Cancelar pedido?',
-      `Pedido #${order.orderNumber} será cancelado. Esta ação não pode ser desfeita.`,
-      [
-        { text: 'Voltar', style: 'cancel' },
-        {
-          text: 'Cancelar pedido',
-          style: 'destructive',
-          onPress: () => onCancel(order),
-        },
-      ],
-    );
-  }
-
   const typeLabel = ORDER_TYPE_ICON[order.orderType] ?? order.orderType;
+
+  // Quando existe ID do canal externo, ele vira o número principal do card.
+  const displayNumber = order.externalDisplayId ?? `#${order.orderNumber}`;
+  const showInternalRef =
+    !!order.externalDisplayId &&
+    order.externalDisplayId !== `#${order.orderNumber}`;
 
   return (
     <View
@@ -140,12 +134,20 @@ export function KdsCard({ order, now, onAdvance, onCancel }: KdsCardProps) {
 
       {/* Corpo do card */}
       <View style={{ padding: 12 }}>
-        {/* Cabeçalho: número + timer + botão cancelar */}
+        {/* Cabeçalho: número + badge de origem + timer + botão cancelar */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 24, fontWeight: '700', color: theme.text.primary, lineHeight: 28 }}>
-              #{order.orderNumber}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+              <Text style={{ fontSize: 24, fontWeight: '700', color: theme.text.primary, lineHeight: 28 }}>
+                {displayNumber}
+              </Text>
+              <OriginBadge origin={order.externalOrigin} />
+            </View>
+            {showInternalRef ? (
+              <Text style={{ fontSize: 12, color: theme.text.muted, marginTop: 1 }}>
+                int #{order.orderNumber}
+              </Text>
+            ) : null}
             <Text style={{ fontSize: 13, color: theme.text.secondary, marginTop: 2 }}>
               {typeLabel}
               {order.tableNumber ? ` · Mesa ${order.tableNumber}` : ''}
@@ -153,9 +155,9 @@ export function KdsCard({ order, now, onAdvance, onCancel }: KdsCardProps) {
           </View>
           <View style={{ alignItems: 'flex-end', gap: 6 }}>
             <TimerText createdAt={order.createdAt} order={order} />
-            {/* Botão cancelar — 48dp mínimo */}
+            {/* Botão cancelar — 48dp mínimo; confirmação + motivo no CancelModal */}
             <Pressable
-              onPress={handleCancel}
+              onPress={() => onCancel(order)}
               android_ripple={{ color: semantic.error.light }}
               accessibilityLabel="Cancelar pedido"
               accessibilityRole="button"
@@ -199,13 +201,13 @@ export function KdsCard({ order, now, onAdvance, onCancel }: KdsCardProps) {
           accessibilityRole="button"
           style={({ pressed }) => ({
             minHeight: 52,
-            backgroundColor: advancing ? '#94a3b8' : advanceColor,
+            backgroundColor: advancing ? theme.text.muted : advanceColor,
             justifyContent: 'center',
             alignItems: 'center',
             opacity: pressed ? 0.85 : 1,
           })}
         >
-          <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 15 }}>
+          <Text style={{ color: theme.text.onBrand, fontWeight: '600', fontSize: 15 }}>
             {advancing ? 'Aguarde...' : advanceLabel}
           </Text>
         </Pressable>

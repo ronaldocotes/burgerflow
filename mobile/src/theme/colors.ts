@@ -19,6 +19,16 @@ export const tableStatus = {
   free: '#9ca3af', open: '#10b981', billing: '#f59e0b',
 } as const;
 
+/**
+ * Badge de canal de origem no KDS (paridade com o OriginBadge do web):
+ * iFood laranja, Rappi amarelo, 99Food azul. Fundo claro + texto escuro (AA).
+ */
+export const origin = {
+  ifood: { bg: '#ffedd5', fg: '#c2410c' },
+  rappi: { bg: '#fef9c3', fg: '#a16207' },
+  ninetyNine: { bg: '#e0f2fe', fg: '#0369a1' },
+} as const;
+
 export const semantic = {
   success: { DEFAULT: '#10b981', light: '#d1fae5', dark: '#065f46' },
   warning: { DEFAULT: '#f59e0b', light: '#fef3c7', dark: '#92400e' },

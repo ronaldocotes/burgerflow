@@ -1,6 +1,8 @@
 // Hook de feed do KDS para React Native.
 // Estratégia: snapshot REST → STOMP ao vivo → polling 10s de fallback.
 // Diferenças do web: getToken/getTenant são async; AppState para reconexão.
+// Expõe loading (primeiro snapshot) e error (última falha de fetch) para a
+// tela renderizar os 4 estados (loading/erro/vazio/sucesso).
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { AppState } from 'react-native';
@@ -36,6 +38,10 @@ export interface KdsFeed {
   orders: KdsOrder[];
   feedStatus: FeedStatus;
   now: number;
+  /** True até o PRIMEIRO snapshot resolver (sucesso ou falha). */
+  loading: boolean;
+  /** Mensagem da última falha de snapshot; null após um fetch bem-sucedido. */
+  error: string | null;
   refresh: () => Promise<void>;
 }
 
@@ -43,6 +49,8 @@ export function useKdsFeed(): KdsFeed {
   const [orders, setOrders] = useState<KdsOrder[]>([]);
   const [feedStatus, setFeedStatus] = useState<FeedStatus>('connecting');
   const [now, setNow] = useState(() => Date.now());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const stompRef = useRef<Awaited<ReturnType<typeof createStompClient>> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -53,8 +61,12 @@ export function useKdsFeed(): KdsFeed {
     try {
       const data = await api.get<KdsOrder[]>('/kds/orders');
       setOrders(data);
+      setError(null);
     } catch {
-      // mantém estado anterior; StatusBanner já indica o problema
+      // Mantém o board anterior; a tela decide (erro em destaque só sem dados).
+      setError('Falha ao buscar pedidos.');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -130,5 +142,5 @@ export function useKdsFeed(): KdsFeed {
     };
   }, [connect, fetchSnapshot, startPolling, stopPolling]);
 
-  return { orders, feedStatus, now, refresh: fetchSnapshot };
+  return { orders, feedStatus, now, loading, error, refresh: fetchSnapshot };
 }
