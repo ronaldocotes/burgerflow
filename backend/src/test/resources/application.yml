@@ -1,3 +1,11 @@
+# Mesmo context-path da producao (application.yml principal): este YAML SOMBREIA
+# o principal no classpath de teste, e sem isto o handshake WebSocket dos testes
+# rodaria em /ws enquanto producao serve /api/v1/ws — o teste nao provaria o
+# caminho real (foi exatamente o bug do KDS: cliente em /ws -> 404).
+server:
+  servlet:
+    context-path: /api/v1
+
 spring:
   jpa:
     # Schema is owned by Flyway; without an explicit ddl-auto, Spring Boot 3.5
