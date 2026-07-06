@@ -53,3 +53,17 @@ export function rolesOf(token: string | null): string[] {
 export function isDriverToken(token: string | null): boolean {
   return rolesOf(token).includes('DRIVER');
 }
+
+/**
+ * True quando o token e de COZINHA sem papel gerencial (KITCHEN puro).
+ * Fase M1: esse usuario ve SO o KDS (tela cheia, sem tab bar).
+ * ADMIN/MANAGER tambem tem acesso ao KDS, mas com as demais abas.
+ */
+export function isKitchenOnlyToken(token: string | null): boolean {
+  const roles = rolesOf(token);
+  return (
+    roles.includes('KITCHEN') &&
+    !roles.includes('ADMIN') &&
+    !roles.includes('MANAGER')
+  );
+}

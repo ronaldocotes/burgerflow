@@ -22,10 +22,11 @@ export const AppConfig: AppConfigShape = {
   API_URL: __DEV__
     ? 'http://10.0.2.2:8080/api/v1'
     : 'https://menuflow.duckdns.org/api/v1',
-  // WebSocket na RAIZ /ws, FORA do context-path /api/v1 do Spring MVC.
+  // Handshake STOMP real: /api/v1/ws — o endpoint e registrado como "/ws" mas
+  // vive SOB o server.servlet.context-path=/api/v1 do Spring Boot (em /ws da 404).
   WS_URL: __DEV__
-    ? 'ws://10.0.2.2:8080/ws'
-    : 'wss://menuflow.duckdns.org/ws',
+    ? 'ws://10.0.2.2:8080/api/v1/ws'
+    : 'wss://menuflow.duckdns.org/api/v1/ws',
   // URL do frontend para o QR Code do cardapio digital.
   APP_URL: __DEV__
     ? 'http://10.0.2.2:3000'

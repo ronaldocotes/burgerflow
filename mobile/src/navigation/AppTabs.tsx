@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CookingPot, ShoppingCart, Table } from 'phosphor-react-native';
 
+import { getToken } from '@/lib/auth';
+import { isKitchenOnlyToken } from '@/lib/jwt';
 import KdsScreen from '@/screens/KdsScreen';
 import PdvScreen from '@/screens/PdvScreen';
 import MesasScreen from '@/screens/MesasScreen';
@@ -47,10 +49,27 @@ function MesasIcon({ color, size, focused }: TabIconProps) {
 }
 
 /**
- * M0: todas as tabs visiveis sem gate de papel.
- * Gate por papel (COOK/CASHIER/WAITER/ADMIN) sera implementado em M1-M3.
+ * M1: gate por papel (roles do JWT — mesma técnica do isDriverToken no login).
+ * - KITCHEN puro (sem ADMIN/MANAGER): vê SÓ o KDS, em tela cheia (sem tab bar —
+ *   mais área útil no tablet da cozinha).
+ * - Demais papéis da loja (ADMIN, MANAGER, STAFF, CASHIER, OPERATOR, WAITER):
+ *   todas as abas, incluindo Cozinha.
+ * - DRIVER nunca chega aqui (RootNavigator/Login roteiam para DriverTabs).
  */
 export default function AppTabs() {
+  const [kitchenOnly, setKitchenOnly] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    getToken()
+      .then((t) => setKitchenOnly(isKitchenOnlyToken(t)))
+      .catch(() => setKitchenOnly(false));
+  }, []);
+
+  // Leitura do token é local e rápida; evita montar as abas erradas por um frame.
+  if (kitchenOnly === null) return null;
+
+  if (kitchenOnly) return <KdsScreen />;
+
   return (
     <Tab.Navigator
       screenOptions={{

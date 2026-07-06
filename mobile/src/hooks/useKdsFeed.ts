@@ -1,6 +1,8 @@
 // Hook de feed do KDS para React Native.
 // Estratégia: snapshot REST → STOMP ao vivo → polling 10s de fallback.
 // Diferenças do web: getToken/getTenant são async; AppState para reconexão.
+// Expõe loading (primeiro snapshot) e error (última falha de fetch) para a
+// tela renderizar os 4 estados (loading/erro/vazio/sucesso).
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { AppState } from 'react-native';
@@ -24,7 +26,7 @@ function upsertOrder(
     return prev.filter((o) => o.orderId !== event.orderId);
   }
   const idx = prev.findIndex((o) => o.orderId === event.orderId);
-  if (idx === -1) return prev; // evento de status desconhecido — ignora
+  if (idx === -1) return prev; // pedido desconhecido: o chamador refaz o snapshot
   const updated = { ...prev[idx], ...event };
   return [
     ...prev.filter((o) => o.orderId !== event.orderId),
@@ -36,6 +38,10 @@ export interface KdsFeed {
   orders: KdsOrder[];
   feedStatus: FeedStatus;
   now: number;
+  /** True até o PRIMEIRO snapshot resolver (sucesso ou falha). */
+  loading: boolean;
+  /** Mensagem da última falha de snapshot; null após um fetch bem-sucedido. */
+  error: string | null;
   refresh: () => Promise<void>;
 }
 
@@ -43,18 +49,32 @@ export function useKdsFeed(): KdsFeed {
   const [orders, setOrders] = useState<KdsOrder[]>([]);
   const [feedStatus, setFeedStatus] = useState<FeedStatus>('connecting');
   const [now, setNow] = useState(() => Date.now());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const stompRef = useRef<Awaited<ReturnType<typeof createStompClient>> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const agingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wsAlive = useRef(false);
+  // Espelho do board para decidir, no onMessage, se o evento é de pedido
+  // conhecido (merge) ou novo (refetch) sem efeito colateral dentro do updater.
+  const ordersRef = useRef<KdsOrder[]>([]);
+  // Coalescência do refetch disparado por evento de pedido novo: uma rajada de
+  // pedidos não pode virar uma rajada de GETs concorrentes (respostas fora de
+  // ordem sobrescreveriam o board mais novo com um mais velho).
+  const snapshotInFlight = useRef(false);
 
   const fetchSnapshot = useCallback(async () => {
     try {
       const data = await api.get<KdsOrder[]>('/kds/orders');
+      ordersRef.current = data;
       setOrders(data);
+      setError(null);
     } catch {
-      // mantém estado anterior; StatusBanner já indica o problema
+      // Mantém o board anterior; a tela decide (erro em destaque só sem dados).
+      setError('Falha ao buscar pedidos.');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -78,7 +98,23 @@ export function useKdsFeed(): KdsFeed {
       topic: '/topic/kds/{tenant}',
       onMessage: (body) => {
         const event: KdsEvent = JSON.parse(body);
-        setOrders((prev) => upsertOrder(prev, event));
+        const known = ordersRef.current.some((o) => o.orderId === event.orderId);
+        if (!known && !TERMINAL.includes(event.status)) {
+          // Pedido NOVO no board (ex.: recém-criado no PDV/cardápio): o payload
+          // do evento (KdsOrderEvent) NÃO carrega todos os campos do card
+          // (orderType, tableNumber, createdAt, estimatedPrepTimeMinutes...) —
+          // refazer o snapshot é mais simples e robusto que montar o card.
+          if (!snapshotInFlight.current) {
+            snapshotInFlight.current = true;
+            void fetchSnapshot().finally(() => {
+              snapshotInFlight.current = false;
+            });
+          }
+          return;
+        }
+        const next = upsertOrder(ordersRef.current, event);
+        ordersRef.current = next;
+        setOrders(next);
       },
       onFeed: (status) => {
         wsAlive.current = status === 'live';
@@ -130,5 +166,5 @@ export function useKdsFeed(): KdsFeed {
     };
   }, [connect, fetchSnapshot, startPolling, stopPolling]);
 
-  return { orders, feedStatus, now, refresh: fetchSnapshot };
+  return { orders, feedStatus, now, loading, error, refresh: fetchSnapshot };
 }
