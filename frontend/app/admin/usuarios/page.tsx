@@ -45,7 +45,7 @@ type PageOrList<T> = Page<T> | T[]
 
 // ── Constantes ───────────────────────────────────────────────────────────────
 
-const ROLES = ['ADMIN', 'MANAGER', 'CASHIER', 'STAFF', 'KITCHEN', 'WAITER'] as const
+const ROLES = ['ADMIN', 'MANAGER', 'CASHIER', 'STAFF', 'KITCHEN', 'WAITER', 'DRIVER'] as const
 type Role = (typeof ROLES)[number]
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -55,6 +55,7 @@ const ROLE_LABELS: Record<Role, string> = {
   STAFF:   'Colaborador',
   KITCHEN: 'Cozinheiro',
   WAITER:  'Garcom',
+  DRIVER:  'Entregador (app)',
 }
 
 const ROLE_DESC: Record<Role, string> = {
@@ -64,6 +65,7 @@ const ROLE_DESC: Record<Role, string> = {
   STAFF:   'Colaborador geral',
   KITCHEN: 'Cozinha e KDS',
   WAITER:  'Atendimento de mesas',
+  DRIVER:  'Acesso ao app de entregas',
 }
 
 const ROLE_BADGE: Record<Role, string> = {
@@ -73,6 +75,7 @@ const ROLE_BADGE: Record<Role, string> = {
   STAFF:   'bg-gray-100 text-gray-700',
   KITCHEN: 'bg-orange-100 text-orange-700',
   WAITER:  'bg-purple-100 text-purple-700',
+  DRIVER:  'bg-teal-100 text-teal-700',
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -7,6 +7,8 @@ import {
   Settings2,
   ArrowRight,
   XCircle,
+  Smartphone,
+  Unlink,
 } from 'lucide-react'
 import { api, ApiError } from '@/lib/api'
 import { getToken } from '@/lib/auth'
@@ -40,6 +42,17 @@ type DriverSettlementResponse = {
   status: 'OPEN' | 'CLOSED'
 }
 
+type UserResponse = {
+  id: string
+  firstName: string | null
+  lastName: string | null
+  email: string
+  role: string
+  isActive: boolean
+}
+
+type PageOrList<T> = Page<T> | T[]
+
 // ── Helpers monetários ────────────────────────────────────────────────────────
 
 /** Converte centavos → "R$ 1.234,56" */
@@ -65,6 +78,25 @@ function maskCurrency(raw: string): string {
   return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+// ── Helpers de vinculo usuario <-> entregador ─────────────────────────────────
+
+/** Nome exibivel de um usuario (nome completo + email) */
+function userLabel(u: UserResponse): string {
+  const name = [u.firstName, u.lastName].filter(Boolean).join(' ')
+  return name ? `${name} (${u.email})` : u.email
+}
+
+/** Mensagens pt-BR para os erros conhecidos do vinculo (400/404/409) */
+function linkErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof ApiError) {
+    if (err.status === 400) return 'O usuario selecionado precisa ter o papel DRIVER.'
+    if (err.status === 404) return 'Usuario ou entregador nao encontrado neste restaurante.'
+    if (err.status === 409) return 'Este usuario ja esta vinculado a outro entregador.'
+    return err.message
+  }
+  return fallback
+}
+
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
 function SkeletonRows({ rows = 5 }: { rows?: number }) {
@@ -77,6 +109,7 @@ function SkeletonRows({ rows = 5 }: { rows?: number }) {
           <td className="px-4 py-3"><div className="h-4 w-16 rounded bg-bg-tertiary" /></td>
           <td className="px-4 py-3"><div className="h-4 w-28 rounded bg-bg-tertiary" /></td>
           <td className="px-4 py-3"><div className="h-4 w-20 rounded bg-bg-tertiary" /></td>
+          <td className="px-4 py-3"><div className="h-4 w-32 rounded bg-bg-tertiary" /></td>
           <td className="px-4 py-3"><div className="h-4 w-24 rounded bg-bg-tertiary" /></td>
         </tr>
       ))}
@@ -268,18 +301,230 @@ function ModalConfigurarRemuneracao({
 
 // ── Pagina principal ──────────────────────────────────────────────────────────
 
+// ── Modal Vincular Usuario (acesso ao app) ────────────────────────────────────
+
+function ModalVincularUsuario({
+  driver,
+  onClose,
+  onLinked,
+}: {
+  driver: DeliveryDriverResponse
+  onClose: () => void
+  onLinked: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  useModalA11y(ref as React.RefObject<HTMLElement>, onClose)
+
+  const titleId = useId()
+  const selectId = useId()
+
+  const [loading,  setLoading]  = useState(true)
+  const [saving,   setSaving]   = useState(false)
+  const [error,    setError]    = useState<string | null>(null)
+  const [users,    setUsers]    = useState<UserResponse[]>([])
+  const [selected, setSelected] = useState('')
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await api.get<PageOrList<UserResponse>>('/users?size=200')
+        const list = Array.isArray(res) ? res : res.content
+        setUsers(list.filter((u) => u.role === 'DRIVER' && u.isActive))
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 403) {
+          setError('Voce nao tem permissao para listar usuarios. Peca a um administrador ou gerente.')
+        } else {
+          setError(err instanceof ApiError ? err.message : 'Erro ao carregar usuarios.')
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+    void load()
+  }, [])
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    if (!selected) {
+      setError('Selecione um usuario para vincular.')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await api.put<unknown>(`/delivery/drivers/${driver.id}/user`, { userId: selected })
+      onLinked()
+      onClose()
+    } catch (err) {
+      setError(linkErrorMessage(err, 'Erro ao vincular usuario.'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="w-full max-w-md rounded-2xl bg-bg-primary p-6 shadow-xl"
+      >
+        <h2 id={titleId} className="mb-1 text-lg font-bold text-text-primary">
+          Vincular usuario ao app
+        </h2>
+        <p className="mb-5 text-sm text-text-secondary">
+          {driver.name} &middot; {driver.phone ?? '—'}
+        </p>
+
+        {loading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="h-10 animate-pulse rounded bg-bg-tertiary" />
+            ))}
+          </div>
+        ) : users.length === 0 && !error ? (
+          <div>
+            <p className="text-sm text-text-secondary">
+              Nenhum usuario ativo com papel DRIVER encontrado. Convide um usuario com o papel
+              &quot;Entregador (app)&quot; na tela de Usuarios e tente novamente.
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button type="button" className="btn-outline flex-1" onClick={onClose}>
+                Fechar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={(e) => void submit(e)} className="space-y-4" noValidate>
+            <div>
+              <label htmlFor={selectId} className="form-label">Usuario (papel DRIVER)</label>
+              <select
+                id={selectId}
+                className="input-field w-full"
+                value={selected}
+                onChange={(e) => setSelected(e.target.value)}
+                disabled={saving}
+                aria-required="true"
+              >
+                <option value="">Selecione um usuario...</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>{userLabel(u)}</option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-text-muted">
+                O usuario vinculado podera entrar no app do entregador com o proprio login.
+                Vincular substitui o acesso atual deste entregador, se houver.
+              </p>
+            </div>
+
+            {error && (
+              <p role="alert" className="form-error">{error}</p>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                className="btn-outline flex-1"
+                onClick={onClose}
+                disabled={saving}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="min-h-11 flex-1 rounded-lg bg-primary-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:opacity-50"
+                disabled={saving}
+              >
+                {saving ? 'Vinculando...' : 'Vincular'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Acoes de acesso ao app (vincular / desvincular) ───────────────────────────
+
+function AccessActions({
+  driver,
+  confirming,
+  unlinking,
+  onLink,
+  onUnlinkRequest,
+  onUnlinkConfirm,
+  onUnlinkCancel,
+}: {
+  driver: DeliveryDriverResponse
+  confirming: boolean
+  unlinking: boolean
+  onLink: () => void
+  onUnlinkRequest: () => void
+  onUnlinkConfirm: () => void
+  onUnlinkCancel: () => void
+}) {
+  if (confirming) {
+    return (
+      <div className="inline-flex flex-wrap items-center gap-2">
+        <span className="text-xs text-text-secondary">Desvincular acesso?</span>
+        <button
+          className="btn-outline min-h-11 px-3 text-sm text-error disabled:opacity-50"
+          onClick={onUnlinkConfirm}
+          disabled={unlinking}
+        >
+          {unlinking ? 'Aguarde...' : 'Sim'}
+        </button>
+        <button
+          className="btn-outline min-h-11 px-3 text-sm"
+          onClick={onUnlinkCancel}
+          disabled={unlinking}
+        >
+          Nao
+        </button>
+      </div>
+    )
+  }
+  return (
+    <div className="inline-flex flex-wrap items-center gap-2">
+      <button
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary-700 px-3 text-xs font-medium text-white transition-colors hover:bg-primary-800"
+        aria-label={`Vincular usuario do app a ${driver.name}`}
+        onClick={onLink}
+      >
+        <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
+        Vincular
+      </button>
+      <button
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border-medium px-3 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+        aria-label={`Desvincular acesso ao app de ${driver.name}`}
+        onClick={onUnlinkRequest}
+      >
+        <Unlink className="h-3.5 w-3.5" aria-hidden="true" />
+        Desvincular
+      </button>
+    </div>
+  )
+}
+
 type Notice = { type: 'success' | 'error'; message: string } | null
 
 function DriverMobileCard({
   driver,
   config,
   settlement,
+  accessActions,
   onConfig,
   onSettlements,
 }: {
   driver: DeliveryDriverResponse
   config?: DriverConfigResponse
   settlement?: DriverSettlementResponse
+  accessActions: React.ReactNode
   onConfig: () => void
   onSettlements: () => void
 }) {
@@ -347,6 +592,11 @@ function DriverMobileCard({
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
+
+      <div className="mt-3 border-t border-border-light pt-3">
+        <p className="mb-2 text-xs font-semibold uppercase text-text-muted">Acesso ao app</p>
+        {accessActions}
+      </div>
     </article>
   )
 }
@@ -361,6 +611,9 @@ export default function EntregadoresPage() {
   const [pageError,  setPageError]  = useState<string | null>(null)
   const [notice,     setNotice]     = useState<Notice>(null)
   const [configTarget, setConfigTarget] = useState<DeliveryDriverResponse | null>(null)
+  const [linkTarget,      setLinkTarget]      = useState<DeliveryDriverResponse | null>(null)
+  const [confirmUnlinkId, setConfirmUnlinkId] = useState<string | null>(null)
+  const [unlinkingId,     setUnlinkingId]     = useState<string | null>(null)
 
   const loadDrivers = useCallback(async () => {
     setLoading(true)
@@ -413,6 +666,34 @@ export default function EntregadoresPage() {
     })
   }, [loadDrivers, router])
 
+  const handleUnlink = useCallback(async (driver: DeliveryDriverResponse) => {
+    setUnlinkingId(driver.id)
+    setNotice(null)
+    try {
+      await api.put<unknown>(`/delivery/drivers/${driver.id}/user`, { userId: null })
+      setNotice({ type: 'success', message: `Acesso ao app de ${driver.name} desvinculado.` })
+    } catch (err) {
+      setNotice({ type: 'error', message: linkErrorMessage(err, 'Erro ao desvincular usuario.') })
+    } finally {
+      setUnlinkingId(null)
+      setConfirmUnlinkId(null)
+    }
+  }, [])
+
+  function accessActionsFor(driver: DeliveryDriverResponse) {
+    return (
+      <AccessActions
+        driver={driver}
+        confirming={confirmUnlinkId === driver.id}
+        unlinking={unlinkingId === driver.id}
+        onLink={() => setLinkTarget(driver)}
+        onUnlinkRequest={() => setConfirmUnlinkId(driver.id)}
+        onUnlinkConfirm={() => void handleUnlink(driver)}
+        onUnlinkCancel={() => setConfirmUnlinkId(null)}
+      />
+    )
+  }
+
   return (
     <div className="min-h-screen bg-bg-secondary">
       <main className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-6">
@@ -422,7 +703,7 @@ export default function EntregadoresPage() {
           <div>
             <h1 className="text-2xl font-bold text-text-primary">Entregadores</h1>
             <p className="mt-1 text-sm text-text-secondary">
-              Gerencie remuneracao e acertos dos entregadores.
+              Gerencie remuneracao, acertos e acesso ao app dos entregadores.
             </p>
           </div>
         </header>
@@ -473,6 +754,7 @@ export default function EntregadoresPage() {
                       driver={driver}
                       config={configs[driver.id]}
                       settlement={settlements[driver.id]}
+                      accessActions={accessActionsFor(driver)}
                       onConfig={() => setConfigTarget(driver)}
                       onSettlements={() => router.push(`/admin/entregadores/${driver.id}/acertos`)}
                     />
@@ -489,6 +771,7 @@ export default function EntregadoresPage() {
                     <th scope="col" className="px-4 py-3">Status</th>
                     <th scope="col" className="px-4 py-3">Remuneracao</th>
                     <th scope="col" className="px-4 py-3">Acerto atual</th>
+                    <th scope="col" className="px-4 py-3">Acesso ao app</th>
                     <th scope="col" className="px-4 py-3 text-right">Acoes</th>
                   </tr>
                 </thead>
@@ -498,7 +781,7 @@ export default function EntregadoresPage() {
                 ) : drivers.length === 0 ? (
                   <tbody>
                     <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center text-sm text-text-muted">
+                      <td colSpan={7} className="px-4 py-10 text-center text-sm text-text-muted">
                         Nenhum entregador cadastrado.
                       </td>
                     </tr>
@@ -546,6 +829,9 @@ export default function EntregadoresPage() {
                               <span className="text-xs text-text-muted">—</span>
                             )}
                           </td>
+                          <td className="px-4 py-3">
+                            {accessActionsFor(driver)}
+                          </td>
                           <td className="px-4 py-3 text-right">
                             <div className="inline-flex items-center gap-2">
                               <button
@@ -586,6 +872,20 @@ export default function EntregadoresPage() {
           onSaved={() => {
             setNotice({ type: 'success', message: 'Remuneracao atualizada com sucesso.' })
             void loadDrivers()
+          }}
+        />
+      )}
+
+      {/* Modal Vincular Usuario (acesso ao app) */}
+      {linkTarget && (
+        <ModalVincularUsuario
+          driver={linkTarget}
+          onClose={() => setLinkTarget(null)}
+          onLinked={() => {
+            setNotice({
+              type: 'success',
+              message: `Usuario vinculado ao entregador ${linkTarget.name} com sucesso.`,
+            })
           }}
         />
       )}
