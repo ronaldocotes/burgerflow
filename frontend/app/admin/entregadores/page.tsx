@@ -21,6 +21,7 @@ type DeliveryDriverResponse = {
   name: string
   phone: string | null
   isActive: boolean
+  userId: string | null
 }
 
 type Page<T> = {
@@ -305,10 +306,12 @@ function ModalConfigurarRemuneracao({
 
 function ModalVincularUsuario({
   driver,
+  linkedUserIds,
   onClose,
   onLinked,
 }: {
   driver: DeliveryDriverResponse
+  linkedUserIds: string[]
   onClose: () => void
   onLinked: () => void
 }) {
@@ -344,6 +347,9 @@ function ModalVincularUsuario({
     }
     void load()
   }, [])
+
+  // Exclui usuarios ja vinculados a algum entregador (o 409 do backend segue como rede de seguranca)
+  const available = users.filter((u) => !linkedUserIds.includes(u.id))
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -386,10 +392,10 @@ function ModalVincularUsuario({
               <div key={i} className="h-10 animate-pulse rounded bg-bg-tertiary" />
             ))}
           </div>
-        ) : users.length === 0 && !error ? (
+        ) : available.length === 0 && !error ? (
           <div>
             <p className="text-sm text-text-secondary">
-              Nenhum usuario ativo com papel DRIVER encontrado. Convide um usuario com o papel
+              Nenhum usuario ativo com papel DRIVER disponivel para vinculo. Convide um usuario com o papel
               &quot;Entregador (app)&quot; na tela de Usuarios e tente novamente.
             </p>
             <div className="mt-5 flex gap-3">
@@ -411,13 +417,13 @@ function ModalVincularUsuario({
                 aria-required="true"
               >
                 <option value="">Selecione um usuario...</option>
-                {users.map((u) => (
+                {available.map((u) => (
                   <option key={u.id} value={u.id}>{userLabel(u)}</option>
                 ))}
               </select>
               <p className="mt-2 text-xs text-text-muted">
                 O usuario vinculado podera entrar no app do entregador com o proprio login.
-                Vincular substitui o acesso atual deste entregador, se houver.
+                Usuarios ja vinculados a outro entregador nao aparecem na lista.
               </p>
             </div>
 
@@ -489,8 +495,28 @@ function AccessActions({
       </div>
     )
   }
+  if (driver.userId) {
+    return (
+      <div className="inline-flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-semibold text-success">
+          Vinculado
+        </span>
+        <button
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border-medium px-3 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          aria-label={`Desvincular acesso ao app de ${driver.name}`}
+          onClick={onUnlinkRequest}
+        >
+          <Unlink className="h-3.5 w-3.5" aria-hidden="true" />
+          Desvincular
+        </button>
+      </div>
+    )
+  }
   return (
     <div className="inline-flex flex-wrap items-center gap-2">
+      <span className="inline-flex items-center rounded-full bg-bg-tertiary px-2.5 py-0.5 text-xs font-semibold text-text-muted">
+        Sem acesso
+      </span>
       <button
         className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary-700 px-3 text-xs font-medium text-white transition-colors hover:bg-primary-800"
         aria-label={`Vincular usuario do app a ${driver.name}`}
@@ -498,14 +524,6 @@ function AccessActions({
       >
         <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
         Vincular
-      </button>
-      <button
-        className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border-medium px-3 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
-        aria-label={`Desvincular acesso ao app de ${driver.name}`}
-        onClick={onUnlinkRequest}
-      >
-        <Unlink className="h-3.5 w-3.5" aria-hidden="true" />
-        Desvincular
       </button>
     </div>
   )
@@ -672,13 +690,14 @@ export default function EntregadoresPage() {
     try {
       await api.put<unknown>(`/delivery/drivers/${driver.id}/user`, { userId: null })
       setNotice({ type: 'success', message: `Acesso ao app de ${driver.name} desvinculado.` })
+      void loadDrivers()
     } catch (err) {
       setNotice({ type: 'error', message: linkErrorMessage(err, 'Erro ao desvincular usuario.') })
     } finally {
       setUnlinkingId(null)
       setConfirmUnlinkId(null)
     }
-  }, [])
+  }, [loadDrivers])
 
   function accessActionsFor(driver: DeliveryDriverResponse) {
     return (
@@ -880,12 +899,14 @@ export default function EntregadoresPage() {
       {linkTarget && (
         <ModalVincularUsuario
           driver={linkTarget}
+          linkedUserIds={drivers.map((d) => d.userId).filter((id): id is string => !!id)}
           onClose={() => setLinkTarget(null)}
           onLinked={() => {
             setNotice({
               type: 'success',
               message: `Usuario vinculado ao entregador ${linkTarget.name} com sucesso.`,
             })
+            void loadDrivers()
           }}
         />
       )}

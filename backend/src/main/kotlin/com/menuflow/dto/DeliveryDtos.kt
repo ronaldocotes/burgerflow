@@ -33,6 +33,8 @@ data class DriverResponse(
     val lastLng: Double?,
     val lastLocationAt: Instant?,
     val batteryPct: Int?,
+    /** User (banco de controle, papel DRIVER) vinculado; null = sem acesso ao app. */
+    val userId: UUID?,
 ) {
     companion object {
         fun from(d: DeliveryDriver) = DriverResponse(
@@ -46,6 +48,7 @@ data class DriverResponse(
             lastLng = d.lastLng,
             lastLocationAt = d.lastLocationAt,
             batteryPct = d.batteryPct,
+            userId = d.userId,
         )
     }
 }

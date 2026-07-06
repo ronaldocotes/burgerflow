@@ -24,6 +24,8 @@ data class DeliveryDriverResponse(
     val name: String,
     val phone: String?,
     val isActive: Boolean,
+    /** User (banco de controle, papel DRIVER) vinculado ao entregador; null = sem acesso ao app. */
+    val userId: UUID?,
 )
 
 // --- Configuracao de remuneracao ---
