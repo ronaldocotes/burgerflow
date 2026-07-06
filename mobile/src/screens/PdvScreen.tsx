@@ -8,13 +8,16 @@ import React, {
 import {
   FlatList,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+// SafeAreaView do safe-area-context: o do react-native core e no-op no Android,
+// e o titulo "PDV" ficava por baixo da status bar. O SafeAreaProvider ja envolve
+// o app (App.tsx). edges top: o bottom e do bottom-sheet do carrinho.
+import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { palette, semantic, theme } from '@/theme/colors';
 import { api, ApiError } from '@/lib/api';
@@ -52,9 +55,11 @@ export default function PdvScreen() {
     setLoading(true);
     setError(null);
     try {
+      // GET /categories devolve Page<Category> (Spring Data), nao um array cru —
+      // extrair .content (mesmo shape do /products).
       const [prods, cats] = await Promise.allSettled([
         api.get<Page<Product>>('/products?size=200&active=true'),
-        api.get<Category[]>('/categories'),
+        api.get<Page<Category>>('/categories'),
       ]);
       if (prods.status === 'fulfilled') {
         setProducts(prods.value.content);
@@ -62,7 +67,7 @@ export default function PdvScreen() {
         throw prods.reason;
       }
       if (cats.status === 'fulfilled') {
-        setCategories(cats.value.filter((c) => c.active));
+        setCategories(cats.value.content.filter((c) => c.active));
       }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Erro ao carregar produtos.');
@@ -163,7 +168,7 @@ export default function PdvScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.root}>
+      <SafeAreaView style={styles.root} edges={['top']}>
         <View style={styles.topBar}>
           <Text style={styles.title}>PDV</Text>
         </View>
@@ -178,7 +183,7 @@ export default function PdvScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.root, styles.center]}>
+      <SafeAreaView style={[styles.root, styles.center]} edges={['top']}>
         <Text style={styles.errorText} accessibilityRole="alert">
           {error}
         </Text>
@@ -190,7 +195,7 @@ export default function PdvScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top']}>
       {/* Header */}
       <View style={styles.topBar}>
         <Text style={styles.title}>PDV</Text>

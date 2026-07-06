@@ -26,7 +26,7 @@ function upsertOrder(
     return prev.filter((o) => o.orderId !== event.orderId);
   }
   const idx = prev.findIndex((o) => o.orderId === event.orderId);
-  if (idx === -1) return prev; // evento de status desconhecido — ignora
+  if (idx === -1) return prev; // pedido desconhecido: o chamador refaz o snapshot
   const updated = { ...prev[idx], ...event };
   return [
     ...prev.filter((o) => o.orderId !== event.orderId),
@@ -56,10 +56,18 @@ export function useKdsFeed(): KdsFeed {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const agingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wsAlive = useRef(false);
+  // Espelho do board para decidir, no onMessage, se o evento é de pedido
+  // conhecido (merge) ou novo (refetch) sem efeito colateral dentro do updater.
+  const ordersRef = useRef<KdsOrder[]>([]);
+  // Coalescência do refetch disparado por evento de pedido novo: uma rajada de
+  // pedidos não pode virar uma rajada de GETs concorrentes (respostas fora de
+  // ordem sobrescreveriam o board mais novo com um mais velho).
+  const snapshotInFlight = useRef(false);
 
   const fetchSnapshot = useCallback(async () => {
     try {
       const data = await api.get<KdsOrder[]>('/kds/orders');
+      ordersRef.current = data;
       setOrders(data);
       setError(null);
     } catch {
@@ -90,7 +98,23 @@ export function useKdsFeed(): KdsFeed {
       topic: '/topic/kds/{tenant}',
       onMessage: (body) => {
         const event: KdsEvent = JSON.parse(body);
-        setOrders((prev) => upsertOrder(prev, event));
+        const known = ordersRef.current.some((o) => o.orderId === event.orderId);
+        if (!known && !TERMINAL.includes(event.status)) {
+          // Pedido NOVO no board (ex.: recém-criado no PDV/cardápio): o payload
+          // do evento (KdsOrderEvent) NÃO carrega todos os campos do card
+          // (orderType, tableNumber, createdAt, estimatedPrepTimeMinutes...) —
+          // refazer o snapshot é mais simples e robusto que montar o card.
+          if (!snapshotInFlight.current) {
+            snapshotInFlight.current = true;
+            void fetchSnapshot().finally(() => {
+              snapshotInFlight.current = false;
+            });
+          }
+          return;
+        }
+        const next = upsertOrder(ordersRef.current, event);
+        ordersRef.current = next;
+        setOrders(next);
       },
       onFeed: (status) => {
         wsAlive.current = status === 'live';

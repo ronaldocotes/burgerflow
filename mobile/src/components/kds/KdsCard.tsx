@@ -109,6 +109,21 @@ export function KdsCard({ order, now, onAdvance, onCancel }: KdsCardProps) {
 
   const typeLabel = ORDER_TYPE_ICON[order.orderType] ?? order.orderType;
 
+  // Rótulo da mesa sem duplicar "Mesa": o tableNumber pode já vir como
+  // "Mesa 1" (nome da mesa) ou só "1". Antes saía "Mesa · Mesa Mesa 1".
+  const rawTable = order.tableNumber?.trim();
+  const tableLabel = rawTable
+    ? /^mesa\b/i.test(rawTable)
+      ? rawTable
+      : `Mesa ${rawTable}`
+    : null;
+  // Para DINE_IN o tipo já é "Mesa" — com mesa identificada, mostra só a mesa.
+  const subtitle = tableLabel
+    ? order.orderType === 'DINE_IN'
+      ? tableLabel
+      : `${typeLabel} · ${tableLabel}`
+    : typeLabel;
+
   // Quando existe ID do canal externo, ele vira o número principal do card.
   const displayNumber = order.externalDisplayId ?? `#${order.orderNumber}`;
   const showInternalRef =
@@ -149,8 +164,7 @@ export function KdsCard({ order, now, onAdvance, onCancel }: KdsCardProps) {
               </Text>
             ) : null}
             <Text style={{ fontSize: 13, color: theme.text.secondary, marginTop: 2 }}>
-              {typeLabel}
-              {order.tableNumber ? ` · Mesa ${order.tableNumber}` : ''}
+              {subtitle}
             </Text>
           </View>
           <View style={{ alignItems: 'flex-end', gap: 6 }}>
