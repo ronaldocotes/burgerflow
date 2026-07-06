@@ -20,8 +20,11 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 import java.util.UUID
 
 /**
- * STOMP-over-WebSocket for the KDS (Sprint 2). Clients connect to `/ws` and
- * subscribe to `/topic/...` to receive live order/delivery events.
+ * STOMP-over-WebSocket for the KDS (Sprint 2). The endpoint is registered as
+ * `/ws`, but it lives UNDER `server.servlet.context-path=/api/v1` — the REAL
+ * handshake URL clients must use is `/api/v1/ws` (`/api/v1/ws-sockjs` for the
+ * SockJS fallback). Clients subscribe to `/topic/...` for live
+ * order/delivery events.
  *
  * SECURITY: the WebSocket is protected by the SAME signed JWT as the REST API.
  * The token is read from the STOMP CONNECT frame `Authorization: Bearer ...`
@@ -41,7 +44,8 @@ class WebSocketConfig(
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun registerStompEndpoints(registry: StompEndpointRegistry) {
-        // Native WebSocket endpoint (raw ws:// upgrade at /ws).
+        // Native WebSocket endpoint (raw ws:// upgrade). Registered as /ws but
+        // served under the servlet context-path: effective URL is /api/v1/ws.
         registry.addEndpoint("/ws").setAllowedOriginPatterns("*")
         // SockJS fallback for browsers that cannot use raw WebSocket, on a
         // distinct path so its /ws-sockjs/** handler mappings do not shadow the

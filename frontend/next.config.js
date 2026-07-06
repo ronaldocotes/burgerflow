@@ -1,3 +1,5 @@
+// O handshake STOMP real é /api/v1/ws (endpoint "/ws" SOB o context-path
+// /api/v1 do Spring Boot). A URL da API já traz o context-path — só anexa /ws.
 function deriveWsUrlFromApiUrl(apiUrl) {
   try {
     const url = new URL(apiUrl);
@@ -7,7 +9,7 @@ function deriveWsUrlFromApiUrl(apiUrl) {
     url.hash = '';
     return url.toString();
   } catch {
-    return 'ws://localhost:8080/ws';
+    return 'ws://localhost:8080/api/v1/ws';
   }
 }
 

@@ -14,11 +14,11 @@
 {$SITE_ADDRESS} {
 	encode gzip zstd
 
-	# WebSocket (KDS/Delivery live updates). The STOMP endpoint is /ws (root —
-	# NOT under /api/v1, a Spring Boot context-path quirk). Caddy's reverse_proxy
-	# transparently upgrades Connection/Upgrade headers, so a single matcher works.
-	@ws path /ws /ws/* /ws-sockjs/*
-	reverse_proxy @ws backend:8080
+	# WebSocket (KDS/Delivery live updates). The STOMP handshake URL is
+	# /api/v1/ws (native) and /api/v1/ws-sockjs/* (SockJS fallback): the endpoint
+	# is registered as "/ws" but lives UNDER server.servlet.context-path=/api/v1.
+	# Caddy's reverse_proxy transparently upgrades Connection/Upgrade headers, so
+	# the /api/v1/* proxy below already covers the WebSocket — no extra matcher.
 
 	# Public smoke needs health only; never expose the rest of actuator.
 	reverse_proxy /api/v1/actuator/health backend:8080

@@ -42,6 +42,8 @@ import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Instant
@@ -79,6 +81,7 @@ class OrderService(
     private val geocodingService: com.menuflow.dispatch.GeocodingService,
 ) {
 
+    private val log = org.slf4j.LoggerFactory.getLogger(javaClass)
     private val dateFmt = DateTimeFormatter.ofPattern("yyMMdd")
     private val saoPaulo = ZoneId.of("America/Sao_Paulo")
 
@@ -304,6 +307,13 @@ class OrderService(
         // APOS o commit (FK em orders(id)) em tx propria, idempotente e fail-safe —
         // nunca derruba a criacao do pedido.
         req.trackingLinkId?.let { trackingService.recordConversion(persisted.id!!, it, persisted.totalCents) }
+        // KDS ao vivo: o pedido NOVO também precisa aparecer na cozinha (< 1s),
+        // não só as mudanças de status (updateStatus). Publica APÓS o commit —
+        // ver publishKdsAfterCommit para o porquê. Vale para PENDING e para o
+        // pedido que nasce PREPARING via aceite automático (ambos são colunas
+        // do board).
+        persisted.items.size // materializa a coleção LAZY ainda dentro da tx
+        publishKdsAfterCommit(TenantContext.getOrThrow(), persisted)
         // Com os itens já persistidos (cada um com id), anexa os complementos
         // (snapshot) e salva em cascata — orderItemId só pode ser preenchido aqui.
         if (optionsByIndex.isNotEmpty()) {
@@ -315,6 +325,41 @@ class OrderService(
             return OrderResponse.from(orderRepository.save(persisted))
         }
         return OrderResponse.from(persisted)
+    }
+
+    /**
+     * Publica o evento de KDS da criação do pedido APÓS o commit, fail-open.
+     *
+     * Por que AFTER_COMMIT (e não inline como o updateStatus faz): o cliente do
+     * KDS pode reagir ao evento refazendo o GET /kds/orders (é o que o app
+     * mobile faz para pedido desconhecido); se o evento saísse ainda dentro da
+     * transação, o refetch poderia rodar ANTES do commit e não enxergar o
+     * pedido. Fail-open: falha no broker NUNCA derruba a criação do pedido —
+     * o board se reconcilia pelo polling/snapshot.
+     *
+     * Sem transação ativa (ex.: teste service-level), publica imediatamente —
+     * mesmo padrão do CartRecoveryService.onOrderCreated.
+     */
+    private fun publishKdsAfterCommit(tenantSlug: String, order: Order) {
+        val publish = {
+            try {
+                realtimePublisher.publishKds(tenantSlug, order)
+            } catch (e: Exception) {
+                log.error(
+                    "Falha ao publicar evento KDS do pedido {} (fail-open): {}",
+                    order.orderNumber, e.message,
+                )
+            }
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                object : TransactionSynchronization {
+                    override fun afterCommit() = publish()
+                },
+            )
+        } else {
+            publish()
+        }
     }
 
     /**

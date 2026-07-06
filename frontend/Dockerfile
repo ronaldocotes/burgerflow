@@ -3,7 +3,8 @@ FROM node:20.19.4-alpine AS builder
 # Build-time config para NEXT_PUBLIC_* (embutidas no bundle; nao sao segredos).
 # Passadas via build.args no compose.prod.yml.
 ARG NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
-ARG NEXT_PUBLIC_WS_URL=ws://localhost:8080
+# Handshake STOMP real: /api/v1/ws (endpoint "/ws" SOB o context-path /api/v1).
+ARG NEXT_PUBLIC_WS_URL=ws://localhost:8080/api/v1/ws
 ARG NEXT_PUBLIC_ENVIRONMENT=development
 ARG NEXT_PUBLIC_TENANT_SLUG=demo
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL

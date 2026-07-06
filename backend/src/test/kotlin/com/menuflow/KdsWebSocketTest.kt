@@ -124,9 +124,11 @@ class KdsWebSocketTest @Autowired constructor(
         ).get("id").asText()
 
         // Connect STOMP with the Bearer token on the CONNECT frame and subscribe.
+        // O handshake usa o caminho REAL de producao (/api/v1/ws): o endpoint /ws
+        // vive sob o server.servlet.context-path=/api/v1.
         val received = LinkedBlockingDeque<Map<*, *>>()
         val connectHeaders = StompHeaders().apply { add("Authorization", "Bearer $token") }
-        val url = "ws://localhost:$port/ws"
+        val url = "ws://localhost:$port/api/v1/ws"
         val session: StompSession = stompClient()
             .connectAsync(
                 url,
@@ -165,13 +167,76 @@ class KdsWebSocketTest @Autowired constructor(
     }
 
     @Test
+    fun `creating an order broadcasts a KDS event to the tenant topic`() {
+        val token = login()
+
+        // Produto para o pedido.
+        val product = objectMapper.writeValueAsString(
+            mapOf("categoryId" to UUID.randomUUID().toString(), "sku" to "KDS-N", "name" to "X-Novo", "priceCents" to 2500),
+        )
+        val productId = objectMapper.readTree(
+            mockMvc.perform(
+                post("/products").header("Authorization", "Bearer $token")
+                    .header("Idempotency-Key", UUID.randomUUID().toString())
+                    .contentType(MediaType.APPLICATION_JSON).content(product),
+            ).andExpect(status().isCreated).andReturn().response.contentAsString,
+        ).get("id").asText()
+
+        // Assina o topico ANTES de criar o pedido: o evento esperado e o da CRIACAO
+        // (bug: pedido novo do PDV nao aparecia na cozinha sem refresh manual).
+        val received = LinkedBlockingDeque<Map<*, *>>()
+        val session: StompSession = stompClient()
+            .connectAsync(
+                "ws://localhost:$port/api/v1/ws",
+                org.springframework.web.socket.WebSocketHttpHeaders(),
+                StompHeaders().apply { add("Authorization", "Bearer $token") },
+                object : StompSessionHandlerAdapter() {},
+            )
+            .get(5, TimeUnit.SECONDS)
+        session.subscribe(
+            "/topic/kds/$slug",
+            object : StompFrameHandler {
+                override fun getPayloadType(headers: StompHeaders): Type = Map::class.java
+                override fun handleFrame(headers: StompHeaders, payload: Any?) {
+                    received.offer(payload as Map<*, *>)
+                }
+            },
+        )
+        Thread.sleep(300)
+
+        // Cria o pedido via PDV; o evento deve chegar APOS o commit, com o status
+        // inicial (PENDING — sem aceite automatico configurado neste tenant).
+        val orderBody = objectMapper.writeValueAsString(
+            PdvOrderCreateRequest(
+                items = listOf(OrderItemRequest(productId = UUID.fromString(productId), quantity = 1)),
+                channel = PdvChannel.DINE_IN,
+            ),
+        )
+        val orderId = objectMapper.readTree(
+            mockMvc.perform(
+                post("/pdv/orders").header("Authorization", "Bearer $token")
+                    .header("Idempotency-Key", UUID.randomUUID().toString())
+                    .contentType(MediaType.APPLICATION_JSON).content(orderBody),
+            ).andExpect(status().isCreated).andReturn().response.contentAsString,
+        ).get("id").asText()
+
+        val event = received.poll(2, TimeUnit.SECONDS)
+        assertNotNull(event, "Expected a KDS event on /topic/kds/$slug after order creation")
+        assertEquals(orderId, event!!["orderId"])
+        assertEquals("PENDING", event["status"])
+        assertEquals(1, (event["items"] as List<*>).size)
+
+        session.disconnect()
+    }
+
+    @Test
     fun `STOMP connect without a token is rejected`() {
         // The server interceptor throws on a CONNECT lacking a Bearer token, which
         // closes the connection: the connect future completes exceptionally.
         val ex = assertThrows(ExecutionException::class.java) {
             stompClient()
                 .connectAsync(
-                    "ws://localhost:$port/ws",
+                    "ws://localhost:$port/api/v1/ws",
                     org.springframework.web.socket.WebSocketHttpHeaders(),
                     StompHeaders(), // no Authorization header
                     object : StompSessionHandlerAdapter() {},
@@ -186,7 +251,7 @@ class KdsWebSocketTest @Autowired constructor(
         val token = login()
         val session = stompClient()
             .connectAsync(
-                "ws://localhost:$port/ws",
+                "ws://localhost:$port/api/v1/ws",
                 org.springframework.web.socket.WebSocketHttpHeaders(),
                 StompHeaders().apply { add("Authorization", "Bearer $token") },
                 object : StompSessionHandlerAdapter() {},
