@@ -40,7 +40,12 @@ const ORDER_TYPE_ICON: Record<string, string> = {
 // ── TimerText ─────────────────────────────────────────────────────────────────
 
 function elapsedLabel(createdAt: string, now: number): string {
-  const secs = Math.floor((now - new Date(createdAt).getTime()) / 1000);
+  // Clamp em >= 0: com clock skew de 1-2s entre device e servidor o pedido
+  // recem-criado tem createdAt "no futuro" e o timer exibia "-1:-2".
+  const secs = Math.max(
+    0,
+    Math.floor((now - new Date(createdAt).getTime()) / 1000),
+  );
   const m = Math.floor(secs / 60);
   const s = secs % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;

@@ -49,6 +49,10 @@ export const PaymentSheet = forwardRef<PaymentSheetRef, PaymentSheetProps>(
     const [received, setReceived] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [err, setErr] = useState<string | null>(null);
+    // Idempotency-Key por TENTATIVA de pedido (gerada no open, reutilizada em
+    // retries): se o POST criou o pedido mas a resposta caiu, o retry com a
+    // mesma chave nao duplica. O web gera no clique; aqui e mais defensivo.
+    const idempotencyKeyRef = useRef<string>(uuid());
 
     useImperativeHandle(ref, () => ({
       open(q, ot, its) {
@@ -59,6 +63,7 @@ export const PaymentSheet = forwardRef<PaymentSheetRef, PaymentSheetProps>(
         setReceived('');
         setErr(null);
         setSubmitting(false);
+        idempotencyKeyRef.current = uuid();
         sheetRef.current?.present();
       },
     }));
@@ -91,9 +96,8 @@ export const PaymentSheet = forwardRef<PaymentSheetRef, PaymentSheetProps>(
           items,
           paymentMethod: method,
         };
-        const idempotencyKey = uuid();
         const res = await api.post<{ orderNumber: string }>('/orders', body, {
-          'Idempotency-Key': idempotencyKey,
+          'Idempotency-Key': idempotencyKeyRef.current,
         });
         sheetRef.current?.dismiss();
         onConfirmed(res?.orderNumber ?? '');

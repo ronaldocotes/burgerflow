@@ -18,6 +18,7 @@ import {
 // e o titulo "PDV" ficava por baixo da status bar. O SafeAreaProvider ja envolve
 // o app (App.tsx). edges top: o bottom e do bottom-sheet do carrinho.
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Snackbar } from 'react-native-paper';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { palette, semantic, theme } from '@/theme/colors';
 import { api, ApiError } from '@/lib/api';
@@ -42,6 +43,7 @@ export default function PdvScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loadingProductId, setLoadingProductId] = useState<string | null>(null);
   const [orderType, setOrderType] = useState<OrderType>('DINE_IN');
+  const [snack, setSnack] = useState<string | null>(null);
 
   const cartRef = useRef<BottomSheet>(null);
   const customizeRef = useRef<CustomizeSheetRef>(null);
@@ -158,10 +160,9 @@ export default function PdvScreen() {
   function handleOrderConfirmed(orderNumber: string) {
     clearCart();
     cartRef.current?.snapToIndex(0);
-    // Toast via Alert (sem dependencia extra)
-    if (orderNumber) {
-      // Exibe feedback de sucesso - em producao trocar por toast/snackbar
-    }
+    setSnack(
+      orderNumber ? `Pedido #${orderNumber} registrado` : 'Pedido registrado',
+    );
   }
 
   // --- Estados de loading / erro / vazio ---
@@ -221,6 +222,7 @@ export default function PdvScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.categoryScroll}
           contentContainerStyle={styles.categoryChips}
           keyboardShouldPersistTaps="handled"
         >
@@ -314,6 +316,16 @@ export default function PdvScreen() {
 
       {/* Sheet de pagamento (abre via ref) */}
       <PaymentSheet ref={paymentRef} onConfirmed={handleOrderConfirmed} />
+
+      {/* Feedback pos-pedido (acima do handle do carrinho) */}
+      <Snackbar
+        visible={!!snack}
+        onDismiss={() => setSnack(null)}
+        duration={3000}
+        style={styles.snackbar}
+      >
+        {snack}
+      </Snackbar>
     </SafeAreaView>
   );
 }
@@ -364,15 +376,23 @@ const styles = StyleSheet.create({
     color: theme.text.primary,
     padding: 0,
   },
+  // QA: sem flexGrow 0, o ScrollView horizontal dividia a altura da coluna e
+  // os chips esticavam na vertical ("chips gigantes").
+  categoryScroll: {
+    flexGrow: 0,
+  },
   categoryChips: {
     paddingHorizontal: 16,
     paddingBottom: 8,
     gap: 8,
     flexDirection: 'row',
+    alignItems: 'center',
   },
+  // Pill compacta ~40dp; hitSlop nao e necessario: chips em fileira dedicada.
   chip: {
+    height: 40,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    justifyContent: 'center',
     borderRadius: 20,
     backgroundColor: theme.bg.primary,
     borderWidth: 1,
@@ -447,5 +467,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: theme.text.onBrand,
+  },
+  snackbar: {
+    marginBottom: CART_SHEET_HEIGHT + 16,
   },
 });
