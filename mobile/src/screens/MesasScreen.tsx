@@ -20,6 +20,10 @@ import {
   type TableActionsSheetRef,
 } from '@/components/mesas/TableActionsSheet';
 import {
+  TableBillSheet,
+  type TableBillSheetRef,
+} from '@/components/mesas/TableBillSheet';
+import {
   TableQrSheet,
   type TableQrSheetRef,
 } from '@/components/mesas/TableQrSheet';
@@ -127,6 +131,7 @@ export default function MesasScreen() {
   const [initialLoaded, setInitialLoaded] = useState(false);
 
   const actionsRef = useRef<TableActionsSheetRef>(null);
+  const billRef = useRef<TableBillSheetRef>(null);
   const qrRef = useRef<TableQrSheetRef>(null);
 
   // Registra primeiro carregamento bem-sucedido
@@ -159,6 +164,10 @@ export default function MesasScreen() {
 
   const handleCardPress = useCallback((table: TableDto) => {
     actionsRef.current?.open(table);
+  }, []);
+
+  const handleBillPress = useCallback((table: TableDto) => {
+    billRef.current?.open(table);
   }, []);
 
   const handleQrPress = useCallback((table: TableDto) => {
@@ -228,7 +237,13 @@ export default function MesasScreen() {
       )}
 
       {/* Modais fora do FlatList para evitar unmount prematuro */}
-      <TableActionsSheet ref={actionsRef} onSuccess={handleActionSuccess} />
+      <TableActionsSheet
+        ref={actionsRef}
+        onSuccess={handleActionSuccess}
+        onViewBill={handleBillPress}
+        onShowQr={handleQrPress}
+      />
+      <TableBillSheet ref={billRef} />
       <TableQrSheet ref={qrRef} />
     </SafeAreaView>
   );
