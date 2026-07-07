@@ -1,6 +1,7 @@
 // BottomSheetModal com acoes da mesa selecionada.
 // Expoe open(table) e close() via forwardRef/useImperativeHandle.
-// Fechar mesa: confirmacao via Alert.alert antes de executar.
+// Acoes: primaria por estado (abrir/pedir conta/fechar), Ver conta (se ha
+// sessao), QR Code e Cancelar. Fechar mesa: confirmacao via Alert.alert.
 
 import React, {
   forwardRef,
@@ -11,7 +12,7 @@ import React, {
 } from 'react';
 import { Alert, Pressable, StyleSheet, Text } from 'react-native';
 import { BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
-import { DoorOpen, ReceiptX, X } from 'phosphor-react-native';
+import { DoorOpen, QrCode, Receipt, ReceiptX, X } from 'phosphor-react-native';
 import { palette, semantic, theme } from '@/theme/colors';
 import { api, ApiError } from '@/lib/api';
 import { resolveTableState } from './TableCard';
@@ -25,10 +26,12 @@ export interface TableActionsSheetRef {
 
 interface TableActionsSheetProps {
   onSuccess: () => Promise<void>;
+  onViewBill: (table: TableDto) => void;
+  onShowQr: (table: TableDto) => void;
 }
 
 export const TableActionsSheet = forwardRef<TableActionsSheetRef, TableActionsSheetProps>(
-  ({ onSuccess }, ref) => {
+  ({ onSuccess, onViewBill, onShowQr }, ref) => {
     const sheetRef = useRef<BottomSheetModal>(null);
     const [table, setTable] = useState<TableDto | null>(null);
     const [busy, setBusy] = useState(false);
@@ -85,6 +88,18 @@ export const TableActionsSheet = forwardRef<TableActionsSheetRef, TableActionsSh
         );
       }
     }, [table, busy, runAction]);
+
+    const handleViewBill = useCallback(() => {
+      if (!table) return;
+      sheetRef.current?.dismiss();
+      onViewBill(table);
+    }, [table, onViewBill]);
+
+    const handleShowQr = useCallback(() => {
+      if (!table) return;
+      sheetRef.current?.dismiss();
+      onShowQr(table);
+    }, [table, onShowQr]);
 
     if (!table) return null;
 
@@ -150,6 +165,31 @@ export const TableActionsSheet = forwardRef<TableActionsSheetRef, TableActionsSh
             </Text>
           </Pressable>
 
+          {/* Ver conta: so faz sentido com sessao ativa */}
+          {state !== 'free' ? (
+            <Pressable
+              onPress={handleViewBill}
+              android_ripple={{ color: 'rgba(0,0,0,0.06)' }}
+              accessibilityRole="button"
+              accessibilityLabel={`Ver conta da ${table.label}`}
+              style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.85 }]}
+            >
+              <Receipt size={20} weight="regular" color={theme.text.secondary} />
+              <Text style={styles.secondaryBtnText}>Ver conta</Text>
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            onPress={handleShowQr}
+            android_ripple={{ color: 'rgba(0,0,0,0.06)' }}
+            accessibilityRole="button"
+            accessibilityLabel={`QR Code da ${table.label}`}
+            style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.85 }]}
+          >
+            <QrCode size={20} weight="regular" color={theme.text.secondary} />
+            <Text style={styles.secondaryBtnText}>QR Code da mesa</Text>
+          </Pressable>
+
           <Pressable
             onPress={() => sheetRef.current?.dismiss()}
             style={styles.cancelBtn}
@@ -211,6 +251,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: theme.text.onBrand,
+  },
+  secondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    minHeight: 52,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.border.light,
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  secondaryBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: theme.text.secondary,
   },
   cancelBtn: {
     minHeight: 48,
