@@ -183,16 +183,33 @@ function escapeHtml(value: string): string {
 }
 
 /**
- * Imprime a comanda do pedido numa janela própria (HTML autocontido em ~76mm,
- * estilo cupom térmico) — evita poluir o CSS do SPA com regras @media print
- * globais. Disparado por clique do usuário, então o popup não é bloqueado.
+ * Estilos do cupom (~76mm, estilo térmico). Cada comanda vive num `.comanda`
+ * com quebra de página antes da seguinte, para permitir concatenar N cupons
+ * numa mesma janela de impressão (lote) sem depender de N pop-ups.
  */
-function printComanda(order: OrderResponse) {
-  const win = window.open("", "_blank", "width=380,height=680");
-  if (!win) {
-    alert("Não foi possível abrir a janela de impressão. Verifique o bloqueador de pop-ups.");
-    return;
-  }
+const COMANDA_STYLES = `
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "Courier New", monospace; color: #000; font-size: 12px; }
+    .comanda { width: 76mm; padding: 6mm 4mm; }
+    .comanda + .comanda { page-break-before: always; }
+    h1 { font-size: 16px; text-align: center; }
+    .sub { text-align: center; font-size: 11px; margin-bottom: 6px; }
+    hr { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+    .meta { font-size: 11px; line-height: 1.5; }
+    .it { display: flex; justify-content: space-between; gap: 6px; margin: 4px 0; }
+    .it .q { font-weight: bold; }
+    .it .n { flex: 1; }
+    .it .m { font-size: 10px; color: #333; }
+    .it .obs { font-size: 10px; font-weight: bold; }
+    .it .p { white-space: nowrap; }
+    .row { display: flex; justify-content: space-between; font-size: 11px; margin: 2px 0; }
+    .row.tot { font-weight: bold; font-size: 13px; margin-top: 4px; }
+    .foot { text-align: center; font-size: 10px; margin-top: 8px; }
+    @media print { .comanda { width: auto; } }
+`;
+
+/** Monta o HTML de UMA comanda (bloco `.comanda`), reaproveitável em lote. */
+function comandaInnerHtml(order: OrderResponse): string {
   const title = order.externalDisplayId ?? `#${order.orderNumber}`;
   const tipo = ORDER_TYPE_LABEL[order.orderType] + (order.tableNumber ? ` ${order.tableNumber}` : "");
   const pagamento = order.paymentMethod ? PAYMENT_LABEL[order.paymentMethod] : "A definir";
@@ -210,26 +227,7 @@ function printComanda(order: OrderResponse) {
     .join("");
   const linhaResumo = (label: string, valor: string, strong = false) =>
     `<div class="row${strong ? " tot" : ""}"><span>${label}</span><span>${valor}</span></div>`;
-  win.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Comanda ${escapeHtml(
-    title,
-  )}</title><style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: "Courier New", monospace; width: 76mm; padding: 6mm 4mm; color: #000; font-size: 12px; }
-    h1 { font-size: 16px; text-align: center; }
-    .sub { text-align: center; font-size: 11px; margin-bottom: 6px; }
-    hr { border: none; border-top: 1px dashed #000; margin: 6px 0; }
-    .meta { font-size: 11px; line-height: 1.5; }
-    .it { display: flex; justify-content: space-between; gap: 6px; margin: 4px 0; }
-    .it .q { font-weight: bold; }
-    .it .n { flex: 1; }
-    .it .m { font-size: 10px; color: #333; }
-    .it .obs { font-size: 10px; font-weight: bold; }
-    .it .p { white-space: nowrap; }
-    .row { display: flex; justify-content: space-between; font-size: 11px; margin: 2px 0; }
-    .row.tot { font-weight: bold; font-size: 13px; margin-top: 4px; }
-    .foot { text-align: center; font-size: 10px; margin-top: 8px; }
-    @media print { body { width: auto; } }
-  </style></head><body onload="window.print()">
+  return `<div class="comanda">
     <h1>COMANDA ${escapeHtml(title)}</h1>
     <div class="sub">${escapeHtml(tipo)}</div>
     <hr>
@@ -247,8 +245,44 @@ function printComanda(order: OrderResponse) {
     ${linhaResumo("TOTAL", formatCents(order.totalCents), true)}
     ${order.notes ? `<hr><div class="meta"><strong>Obs.:</strong> ${escapeHtml(order.notes)}</div>` : ""}
     <div class="foot">MenuFlow</div>
-  </body></html>`);
+  </div>`;
+}
+
+/**
+ * Abre UMA janela própria com o(s) cupom(ns) já montados e dispara a impressão.
+ * Disparado por clique do usuário, então o popup não é bloqueado.
+ */
+function openPrintWindow(titleText: string, bodyHtml: string) {
+  const win = window.open("", "_blank", "width=380,height=680");
+  if (!win) {
+    alert("Não foi possível abrir a janela de impressão. Verifique o bloqueador de pop-ups.");
+    return;
+  }
+  win.document.write(
+    `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(
+      titleText,
+    )}</title><style>${COMANDA_STYLES}</style></head><body onload="window.print()">${bodyHtml}</body></html>`,
+  );
   win.document.close();
+}
+
+/** Imprime a comanda de um único pedido. */
+function printComanda(order: OrderResponse) {
+  const title = order.externalDisplayId ?? `#${order.orderNumber}`;
+  openPrintWindow(`Comanda ${title}`, comandaInnerHtml(order));
+}
+
+/**
+ * Imprime várias comandas numa ÚNICA janela (quebra de página entre elas) —
+ * evita a enxurrada de pop-ups (que o navegador bloqueia após o primeiro).
+ */
+function printComandas(orders: OrderResponse[]) {
+  if (orders.length === 0) return;
+  if (orders.length === 1) {
+    printComanda(orders[0]);
+    return;
+  }
+  openPrintWindow(`Comandas (${orders.length})`, orders.map(comandaInnerHtml).join(""));
 }
 
 function friendlyError(err: unknown): string {
@@ -352,21 +386,43 @@ function OrderCard({
   order,
   selected,
   onSelect,
+  batchSelected,
+  onToggleBatch,
 }: {
   order: OrderResponse;
   selected: boolean;
   onSelect: () => void;
+  batchSelected: boolean;
+  onToggleBatch: () => void;
 }) {
   const elapsed = elapsedMinutes(order);
   const overdue = order.status !== "DELIVERED" && order.status !== "CANCELLED" && elapsed >= order.estimatedPrepTimeMinutes;
   const previewItems = order.items.slice(0, 2).map((item) => `${item.quantity}x ${item.productName}`).join(", ");
+  const label = order.externalDisplayId ?? `#${order.orderNumber}`;
 
   return (
+    <div
+      className={[
+        "flex items-stretch gap-1 rounded-lg transition-colors",
+        batchSelected ? "bg-primary-50 ring-1 ring-primary-700" : "",
+      ].join(" ")}
+    >
+      {/* Coluna de seleção em lote: irmã do botão (não aninhada) — evita
+          interativo dentro de interativo e dispensa stopPropagation. */}
+      <label className="flex min-w-11 shrink-0 cursor-pointer items-start justify-center pt-5">
+        <input
+          type="checkbox"
+          checked={batchSelected}
+          onChange={onToggleBatch}
+          aria-label={`Selecionar pedido ${label} para ação em lote`}
+          className="h-5 w-5 cursor-pointer rounded border-border-medium accent-primary-700 focus-visible:ring-2 focus-visible:ring-primary-700"
+        />
+      </label>
     <button
       type="button"
       onClick={onSelect}
       className={[
-        "w-full rounded-lg border bg-bg-primary p-4 text-left shadow-card transition-colors hover:bg-bg-secondary focus-visible:ring-2 focus-visible:ring-primary-700",
+        "min-w-0 flex-1 rounded-lg border bg-bg-primary p-4 text-left shadow-card transition-colors hover:bg-bg-secondary focus-visible:ring-2 focus-visible:ring-primary-700",
         selected ? "border-primary-700 ring-1 ring-primary-700" : "border-border-light",
       ].join(" ")}
     >
@@ -412,6 +468,7 @@ function OrderCard({
         <span className="text-base font-bold text-text-primary">{formatCents(order.totalCents)}</span>
       </div>
     </button>
+    </div>
   );
 }
 
@@ -627,10 +684,81 @@ function CancelModal({
   );
 }
 
+/**
+ * Barra de ações em lote — só aparece quando há seleção. "Selecionar todos"
+ * usa estado indeterminado quando a seleção é parcial (via ref, pois HTML não
+ * tem atributo declarativo para isso).
+ */
+function BatchActionBar({
+  selectedCount,
+  advanceCount,
+  allSelected,
+  someSelected,
+  busy,
+  onToggleAll,
+  onAdvance,
+  onPrint,
+  onClear,
+}: {
+  selectedCount: number;
+  advanceCount: number;
+  allSelected: boolean;
+  someSelected: boolean;
+  busy: boolean;
+  onToggleAll: () => void;
+  onAdvance: () => void;
+  onPrint: () => void;
+  onClear: () => void;
+}) {
+  const allRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (allRef.current) allRef.current.indeterminate = someSelected && !allSelected;
+  }, [someSelected, allSelected]);
+
+  return (
+    <section
+      className="sticky top-2 z-20 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-primary-700 bg-bg-primary p-3 shadow-dropdown"
+      role="region"
+      aria-label="Ações em lote"
+    >
+      <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium text-text-primary">
+        <input
+          ref={allRef}
+          type="checkbox"
+          checked={allSelected}
+          onChange={onToggleAll}
+          className="h-5 w-5 cursor-pointer rounded border-border-medium accent-primary-700 focus-visible:ring-2 focus-visible:ring-primary-700"
+        />
+        Selecionar todos (filtrados)
+      </label>
+      <span className="text-sm font-semibold text-primary-700">
+        {selectedCount} selecionado{selectedCount === 1 ? "" : "s"}
+      </span>
+      <div className="ml-auto flex flex-wrap gap-2">
+        <button type="button" onClick={onAdvance} disabled={busy || advanceCount === 0} className="btn-primary gap-2">
+          <PackageCheck className="h-4 w-4" aria-hidden="true" />
+          {busy ? "Processando..." : `Avançar ${advanceCount}`}
+        </button>
+        <button type="button" onClick={onPrint} disabled={busy || selectedCount === 0} className="btn-outline gap-2">
+          <Printer className="h-4 w-4" aria-hidden="true" />
+          Imprimir {selectedCount}
+        </button>
+        <button type="button" onClick={onClear} disabled={busy} className="btn-outline gap-2">
+          <X className="h-4 w-4" aria-hidden="true" />
+          Limpar seleção
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export default function PedidosPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<OrderResponse[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [batchNotice, setBatchNotice] = useState<{ ok: number; fail: number } | null>(null);
   const [period, setPeriod] = useState<Period>("today");
   const [status, setStatus] = useState<StatusFilter>("ALL");
   const [search, setSearch] = useState("");
@@ -686,6 +814,56 @@ export default function PedidosPage() {
     return orders.filter((order) => orderSearchText(order).includes(q));
   }, [orders, search]);
 
+  // A seleção de lote se ajusta quando a lista recarrega: descarta ids de
+  // pedidos que sumiram (recarga/troca de período/status no servidor).
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const valid = new Set<string>();
+      for (const order of orders) if (prev.has(order.id)) valid.add(order.id);
+      return valid.size === prev.size ? prev : valid;
+    });
+  }, [orders]);
+
+  // Seleção efetiva = interseção do Set com o que está VISÍVEL (após busca):
+  // a barra nunca conta nem age sobre pedidos escondidos pelo filtro atual.
+  const selectedVisible = useMemo(
+    () => filteredOrders.filter((order) => selectedIds.has(order.id)),
+    [filteredOrders, selectedIds],
+  );
+  const advanceableCount = useMemo(
+    () => selectedVisible.filter((order) => NEXT_STATUS[order.status]).length,
+    [selectedVisible],
+  );
+  const allFilteredSelected = filteredOrders.length > 0 && selectedVisible.length === filteredOrders.length;
+  const someSelected = selectedVisible.length > 0;
+
+  const toggleBatch = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleAllFiltered = useCallback(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const allSel = filteredOrders.length > 0 && filteredOrders.every((order) => next.has(order.id));
+      for (const order of filteredOrders) {
+        if (allSel) next.delete(order.id);
+        else next.add(order.id);
+      }
+      return next;
+    });
+  }, [filteredOrders]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+    setBatchNotice(null);
+  }, []);
+
   const selectedOrder = filteredOrders.find((order) => order.id === selectedId) ?? filteredOrders[0] ?? null;
 
   const counts = useMemo(() => {
@@ -716,6 +894,31 @@ export default function PedidosPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  // Avança em lote via Promise.allSettled sobre o PUT já existente: cada pedido
+  // é isolado — um erro não aborta os demais e temos o resultado individual.
+  async function advanceSelected() {
+    const targets = filteredOrders.filter((order) => selectedIds.has(order.id) && NEXT_STATUS[order.status]);
+    if (targets.length === 0) return;
+    setBatchBusy(true);
+    setError(null);
+    setBatchNotice(null);
+    const results = await Promise.allSettled(
+      targets.map((order) =>
+        api.put<OrderResponse>(`/orders/${order.id}/status`, { status: NEXT_STATUS[order.status] as OrderStatus }),
+      ),
+    );
+    const failedIds = targets.filter((_, index) => results[index].status === "rejected").map((order) => order.id);
+    setBatchNotice({ ok: targets.length - failedIds.length, fail: failedIds.length });
+    // Mantém selecionados só os que falharam, para retry de um clique.
+    setSelectedIds(new Set(failedIds));
+    await load();
+    setBatchBusy(false);
+  }
+
+  function printSelected() {
+    printComandas(filteredOrders.filter((order) => selectedIds.has(order.id)));
   }
 
   const totalOpen = orders.filter((order) => !["DELIVERED", "CANCELLED"].includes(order.status)).length;
@@ -844,6 +1047,42 @@ export default function PedidosPage() {
           </section>
         )}
 
+        {batchNotice && (
+          <section
+            className={[
+              "rounded-lg border p-3 text-sm",
+              batchNotice.fail > 0 ? "border-secondary-200 bg-secondary-50 text-secondary-900" : "border-primary-200 bg-primary-50 text-primary-800",
+            ].join(" ")}
+            role="status"
+          >
+            <div className="flex items-center gap-2">
+              {batchNotice.fail > 0 ? (
+                <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+              )}
+              <span className="font-medium">
+                {batchNotice.ok} avançado{batchNotice.ok === 1 ? "" : "s"}
+                {batchNotice.fail > 0 ? `, ${batchNotice.fail} falhou${batchNotice.fail === 1 ? "" : "ram"} (mantidos selecionados para tentar de novo)` : ""}
+              </span>
+            </div>
+          </section>
+        )}
+
+        {someSelected && (
+          <BatchActionBar
+            selectedCount={selectedVisible.length}
+            advanceCount={advanceableCount}
+            allSelected={allFilteredSelected}
+            someSelected={someSelected}
+            busy={batchBusy}
+            onToggleAll={toggleAllFiltered}
+            onAdvance={() => void advanceSelected()}
+            onPrint={printSelected}
+            onClear={clearSelection}
+          />
+        )}
+
         {loading ? (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,1.05fr)]">
             <div className="grid gap-3">
@@ -864,6 +1103,8 @@ export default function PedidosPage() {
                   order={order}
                   selected={selectedOrder?.id === order.id}
                   onSelect={() => setSelectedId(order.id)}
+                  batchSelected={selectedIds.has(order.id)}
+                  onToggleBatch={() => toggleBatch(order.id)}
                 />
               ))}
             </section>
@@ -875,7 +1116,7 @@ export default function PedidosPage() {
                   if (next) void updateStatus(order, next);
                 }}
                 onCancel={setCancelTarget}
-                busy={busy}
+                busy={busy || batchBusy}
               />
             </div>
           </div>
