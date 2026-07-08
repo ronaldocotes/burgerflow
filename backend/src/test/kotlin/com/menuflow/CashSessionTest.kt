@@ -5,6 +5,8 @@ import com.menuflow.dto.EntryRequest
 import com.menuflow.dto.OpenSessionRequest
 import com.menuflow.dto.OrderCreateRequest
 import com.menuflow.dto.OrderItemRequest
+import com.menuflow.dto.PdvChannel
+import com.menuflow.dto.PdvOrderCreateRequest
 import com.menuflow.dto.PdvPaymentRequest
 import com.menuflow.dto.ProductCreateRequest
 import com.menuflow.dto.ReconciliationMethod
@@ -13,6 +15,7 @@ import com.menuflow.exception.UnprocessableEntityException
 import com.menuflow.model.CashEntryType
 import com.menuflow.model.CashSessionStatus
 import com.menuflow.model.PaymentMethod
+import com.menuflow.model.PaymentStatus
 import com.menuflow.model.PdvPaymentMethod
 import com.menuflow.service.CashSessionService
 import com.menuflow.service.OrderService
@@ -71,7 +74,9 @@ class CashSessionTest @Autowired constructor(
         assertEquals(CashSessionStatus.OPEN, opened.status)
         val sessionId = opened.id
 
-        // Venda em dinheiro: pedido CASH carimba o turno; pagamento marca PAID.
+        // Venda em dinheiro pelo fluxo do PDV web/app: POST /orders com paymentMethod=CASH
+        // e operador autenticado -> o pedido nasce PAID e carimbado com o turno, SEM um
+        // pay() posterior. Antes ficava PENDING e sumia do caixa (bug P1).
         val productId = seedProduct(tenant, priceCents = 2_500)
         TenantContext.set(tenant)
         val order = orderService.create(
@@ -82,7 +87,7 @@ class CashSessionTest @Autowired constructor(
             userId = actor,
         )
         assertEquals(5_000, order.totalCents)
-        pdvService.pay(order.id, PdvPaymentRequest(method = PdvPaymentMethod.CASH, amountPaidCents = 5_000))
+        assertEquals(PaymentStatus.PAID, order.paymentStatus)
 
         // Sangria R$20,00 e reforço R$10,00.
         TenantContext.set(tenant)
@@ -141,13 +146,18 @@ class CashSessionTest @Autowired constructor(
         }
     }
 
-    /** Paga um pedido novo com a forma informada; devolve o total do pedido. */
-    private fun sellAndPay(tenant: String, productId: UUID, actor: UUID, qty: Int, method: PdvPaymentMethod, orderMethod: PaymentMethod) {
+    /**
+     * Fluxo /pdv REAL: cria o pedido SEM forma de pagamento (PdvService.createOrder) e
+     * define a forma só no pay(), que marca PAID e carimba o turno para TODAS as formas.
+     * Distinto do fluxo do PDV web/app (POST /orders com paymentMethod, que já nasce
+     * pago no create) — aqui exercitamos justamente o caminho do pay().
+     */
+    private fun sellAndPay(tenant: String, productId: UUID, actor: UUID, qty: Int, method: PdvPaymentMethod) {
         TenantContext.set(tenant)
-        val order = orderService.create(
-            OrderCreateRequest(
+        val order = pdvService.createOrder(
+            PdvOrderCreateRequest(
                 items = listOf(OrderItemRequest(productId = productId, quantity = qty)),
-                paymentMethod = orderMethod,
+                channel = PdvChannel.TAKEOUT,
             ),
             userId = actor,
         )
@@ -164,9 +174,9 @@ class CashSessionTest @Autowired constructor(
         val opened = cashSessionService.open(actor, OpenSessionRequest(openingAmountCents = 10_000))
         val sessionId = opened.id
         val productId = seedProduct(tenant, priceCents = 1_000)
-        sellAndPay(tenant, productId, actor, qty = 5, method = PdvPaymentMethod.CASH, orderMethod = PaymentMethod.CASH) // 5000
-        sellAndPay(tenant, productId, actor, qty = 3, method = PdvPaymentMethod.CARD, orderMethod = PaymentMethod.CREDIT_CARD) // 3000
-        sellAndPay(tenant, productId, actor, qty = 2, method = PdvPaymentMethod.PIX, orderMethod = PaymentMethod.PIX) // 2000
+        sellAndPay(tenant, productId, actor, qty = 5, method = PdvPaymentMethod.CASH) // 5000
+        sellAndPay(tenant, productId, actor, qty = 3, method = PdvPaymentMethod.CARD) // 3000
+        sellAndPay(tenant, productId, actor, qty = 2, method = PdvPaymentMethod.PIX) // 2000
 
         // Preview enquanto aberto: esperado por forma, sem contado.
         TenantContext.set(tenant)
@@ -206,6 +216,37 @@ class CashSessionTest @Autowired constructor(
 
         assertEquals(14_000, closed.withdrawnAtCloseCents)
         assertEquals(1_000, closed.suggestedNextOpeningCents) // 15000 - 14000
+    }
+
+    @Test
+    fun `operator sale created with card is PAID and enters per-method reconciliation`() {
+        // Regressao do bug P1 para credito/debito: no PDV web/app a venda com cartao vai
+        // por POST /orders com paymentMethod=CREDIT_CARD (sem pay() posterior). O pedido
+        // deve nascer PAID e ser carimbado com o turno para entrar na reconciliacao por
+        // forma (cartao). Antes ficava PENDING e sumia do fechamento.
+        val tenant = "cashcard_${UUID.randomUUID().toString().take(8)}"
+        val actor = UUID.randomUUID()
+        TenantContext.set(tenant)
+        val opened = cashSessionService.open(actor, OpenSessionRequest(openingAmountCents = 0, confirmZeroOpening = true))
+
+        val productId = seedProduct(tenant, priceCents = 3_000)
+        TenantContext.set(tenant)
+        val order = orderService.create(
+            OrderCreateRequest(
+                items = listOf(OrderItemRequest(productId = productId, quantity = 1)), // total 3000
+                paymentMethod = PaymentMethod.CREDIT_CARD,
+            ),
+            userId = actor,
+        )
+        assertEquals(PaymentStatus.PAID, order.paymentStatus)
+
+        // Reconciliacao por forma: o cartao esperado do turno passa a contar a venda.
+        TenantContext.set(tenant)
+        val preview = cashSessionService.get(opened.id)
+        assertEquals(
+            3_000,
+            preview.reconciliation.first { it.method == ReconciliationMethod.CARD }.expectedCents,
+        )
     }
 
     @Test

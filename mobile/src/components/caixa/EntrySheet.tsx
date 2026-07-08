@@ -26,21 +26,26 @@ interface EntrySheetProps {
   onSuccess: (message: string) => void;
 }
 
+// `done` = particípio com concordância de gênero p/ o toast de sucesso: Sangria
+// (fem.) "registrada", Reforço (masc.) "registrado". Antes o texto era fixo em
+// "registrada" e concordava errado com Reforço.
 const META: Record<
   CashEntryType,
-  { title: string; verb: string; hint: string; placeholder: string }
+  { title: string; verb: string; hint: string; placeholder: string; done: string }
 > = {
   WITHDRAWAL: {
     title: 'Sangria',
     verb: 'Registrar sangria',
     hint: 'Retirada de dinheiro da gaveta (reduz o saldo teorico).',
     placeholder: 'Ex.: troco, pagamento de fornecedor',
+    done: 'registrada',
   },
   DEPOSIT: {
     title: 'Reforco',
     verb: 'Registrar reforco',
     hint: 'Entrada de dinheiro na gaveta (aumenta o saldo teorico).',
     placeholder: 'Ex.: aporte de troco',
+    done: 'registrado',
   },
 };
 
@@ -87,7 +92,7 @@ export const EntrySheet = forwardRef<EntrySheetRef, EntrySheetProps>(
           reason: reasonTrimmed,
         });
         sheetRef.current?.dismiss();
-        onSuccess(`${meta.title} de ${formatBRL(amountCents)} registrada.`);
+        onSuccess(`${meta.title} de ${formatBRL(amountCents)} ${meta.done}.`);
       } catch (e) {
         setErr(
           e instanceof ApiError

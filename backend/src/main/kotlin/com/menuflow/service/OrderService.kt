@@ -11,6 +11,7 @@ import com.menuflow.exception.BusinessException
 import com.menuflow.exception.ConflictException
 import com.menuflow.exception.ResourceNotFoundException
 import com.menuflow.exception.UnprocessableEntityException
+import com.menuflow.event.OrderPaidEvent
 import com.menuflow.model.CashSessionStatus
 import com.menuflow.model.Customer
 import com.menuflow.model.CrustType
@@ -214,16 +215,33 @@ class OrderService(
             if (channel == SalesChannel.DELIVERY) pctOfCents(total, config?.marketplaceFeePct ?: BigDecimal.ZERO) else 0L
         val cardFee = cardFeeWithConfig(total, req.paymentMethod, config)
 
-        // Caixa: venda em dinheiro de um operador autenticado (PDV/balcão) entra no
-        // turno de caixa aberto -> carimba o pedido. Sem caixa aberto, a venda em
-        // dinheiro é barrada (409). Pedidos do cardápio PÚBLICO (userId == null, o
-        // cliente fazendo o próprio pedido) NÃO tocam a gaveta do balcão, mesmo que
-        // escolham "dinheiro" — é pagamento na entrega, fora da reconciliação do PDV.
+        // Caixa + pagamento no balcão: um operador autenticado (userId != null) que já
+        // escolhe a forma de pagamento na criação está registrando uma venda PAGA no
+        // balcão — é o fluxo do PDV (web e app Android): POST /orders com paymentMethod,
+        // SEM um pay() posterior. Marca o pedido como PAID e o carimba com o turno de
+        // caixa aberto, para a venda entrar no caixa (gaveta + reconciliação por forma) e
+        // no faturamento. Sem isso a venda ficava PENDING e sumia do caixa/DRE. Regras:
+        //  - CASH exige caixa aberto (409 sem turno) e alimenta o esperado da gaveta;
+        //  - CREDIT_CARD/DEBIT_CARD/OTHER não exigem caixa, mas são carimbados com o
+        //    turno aberto (se houver) para a reconciliação por forma do fechamento
+        //    (mesmo carimbo que PdvService.pay aplica a todas as formas);
+        //  - PIX fica PENDENTE: a confirmação é assíncrona (webhook Asaas ->
+        //    PixPaymentService), que é quem marca PAID;
+        //  - pedido do cardápio PÚBLICO (userId == null) NUNCA é marcado pago aqui,
+        //    mesmo escolhendo "dinheiro" — é pagamento na entrega/PIX online, fora da
+        //    gaveta do balcão;
+        //  - o endpoint /pdv (PdvService.createOrder) cria SEM paymentMethod -> cai
+        //    fora deste bloco e segue pagando via PdvService.pay (inalterado).
         var cashSessionId: java.util.UUID? = null
-        if (userId != null && req.paymentMethod == PaymentMethod.CASH) {
-            val session = cashSessionRepository.findFirstByStatus(CashSessionStatus.OPEN)
-                ?: throw ConflictException("Abra o caixa para registrar vendas em dinheiro")
-            cashSessionId = session.id
+        var paymentStatus = com.menuflow.model.PaymentStatus.PENDING
+        val payMethod = req.paymentMethod
+        if (userId != null && payMethod != null && payMethod != PaymentMethod.PIX) {
+            val openSession = cashSessionRepository.findFirstByStatus(CashSessionStatus.OPEN)
+            if (payMethod == PaymentMethod.CASH && openSession == null) {
+                throw ConflictException("Abra o caixa para registrar vendas em dinheiro")
+            }
+            cashSessionId = openSession?.id
+            paymentStatus = com.menuflow.model.PaymentStatus.PAID
         }
 
         // Fidelidade (Fase 3.3): se o operador informou telefone e não passou customerId,
@@ -248,6 +266,7 @@ class OrderService(
             deliveryFeeCents = deliveryFee,
             totalCents = total,
             paymentMethod = req.paymentMethod,
+            paymentStatus = paymentStatus,
             cashSessionId = cashSessionId,
             couponId = couponApp?.coupon?.id,
             couponCode = couponApp?.coupon?.code,
@@ -307,6 +326,24 @@ class OrderService(
         // APOS o commit (FK em orders(id)) em tx propria, idempotente e fail-safe —
         // nunca derruba a criacao do pedido.
         req.trackingLinkId?.let { trackingService.recordConversion(persisted.id!!, it, persisted.totalCents) }
+        // Venda paga no balcão (operador escolheu a forma na criação): publica o fato de
+        // domínio OrderPaidEvent — os MESMOS listeners AFTER_COMMIT de PdvService.pay
+        // (fidelidade credita pontos, carrinho abandonado -> RECOVERED etc.) reagem, agora
+        // também para as vendas do PDV que nascem pagas aqui. O slug do tenant vem do
+        // TenantContext (token assinado) para rotear de volta no db-per-tenant. PIX e
+        // pedido público não chegam aqui (ficam PENDING) -> sem evento duplicado; o fluxo
+        // /pdv publica o evento no próprio pay().
+        if (paymentStatus == com.menuflow.model.PaymentStatus.PAID) {
+            eventPublisher.publishEvent(
+                OrderPaidEvent(
+                    tenantSlug = TenantContext.getOrThrow(),
+                    orderId = persisted.id!!,
+                    customerId = persisted.customerId,
+                    customerPhone = persisted.customerPhone,
+                    totalCents = persisted.totalCents,
+                ),
+            )
+        }
         // KDS ao vivo: o pedido NOVO também precisa aparecer na cozinha (< 1s),
         // não só as mudanças de status (updateStatus). Publica APÓS o commit —
         // ver publishKdsAfterCommit para o porquê. Vale para PENDING e para o
