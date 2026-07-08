@@ -271,7 +271,7 @@ export function CheckoutModal({
                     className={[
                       "flex items-center gap-2 px-3 py-2 rounded-lg border font-medium text-sm transition-colors min-h-[48px]",
                       orderType === opt.value
-                        ? "bg-primary-700 text-white border-primary-700"
+                        ? "bg-[var(--mf-primary)] text-[var(--mf-on-primary)] border-[var(--mf-primary)]"
                         : "bg-bg-primary text-text-primary border-border-medium hover:bg-bg-tertiary",
                     ].join(" ")}
                   >
@@ -370,7 +370,7 @@ export function CheckoutModal({
                     className={[
                       "flex items-center gap-2 px-3 py-2 rounded-lg border font-medium text-sm transition-colors min-h-[48px]",
                       payment === opt.value
-                        ? "bg-primary-700 text-white border-primary-700"
+                        ? "bg-[var(--mf-primary)] text-[var(--mf-on-primary)] border-[var(--mf-primary)]"
                         : "bg-bg-primary text-text-primary border-border-medium hover:bg-bg-tertiary",
                     ].join(" ")}
                   >

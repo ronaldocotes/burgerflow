@@ -122,7 +122,7 @@ export function CartSheet({ cart, dispatch, onClose, onCheckout }: Props) {
                     onClick={() =>
                       dispatch({ type: "INCREMENT_LINE", lineId: line.lineId })
                     }
-                    className="min-h-[48px] min-w-[48px] rounded-full bg-primary-700 text-white flex items-center justify-center font-bold text-lg hover:bg-primary-800"
+                    className="min-h-[48px] min-w-[48px] rounded-full bg-[var(--mf-primary)] text-[var(--mf-on-primary)] flex items-center justify-center font-bold text-lg hover:opacity-90"
                     aria-label={`Adicionar mais ${line.product.name}`}
                   >
                     +

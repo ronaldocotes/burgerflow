@@ -4,6 +4,8 @@ import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "
 import { useSearchParams } from "next/navigation";
 import { API_BASE, api, TOKEN_KEY } from "@/lib/api";
 import { Category, Page, Product, formatBRL } from "@/types/menu";
+import type { PublicTheme, PublicEntryPopup, PreviewMessage } from "@/types/personalization";
+import { DEFAULT_PRIMARY, computeContrast } from "@/lib/contrast";
 import LoadingSpinner from "@/components/loading-spinner";
 import { cartReducer } from "@/components/cardapio/types";
 import type { CartLine } from "@/components/cardapio/types";
@@ -11,10 +13,22 @@ import { CartButton } from "@/components/cardapio/CartButton";
 import { CartSheet } from "@/components/cardapio/CartSheet";
 import { CheckoutModal } from "@/components/cardapio/CheckoutModal";
 import { ProductDetailModal } from "@/components/cardapio/ProductDetailModal";
+import { EntryPopupModal } from "@/components/cardapio/EntryPopupModal";
 import { RestaurantHero } from "@/components/cardapio/RestaurantHero";
 
 const PUBLIC_TENANT = process.env.NEXT_PUBLIC_TENANT_SLUG ?? "demo";
 const CART_KEY = "mf_cart";
+const POPUP_SEEN_KEY = "mf_popup_seen";
+
+// Tema/pop-up default quando a API não devolve (ex.: caminho autenticado do admin).
+const DEFAULT_THEME: PublicTheme = {
+  primaryColor: null,
+  recommendedTextColor: null,
+  showPrices: true,
+  showDescriptions: true,
+  showPhotos: true,
+};
+const DEFAULT_ENTRY_POPUP: PublicEntryPopup = { enabled: false, title: null, products: [] };
 
 function loadCart(): CartLine[] {
   try {
@@ -56,6 +70,9 @@ interface PublicMenuResponse {
   pixKey: string | null;
   restaurantInfo: RestaurantInfo;
   bestsellerIds: string[];
+  // Fase CONFIG-B (issues #12 tema + #13 pop-up).
+  theme: PublicTheme;
+  entryPopup: PublicEntryPopup;
 }
 
 // ── Barra de categorias sticky estilo iFood ─────────────────────────────────────────────
@@ -100,7 +117,7 @@ function CategoryBar({
               className={[
                 "min-h-11 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150",
                 isActive
-                  ? "bg-primary-700 text-white"
+                  ? "bg-[var(--mf-primary)] text-[var(--mf-on-primary)]"
                   : "bg-bg-tertiary text-text-secondary hover:text-text-primary",
               ].join(" ")}
             >
@@ -144,12 +161,21 @@ function CardapioContent() {
   const searchParams = useSearchParams();
   const tableParam = searchParams.get("table");
   const tableLabel = tableParam ? decodeURIComponent(tableParam) : null;
+  // Tenant/modo vindos da rota publica /l/{tenant}/{slug} (issue #11).
+  // tenant sobrescreve o env (multi-tenant); view=only => vitrine sem pedido.
+  const tenant = searchParams.get("tenant") ?? PUBLIC_TENANT;
+  const viewOnly = searchParams.get("view") === "only";
+  // Modo preview (Fase CONFIG-B): iframe embutido na tela de Personalização.
+  // Vitrine sem pedido, sem marcar mf_popup_seen, escutando postMessage do editor.
+  const previewMode = searchParams.get("preview") === "1";
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [pixKey, setPixKey] = useState<string | null>(null);
   const [restaurantInfo, setRestaurantInfo] = useState<RestaurantInfo>(EMPTY_RESTAURANT_INFO);
   const [bestsellerIds, setBestsellerIds] = useState<string[]>([]);
+  const [theme, setTheme] = useState<PublicTheme>(DEFAULT_THEME);
+  const [entryPopup, setEntryPopup] = useState<PublicEntryPopup>(DEFAULT_ENTRY_POPUP);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -170,8 +196,12 @@ function CardapioContent() {
         setCategories(cats.content);
         setProducts(prods.content);
         setPixKey(null);
+        // Caminho autenticado (admin/preview): tema/pop-up vêm por postMessage (preview)
+        // ou ficam no default — o cardápio público real usa o caminho abaixo.
+        setTheme(DEFAULT_THEME);
+        setEntryPopup(DEFAULT_ENTRY_POPUP);
       } else {
-        const res = await fetch(`${API_BASE}/public/${PUBLIC_TENANT}/menu`);
+        const res = await fetch(`${API_BASE}/public/${tenant}/menu`);
         if (!res.ok) throw new Error("Cardápio indisponível no momento.");
         const data = (await res.json()) as PublicMenuResponse;
         setCategories(data.categories);
@@ -179,13 +209,15 @@ function CardapioContent() {
         setPixKey(data.pixKey ?? null);
         setRestaurantInfo(data.restaurantInfo ?? EMPTY_RESTAURANT_INFO);
         setBestsellerIds(data.bestsellerIds ?? []);
+        setTheme(data.theme ?? DEFAULT_THEME);
+        setEntryPopup(data.entryPopup ?? DEFAULT_ENTRY_POPUP);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar o cardápio.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tenant]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -244,6 +276,11 @@ function CardapioContent() {
       products={products}
       restaurantInfo={restaurantInfo}
       bestsellerIds={bestsellerIds}
+      viewOnly={viewOnly}
+      previewMode={previewMode}
+      theme={theme}
+      entryPopup={entryPopup}
+      tenantSlug={tenant}
     />
   );
 }
@@ -257,6 +294,11 @@ function CardapioView({
   products,
   restaurantInfo,
   bestsellerIds,
+  viewOnly,
+  previewMode,
+  theme,
+  entryPopup,
+  tenantSlug,
 }: {
   sections: { key: string; title: string; items: Product[] }[];
   sectionIds: string[];
@@ -265,13 +307,63 @@ function CardapioView({
   products: Product[];
   restaurantInfo: RestaurantInfo;
   bestsellerIds: string[];
+  viewOnly: boolean;
+  previewMode: boolean;
+  theme: PublicTheme;
+  entryPopup: PublicEntryPopup;
+  tenantSlug: string;
 }) {
-  // Carrinho: inicia vazio, carrega do sessionStorage após hidratação
+  // Preview (postMessage do editor): sobrepõe tema/toggles/pop-up ao vivo.
+  const [previewTheme, setPreviewTheme] = useState<PublicTheme | null>(null);
+  const [previewPopupIds, setPreviewPopupIds] = useState<string[]>([]);
+  const [previewPopupTitle, setPreviewPopupTitle] = useState<string | null>(null);
+  const [previewShowPopup, setPreviewShowPopup] = useState(false);
+
+  useEffect(() => {
+    if (!previewMode) return;
+    function onMsg(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as PreviewMessage | undefined;
+      if (!d || d.type !== "mf-preview") return;
+      setPreviewTheme({
+        primaryColor: d.primaryColor ?? null,
+        recommendedTextColor: d.textColor ?? null,
+        showPrices: d.showPrices,
+        showDescriptions: d.showDescriptions,
+        showPhotos: d.showPhotos,
+      });
+      setPreviewPopupIds(d.popup?.productIds ?? []);
+      setPreviewPopupTitle(d.popup?.title ?? null);
+      if (d.showPopup) setPreviewShowPopup(true);
+    }
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [previewMode]);
+
+  const effectiveTheme = previewMode ? previewTheme ?? theme : theme;
+  const primaryColor = effectiveTheme.primaryColor && effectiveTheme.primaryColor.trim() !== ""
+    ? effectiveTheme.primaryColor
+    : DEFAULT_PRIMARY;
+  const onPrimaryColor =
+    effectiveTheme.recommendedTextColor ??
+    computeContrast(primaryColor)?.recommendedTextColor ??
+    "#FFFFFF";
+  const { showPrices, showDescriptions, showPhotos } = effectiveTheme;
+
+  // Vitrine sem pedido tanto no view=only quanto no preview.
+  const noOrdering = viewOnly || previewMode;
+
+  // Carrinho: inicia vazio, carrega do sessionStorage após hidratação.
+  // No preview NÃO tocamos o carrinho (mesma origem → não clobber do carrinho real).
   const [cart, dispatch] = useReducer(cartReducer, [] as CartLine[]);
   const [cartHydrated, setCartHydrated] = useState(false);
 
   useEffect(() => {
     if (cartHydrated) return;
+    if (previewMode) {
+      setCartHydrated(true);
+      return;
+    }
     const saved = loadCart();
     saved.forEach((item) => {
       dispatch({ type: "ADD_LINE", product: item.product, quantity: item.quantity, notes: item.notes });
@@ -279,16 +371,43 @@ function CardapioView({
     queueMicrotask(() => {
       setCartHydrated(true);
     });
-  }, [cartHydrated]);
+  }, [cartHydrated, previewMode]);
 
   useEffect(() => {
-    if (cartHydrated) saveCart(cart);
-  }, [cart, cartHydrated]);
+    if (cartHydrated && !previewMode) saveCart(cart);
+  }, [cart, cartHydrated, previewMode]);
 
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [exitToast, setExitToast] = useState(false);
+
+  // Pop-up de entrada (issue #13): 1x por sessão (sessionStorage), fora do preview.
+  const [showEntryPopup, setShowEntryPopup] = useState(false);
+  useEffect(() => {
+    if (previewMode) return;
+    if (!entryPopup.enabled || entryPopup.products.length === 0) return;
+    let seen = false;
+    try {
+      seen = sessionStorage.getItem(POPUP_SEEN_KEY) === "1";
+    } catch {
+      seen = false;
+    }
+    if (!seen) setShowEntryPopup(true);
+  }, [previewMode, entryPopup]);
+
+  function dismissEntryPopup() {
+    if (previewMode) {
+      setPreviewShowPopup(false);
+      return;
+    }
+    setShowEntryPopup(false);
+    try {
+      sessionStorage.setItem(POPUP_SEEN_KEY, "1");
+    } catch {
+      // ignore
+    }
+  }
 
   // Refs para leitura no closure do popstate sem re-registrar o listener
   const showCartRef = useRef(showCart);
@@ -302,8 +421,9 @@ function CardapioView({
 
   // Intercepta botão voltar do Android/browser: fecha modais em cascata,
   // depois exige 2 cliques para sair (double-back-to-exit padrão Android).
-  // Usa location.href como URL no pushState para não conflitar com o router do Next.js.
+  // No preview (iframe) NÃO intercepta — não há fluxo de saída.
   useEffect(() => {
+    if (previewMode) return;
     history.pushState(null, "", location.href);
 
     function reintercept() {
@@ -335,7 +455,7 @@ function CardapioView({
       window.removeEventListener("popstate", onPopState);
       if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
     };
-  }, []);
+  }, [previewMode]);
 
   const activeId = useActiveSection(sectionIds);
 
@@ -363,8 +483,27 @@ function CardapioView({
     .map((id) => productMap.get(id))
     .filter((p): p is Product => p !== undefined);
 
+  // Produtos e visibilidade do pop-up: no preview vêm do postMessage (ids → produtos
+  // reais do tenant); no público vêm da API já filtrados (só ativos).
+  const entryPopupProducts: Product[] = previewMode
+    ? previewPopupIds.map((id) => productMap.get(id)).filter((p): p is Product => p !== undefined)
+    : entryPopup.products;
+  const entryPopupTitle = previewMode ? previewPopupTitle : entryPopup.title;
+  const entryPopupVisible = previewMode
+    ? previewShowPopup && entryPopupProducts.length > 0
+    : showEntryPopup && entryPopupProducts.length > 0;
+
   return (
-    <main className="min-h-screen bg-bg-secondary pb-24">
+    <main
+      className="min-h-screen bg-bg-secondary pb-24"
+      // Tema do tenant: CSS vars herdadas por todos os descendentes do cardápio
+      // público (cards, botões, CartButton, modais). ESCOPO: só esta página — o
+      // PDV/KDS/admin continuam nos tokens do sistema.
+      style={{
+        ["--mf-primary" as string]: primaryColor,
+        ["--mf-on-primary" as string]: onPrimaryColor,
+      } as React.CSSProperties}
+    >
       <header className="header sticky top-0 z-10">
         {/* Botão voltar — flex item, não absolute, para garantir visibilidade em todos os browsers */}
         <button
@@ -393,7 +532,7 @@ function CardapioView({
 
       {tableLabel && (
         <div
-          className="bg-primary-700 text-white px-4 py-2 text-sm font-semibold flex items-center gap-2"
+          className="bg-[var(--mf-primary)] text-[var(--mf-on-primary)] px-4 py-2 text-sm font-semibold flex items-center gap-2"
           role="status"
           aria-label={`Pedindo para a mesa ${tableLabel}`}
         >
@@ -414,6 +553,8 @@ function CardapioView({
                   key={p.id}
                   product={p}
                   cartQuantity={cartQtyFor(p.id)}
+                  showPrices={showPrices}
+                  showPhotos={showPhotos}
                   onOpen={() => setSelectedProduct(p)}
                   onDecrement={() => decrementProduct(p.id)}
                 />
@@ -442,6 +583,9 @@ function CardapioView({
                     key={p.id}
                     product={p}
                     cartQuantity={cartQtyFor(p.id)}
+                    showPrices={showPrices}
+                    showDescriptions={showDescriptions}
+                    showPhotos={showPhotos}
                     onOpen={() => setSelectedProduct(p)}
                     onDecrement={() => decrementProduct(p.id)}
                   />
@@ -452,9 +596,10 @@ function CardapioView({
         )}
       </div>
 
-      <CartButton cart={cart} onClick={() => setShowCart(true)} />
+      {/* Vitrine (VIEW_ONLY/preview): sem carrinho, carrinho-sheet nem checkout. */}
+      {!noOrdering && <CartButton cart={cart} onClick={() => setShowCart(true)} />}
 
-      {showCart && (
+      {!noOrdering && showCart && (
         <CartSheet
           cart={cart}
           dispatch={dispatch}
@@ -466,12 +611,12 @@ function CardapioView({
         />
       )}
 
-      {showCheckout && (
+      {!noOrdering && showCheckout && (
         <CheckoutModal
           cart={cart}
           pixKey={pixKey}
           tableLabel={tableLabel}
-          tenantSlug={PUBLIC_TENANT}
+          tenantSlug={tenantSlug}
           onClose={() => setShowCheckout(false)}
           onNewOrder={handleNewOrder}
         />
@@ -480,10 +625,28 @@ function CardapioView({
       {selectedProduct && (
         <ProductDetailModal
           product={selectedProduct}
+          viewOnly={noOrdering}
+          showPrices={showPrices}
+          showDescriptions={showDescriptions}
+          showPhotos={showPhotos}
           onClose={() => setSelectedProduct(null)}
           onAdd={(qty, notes, options) => {
             dispatch({ type: "ADD_LINE", product: selectedProduct, quantity: qty, notes, options });
             setSelectedProduct(null);
+          }}
+        />
+      )}
+
+      {/* Pop-up de entrada (issue #13) */}
+      {entryPopupVisible && (
+        <EntryPopupModal
+          title={entryPopupTitle}
+          products={entryPopupProducts}
+          showPrices={showPrices}
+          onClose={dismissEntryPopup}
+          onSelectProduct={(p) => {
+            dismissEntryPopup();
+            setSelectedProduct(p);
           }}
         />
       )}
@@ -516,7 +679,8 @@ export default function CardapioPage() {
   );
 }
 
-function BestsellerCard({
+// Stepper +/- reutilizado pelos cards. Usa as CSS vars do tema para o botão "+".
+function CardStepper({
   product,
   cartQuantity,
   onOpen,
@@ -527,70 +691,94 @@ function BestsellerCard({
   onOpen: () => void;
   onDecrement: () => void;
 }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        onClick={(e) => { e.stopPropagation(); onDecrement(); }}
+        className="w-7 h-7 rounded-full border border-border-medium flex items-center justify-center text-text-primary hover:bg-bg-tertiary transition-colors text-sm leading-none"
+        aria-label={`Remover ${product.name} do carrinho`}
+      >
+        −
+      </button>
+      <span className="w-4 text-center text-sm font-semibold text-text-primary">
+        {cartQuantity}
+      </span>
+      <button
+        onClick={(e) => { e.stopPropagation(); onOpen(); }}
+        className="w-7 h-7 rounded-full bg-[var(--mf-primary)] text-[var(--mf-on-primary)] flex items-center justify-center hover:opacity-90 transition-opacity text-sm leading-none"
+        aria-label={`Adicionar mais ${product.name} ao carrinho`}
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
+function BestsellerCard({
+  product,
+  cartQuantity,
+  showPrices,
+  showPhotos,
+  onOpen,
+  onDecrement,
+}: {
+  product: Product;
+  cartQuantity: number;
+  showPrices: boolean;
+  showPhotos: boolean;
+  onOpen: () => void;
+  onDecrement: () => void;
+}) {
   const unavailable = !product.isAvailable;
   return (
     <article
       className={`flex gap-3 w-56 flex-shrink-0 bg-bg-primary rounded-xl p-3 shadow-sm border border-border-light ${unavailable ? "opacity-60" : "cursor-pointer"}`}
       onClick={!unavailable ? onOpen : undefined}
     >
-      {/* Imagem com badge de destaque */}
-      <div className="relative flex-shrink-0">
-        {product.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            className="w-16 h-16 rounded-lg object-cover"
-          />
-        ) : (
-          <div
-            className="w-16 h-16 rounded-lg bg-bg-tertiary flex items-center justify-center text-2xl"
-            aria-hidden="true"
-          >
-            🍽️
-          </div>
-        )}
-        <span className="absolute top-1 left-1 text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full font-medium leading-none">
-          🔥 Mais Pedido
-        </span>
-      </div>
+      {/* Imagem com badge de destaque (oculta quando showPhotos=false) */}
+      {showPhotos && (
+        <div className="relative flex-shrink-0">
+          {product.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              className="w-16 h-16 rounded-lg object-cover"
+            />
+          ) : (
+            <div
+              className="w-16 h-16 rounded-lg bg-bg-tertiary flex items-center justify-center text-2xl"
+              aria-hidden="true"
+            >
+              🍽️
+            </div>
+          )}
+          <span className="absolute top-1 left-1 text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full font-medium leading-none">
+            🔥 Mais Pedido
+          </span>
+        </div>
+      )}
 
       {/* Informacoes e controles */}
       <div className="flex flex-col flex-1 min-w-0">
         <h3 className="text-sm font-semibold text-text-primary leading-tight line-clamp-2">
           {product.name}
         </h3>
-        <p className="text-sm font-bold text-primary-600 mt-1">
-          {formatBRL(product.effectivePriceCents)}
-        </p>
+        {showPrices && (
+          <p className="text-sm font-bold text-text-primary mt-1">
+            {formatBRL(product.effectivePriceCents)}
+          </p>
+        )}
 
         <div className="mt-auto pt-1">
           {unavailable ? (
             <span className="text-sm text-text-muted">Indisponivel</span>
           ) : cartQuantity > 0 ? (
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={(e) => { e.stopPropagation(); onDecrement(); }}
-                className="w-7 h-7 rounded-full border border-border-medium flex items-center justify-center text-text-primary hover:bg-bg-tertiary transition-colors text-sm leading-none"
-                aria-label={`Remover ${product.name} do carrinho`}
-              >
-                −
-              </button>
-              <span className="w-4 text-center text-sm font-semibold text-text-primary">
-                {cartQuantity}
-              </span>
-              <button
-                onClick={(e) => { e.stopPropagation(); onOpen(); }}
-                className="w-7 h-7 rounded-full bg-primary-700 text-white flex items-center justify-center hover:bg-primary-800 transition-colors text-sm leading-none"
-                aria-label={`Adicionar mais ${product.name} ao carrinho`}
-              >
-                +
-              </button>
-            </div>
+            <CardStepper product={product} cartQuantity={cartQuantity} onOpen={onOpen} onDecrement={onDecrement} />
           ) : (
             <button
               onClick={(e) => { e.stopPropagation(); onOpen(); }}
-              className="rounded-lg bg-primary-700 px-2 py-1 text-sm text-white hover:bg-primary-800 transition-colors"
+              className="rounded-lg bg-[var(--mf-primary)] text-[var(--mf-on-primary)] px-2 py-1 text-sm hover:opacity-90 transition-opacity"
               aria-label={`Adicionar ${product.name} ao carrinho`}
             >
               Adicionar
@@ -605,99 +793,127 @@ function BestsellerCard({
 function ProductCard({
   product,
   cartQuantity,
+  showPrices,
+  showDescriptions,
+  showPhotos,
   onOpen,
   onDecrement,
 }: {
   product: Product;
   cartQuantity: number;
+  showPrices: boolean;
+  showDescriptions: boolean;
+  showPhotos: boolean;
   onOpen: () => void;
   onDecrement: () => void;
 }) {
   const unavailable = !product.isAvailable;
+  const badges = (
+    <>
+      {product.onPromo && (
+        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+          PROMO
+        </span>
+      )}
+      {product.isFeatured && (
+        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary-100 text-primary-800 border border-primary-300">
+          DESTAQUE
+        </span>
+      )}
+      {unavailable && (
+        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300">
+          INDISPONÍVEL
+        </span>
+      )}
+    </>
+  );
   return (
     <article
       className={`pos-product-card relative ${unavailable ? "opacity-60" : ""} ${!unavailable ? "cursor-pointer" : ""}`}
       onClick={!unavailable ? onOpen : undefined}
     >
-      {/* Imagem + botão flutuante sobre ela */}
-      <div className="relative">
-        {product.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            width={400}
-            height={192}
-            className="pos-product-image"
-          />
-        ) : (
-          <div
-            aria-hidden="true"
-            className="pos-product-image bg-bg-tertiary flex items-center justify-center text-4xl"
-          >
-            🍽️
-          </div>
-        )}
+      {showPhotos ? (
+        /* Imagem + botão flutuante sobre ela */
+        <div className="relative">
+          {product.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              width={400}
+              height={192}
+              className="pos-product-image"
+            />
+          ) : (
+            <div
+              aria-hidden="true"
+              className="pos-product-image bg-bg-tertiary flex items-center justify-center text-4xl"
+            >
+              🍽️
+            </div>
+          )}
 
-        {/* Badges no canto superior esquerdo da imagem */}
-        <div className="absolute top-2 left-2 flex flex-wrap gap-1">
-          {product.onPromo && (
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-              PROMO
-            </span>
-          )}
-          {product.isFeatured && (
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary-100 text-primary-800 border border-primary-300">
-              DESTAQUE
-            </span>
-          )}
-          {unavailable && (
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300">
-              INDISPONÍVEL
-            </span>
+          {/* Badges no canto superior esquerdo da imagem */}
+          <div className="absolute top-2 left-2 flex flex-wrap gap-1">{badges}</div>
+
+          {/* Stepper flutuante — só aparece quando já há item no carrinho */}
+          {!unavailable && cartQuantity > 0 && (
+            <div
+              className="absolute bottom-2 right-2 flex items-center gap-1 bg-bg-primary rounded-full shadow-lg px-1.5 py-1"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={onDecrement}
+                className="w-7 h-7 rounded-full border border-border-medium flex items-center justify-center text-text-primary hover:bg-bg-tertiary transition-colors text-base leading-none"
+                aria-label={`Remover um ${product.name}`}
+              >
+                {'−'}
+              </button>
+              <span className="w-5 text-center font-bold text-text-primary text-sm select-none">
+                {cartQuantity}
+              </span>
+              <button
+                onClick={onOpen}
+                className="w-7 h-7 rounded-full bg-[var(--mf-primary)] text-[var(--mf-on-primary)] flex items-center justify-center hover:opacity-90 transition-opacity text-base leading-none"
+                aria-label={`Adicionar mais ${product.name} ao carrinho`}
+              >
+                +
+              </button>
+            </div>
           )}
         </div>
-
-        {/* Stepper flutuante — só aparece quando já há item no carrinho */}
-        {!unavailable && cartQuantity > 0 && (
-          <div
-            className="absolute bottom-2 right-2 flex items-center gap-1 bg-bg-primary rounded-full shadow-lg px-1.5 py-1"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={onDecrement}
-              className="w-7 h-7 rounded-full border border-border-medium flex items-center justify-center text-text-primary hover:bg-bg-tertiary transition-colors text-base leading-none"
-              aria-label={`Remover um ${product.name}`}
-            >
-              {'−'}
-            </button>
-            <span className="w-5 text-center font-bold text-text-primary text-sm select-none">
-              {cartQuantity}
-            </span>
-            <button
-              onClick={onOpen}
-              className="w-7 h-7 rounded-full bg-primary-700 text-white flex items-center justify-center hover:bg-primary-800 transition-colors text-base leading-none"
-              aria-label={`Adicionar mais ${product.name} ao carrinho`}
-            >
-              +
-            </button>
-          </div>
-        )}
-      </div>
+      ) : (
+        /* Layout compacto sem foto: badges inline no topo do texto */
+        badges && (
+          <div className="flex flex-wrap gap-1 px-3 pt-3">{badges}</div>
+        )
+      )}
 
       <div className="p-3 flex flex-col gap-0.5">
         <h3 className="font-semibold text-text-primary leading-tight">{product.name}</h3>
-        {product.description && (
+        {showDescriptions && product.description && (
           <p className="line-clamp-2 text-sm text-text-secondary">{product.description}</p>
         )}
-        <div className="mt-1.5 flex items-baseline gap-1.5">
-          <span className="text-base font-bold text-text-primary">
-            {formatBRL(product.effectivePriceCents)}
-          </span>
-          {product.onPromo && (
-            <span className="text-sm text-text-muted line-through">
-              {formatBRL(product.priceCents)}
-            </span>
+        <div className="mt-1.5 flex items-center justify-between gap-2">
+          {showPrices ? (
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-base font-bold text-text-primary">
+                {formatBRL(product.effectivePriceCents)}
+              </span>
+              {product.onPromo && (
+                <span className="text-sm text-text-muted line-through">
+                  {formatBRL(product.priceCents)}
+                </span>
+              )}
+            </div>
+          ) : (
+            <span />
+          )}
+          {/* Sem foto, o stepper vai no rodapé do texto (não há overlay de imagem) */}
+          {!showPhotos && !unavailable && cartQuantity > 0 && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <CardStepper product={product} cartQuantity={cartQuantity} onOpen={onOpen} onDecrement={onDecrement} />
+            </div>
           )}
         </div>
       </div>

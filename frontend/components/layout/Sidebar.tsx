@@ -34,6 +34,8 @@ import {
   Plug,
   BrainCircuit,
   Sparkles,
+  Store,
+  Palette,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -94,6 +96,8 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/ia',        label: 'Copilot IA',     icon: Sparkles,     roles: ['ADMIN', 'MANAGER'] },
       { href: '/admin/bot',       label: 'Bot WhatsApp',   icon: Bot,          roles: ['ADMIN', 'MANAGER'] },
       { href: '/financeiro/dre', label: 'DRE', icon: BarChart2, roles: ['ADMIN', 'MANAGER'] },
+      { href: '/configuracoes/loja',  label: 'Minha Loja',     icon: Store, roles: ['ADMIN', 'MANAGER'] },
+      { href: '/configuracoes/personalizacao', label: 'Personalização', icon: Palette, roles: ['ADMIN', 'MANAGER'] },
       { href: '/configuracoes',       label: 'Configurações',  icon: Settings },
     ],
   },
@@ -163,11 +167,13 @@ function NavContent({
             )}
             <ul role="list" className="flex flex-col gap-0.5">
               {visibleItems.map(({ href, label, icon: Icon }) => {
-                // "/plataforma" é hub com filhos próprios no menu: só ativa no match exato
-                const isActive =
-                  href === '/plataforma'
-                    ? pathname === href
-                    : pathname === href || pathname.startsWith(href + '/')
+                // Hubs com filhos próprios no menu ("/plataforma", "/configuracoes")
+                // só ativam no match exato — senão "/configuracoes" ficaria duplo-ativo
+                // junto com "/configuracoes/loja" (Minha Loja).
+                const exactOnly = href === '/plataforma' || href === '/configuracoes'
+                const isActive = exactOnly
+                  ? pathname === href
+                  : pathname === href || pathname.startsWith(href + '/')
                 return (
                   <li key={href}>
                     <Link

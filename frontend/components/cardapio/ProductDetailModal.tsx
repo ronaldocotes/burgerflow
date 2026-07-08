@@ -9,9 +9,24 @@ interface Props {
   product: Product;
   onClose: () => void;
   onAdd: (quantity: number, notes?: string, options?: CartLineOption[]) => void;
+  /** Modo vitrine (VIEW_ONLY): so mostra detalhes, sem opcoes/quantidade/adicionar. */
+  viewOnly?: boolean;
+  /** Toggles de exibição do tema (issue #12). Preço fica oculto na vitrine, mas o
+   *  carrinho/checkout sempre mostram o total (decisão do dono). */
+  showPrices?: boolean;
+  showDescriptions?: boolean;
+  showPhotos?: boolean;
 }
 
-export function ProductDetailModal({ product, onClose, onAdd }: Props) {
+export function ProductDetailModal({
+  product,
+  onClose,
+  onAdd,
+  viewOnly = false,
+  showPrices = true,
+  showDescriptions = true,
+  showPhotos = true,
+}: Props) {
   const [qty, setQty] = useState(1);
   const [notes, setNotes] = useState("");
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
@@ -85,14 +100,16 @@ export function ProductDetailModal({ product, onClose, onAdd }: Props) {
         </div>
 
         <div className="overflow-y-auto flex-1">
-          {/* Foto */}
-          {product.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover" />
-          ) : (
-            <div className="w-full h-48 bg-bg-tertiary flex items-center justify-center text-6xl" aria-hidden="true">
-              {"\u{1F37D}️"}
-            </div>
+          {/* Foto (oculta quando showPhotos=false) */}
+          {showPhotos && (
+            product.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover" />
+            ) : (
+              <div className="w-full h-48 bg-bg-tertiary flex items-center justify-center text-6xl" aria-hidden="true">
+                {"\u{1F37D}️"}
+              </div>
+            )
           )}
 
           <div className="p-4">
@@ -108,19 +125,21 @@ export function ProductDetailModal({ product, onClose, onAdd }: Props) {
 
             <h2 id="pdm-title" className="text-xl font-bold text-text-primary">{product.name}</h2>
 
-            {product.description && (
+            {showDescriptions && product.description && (
               <p className="text-text-secondary mt-1 text-sm leading-relaxed">{product.description}</p>
             )}
 
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-primary-600">{formatBRL(product.effectivePriceCents)}</span>
-              {product.onPromo && (
-                <span className="text-sm text-text-muted line-through">{formatBRL(product.priceCents)}</span>
-              )}
-            </div>
+            {showPrices && (
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-text-primary">{formatBRL(product.effectivePriceCents)}</span>
+                {product.onPromo && (
+                  <span className="text-sm text-text-muted line-through">{formatBRL(product.priceCents)}</span>
+                )}
+              </div>
+            )}
 
-            {/* Grupos de complementos */}
-            {(product.optionGroups ?? []).filter(g => g.options.length > 0).map(group => (
+            {/* Grupos de complementos, observacoes e quantidade: so no modo com pedido */}
+            {!viewOnly && (product.optionGroups ?? []).filter(g => g.options.length > 0).map(group => (
               <div key={group.id} className="mt-4">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm font-semibold text-text-primary">{group.name}</p>
@@ -169,7 +188,7 @@ export function ProductDetailModal({ product, onClose, onAdd }: Props) {
                           </div>
                           <span className="text-sm text-text-primary">{opt.name}</span>
                         </div>
-                        {opt.priceCents > 0 && (
+                        {showPrices && opt.priceCents > 0 && (
                           <span className="text-sm text-text-secondary shrink-0">
                             +{formatBRL(opt.priceCents)}
                           </span>
@@ -185,6 +204,7 @@ export function ProductDetailModal({ product, onClose, onAdd }: Props) {
             ))}
 
             {/* Observacoes por item */}
+            {!viewOnly && (
             <div className="mt-4">
               <label htmlFor="pdm-notes" className="block text-sm font-medium text-text-primary mb-1">
                 Alguma observação?
@@ -199,8 +219,10 @@ export function ProductDetailModal({ product, onClose, onAdd }: Props) {
                 className="w-full rounded-lg border border-border-medium bg-bg-secondary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
+            )}
 
             {/* Stepper de quantidade */}
+            {!viewOnly && (
             <div className="mt-4 flex items-center justify-between">
               <span className="text-sm font-medium text-text-primary">Quantidade</span>
               <div className="flex items-center gap-3">
@@ -214,30 +236,43 @@ export function ProductDetailModal({ product, onClose, onAdd }: Props) {
                 <span className="w-8 text-center font-bold text-text-primary text-lg select-none">{qty}</span>
                 <button
                   onClick={() => setQty((q) => Math.min(99, q + 1))}
-                  className="w-10 h-10 rounded-full bg-primary-700 text-white flex items-center justify-center font-bold text-xl hover:bg-primary-800"
+                  className="w-10 h-10 rounded-full bg-[var(--mf-primary)] text-[var(--mf-on-primary)] flex items-center justify-center font-bold text-xl hover:opacity-90"
                   aria-label="Aumentar quantidade"
                 >
                   +
                 </button>
               </div>
             </div>
+            )}
           </div>
         </div>
 
         {/* Footer fixo */}
         <div className="p-4 border-t border-border-light bg-bg-primary">
-          {validationError && (
-            <p className="text-xs text-red-600 mb-2 text-center" role="alert">
-              {validationError}
-            </p>
+          {viewOnly ? (
+            <button
+              ref={closeRef}
+              onClick={onClose}
+              className="btn-outline w-full py-3 text-base min-h-[48px]"
+            >
+              Fechar
+            </button>
+          ) : (
+            <>
+              {validationError && (
+                <p className="text-xs text-red-600 mb-2 text-center" role="alert">
+                  {validationError}
+                </p>
+              )}
+              <button
+                ref={closeRef}
+                onClick={handleAdd}
+                className="w-full rounded-xl py-3 text-base font-semibold min-h-[48px] bg-[var(--mf-primary)] text-[var(--mf-on-primary)] hover:opacity-90 transition-opacity"
+              >
+                {showPrices ? <>Adicionar {"·"} {formatBRL(subtotal)}</> : "Adicionar"}
+              </button>
+            </>
           )}
-          <button
-            ref={closeRef}
-            onClick={handleAdd}
-            className="btn-primary w-full py-3 text-base min-h-[48px]"
-          >
-            Adicionar {"·"} {formatBRL(subtotal)}
-          </button>
         </div>
       </div>
     </>
