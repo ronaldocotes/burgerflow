@@ -118,8 +118,9 @@ scripts/deploy-prod-a1.sh
 
 ## 10. Agentes do laboratório
 
-Papéis de referência (a memória detalhada de cada um — `conhecimento.md`,
-`aprendizado.md`, `heuristicas.md` — vive fora do repo e **não está versionada**):
+Ecossistema de conhecimento **integrado**, com o **Construtor como hub**
+(orquestra e roteia). Memória versionada em
+**[`docs/agentes/`](docs/agentes/README.md)** — comece pelo Construtor:
 
 | Agente | Domínio |
 |---|---|
@@ -131,5 +132,5 @@ Papéis de referência (a memória detalhada de cada um — `conhecimento.md`,
 | **Centurião** | Segurança, OWASP, threat model, RBAC |
 | **Testador** | Testes, QA, CI/CD |
 
-> Para versionar a memória dos agentes: mover os `.md` para `docs/agentes/` e
-> referenciá-los aqui.
+> Os arquivos em `docs/agentes/` são moldes até receberem o conteúdo real de
+> cada agente. Construtor é o ponto de entrada do ecossistema.
