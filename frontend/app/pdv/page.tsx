@@ -4,15 +4,12 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
-import { api, ApiError, API_BASE } from "@/lib/api";
-import { getTenant, getToken, logout } from "@/lib/auth";
+import { api, ApiError } from "@/lib/api";
+import { getToken, logout } from "@/lib/auth";
 import {
-  Category,
-  Page,
   Product,
   ProductCrustPrice,
   ProductFlavor,
@@ -20,65 +17,33 @@ import {
   ProductSize,
   formatBRL,
 } from "@/types/menu";
-import {
-  CartLine,
-  OrderItemInput,
-  OrderType,
-  QuoteRequest,
-  QuoteResponse,
-} from "@/types/cart";
-import { ApplyCouponResponse } from "@/types/coupon";
+import { OrderType } from "@/types/cart";
 import LoadingSpinner from "@/components/loading-spinner";
 import { ShoppingCart, ShoppingBag, Truck, UtensilsCrossed, Check } from "lucide-react";
 import { ItemCustomizeModal } from "@/components/order/ItemCustomizeModal";
 import { OrderPaymentModal } from "@/components/order/OrderPaymentModal";
 import { Variations } from "@/components/order/types";
+import { useCatalog } from "@/lib/use-catalog";
+import { useOrderCart } from "@/lib/use-order-cart";
 
 // PDV: grade de produtos -> carrinho (linhas com variação) -> total do servidor
 // (POST /orders/quote, casado por índice) -> finalizar (POST /orders + Idempotency-Key).
 // Produto com tamanho/sabor/borda/complemento abre o modal de personalização;
 // produto simples entra direto no carrinho.
 // Os modais de personalização e pagamento vivem em components/order/ (prop-driven,
-// compartilhados com o futuro /pedidos — fatia 1 da extração).
-
-function isSimpleLine(item: OrderItemInput): boolean {
-  return (
-    !item.sizeId &&
-    !item.flavor1Id &&
-    !item.flavor2Id &&
-    !item.crustType &&
-    !item.doughType &&
-    (item.optionIds?.length ?? 0) === 0
-  );
-}
+// compartilhados com o futuro /pedidos — fatia 1 da extração). O catálogo (produtos/
+// categorias/config/caixa) e o carrinho (linhas/quote/cupom) vivem em
+// lib/use-catalog.ts e lib/use-order-cart.ts (fatia 2 — mesmos hooks que a fatia 3
+// vai reusar em /pedidos).
 
 export default function PdvPage() {
   const router = useRouter();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [clearPending, setClearPending] = useState(false);
   const [showMobileCart, setShowMobileCart] = useState(false);
 
-  const [cart, setCart] = useState<CartLine[]>([]);
   const [orderType, setOrderType] = useState<OrderType>("DINE_IN");
-
-  const [quote, setQuote] = useState<QuoteResponse | null>(null);
-  const [quoteError, setQuoteError] = useState<string | null>(null);
-  const [quoting, setQuoting] = useState(false);
-
-  // Cupom de desconto: pre-checagem publica (apply-coupon); o desconto REAL e
-  // recalculado no servidor ao criar o pedido (couponCode no POST /orders).
-  const [couponCode, setCouponCode] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<ApplyCouponResponse | null>(null);
-  const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
-  const [couponError, setCouponError] = useState<string | null>(null);
-  const [applyingCoupon, setApplyingCoupon] = useState(false);
-  const couponDiscountCents =
-    appliedCoupon && appliedCoupon.valid ? appliedCoupon.discountCents : 0;
 
   const [loadingProductId, setLoadingProductId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{
@@ -86,14 +51,7 @@ export default function PdvPage() {
     variations: Variations;
   } | null>(null);
   const [showPayment, setShowPayment] = useState(false);
-  // true = caixa aberto, false = sem turno (verificado 1x ao montar)
-  const [hasCashSession, setHasCashSession] = useState<boolean>(false);
-  // Fidelidade (Fase 3.3): config do tenant p/ o aviso de pontos pos-venda.
-  // GET /config e permitido a todos os papeis operacionais (inclui CASHIER).
-  const [loyaltyCfg, setLoyaltyCfg] = useState<{
-    enabled: boolean;
-    pointsPerReal: number;
-  } | null>(null);
+  // Fidelidade (Fase 3.3): aviso de pontos pos-venda (some sozinho apos 6s).
   const [loyaltyToast, setLoyaltyToast] = useState<string | null>(null);
 
   const redirectToLogin = useCallback(() => {
@@ -112,41 +70,37 @@ export default function PdvPage() {
     [redirectToLogin],
   );
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [prods, cats, cashSession, cfg] = await Promise.all([
-        api.get<Page<Product>>("/products?size=200"),
-        api.get<Page<Category>>("/categories?size=200").catch(() => null),
-        // 204 → undefined (sem turno aberto); erro de rede → ignora silenciosamente
-        api.get<unknown>("/cash-sessions/current").catch(() => undefined),
-        // Fidelidade: falha na config nao derruba o PDV (fail-open, sem toast)
-        api.get<Record<string, unknown>>("/config").catch(() => null),
-      ]);
-      setProducts(prods.content);
-      setCategories(
-        (cats?.content ?? [])
-          .filter((c) => c.active)
-          .sort((a, b) => a.displayOrder - b.displayOrder),
-      );
-      // cashSession = undefined significa 204 (sem turno) ou falha na rede
-      setHasCashSession(cashSession !== undefined && cashSession !== null);
-      setLoyaltyCfg(
-        cfg
-          ? {
-              enabled: Boolean(cfg.loyaltyEnabled),
-              pointsPerReal: Number(cfg.loyaltyPointsPerReal ?? 0),
-            }
-          : null,
-      );
-    } catch (err) {
-      if (handleUnauthorized(err)) return;
-      setError(err instanceof Error ? err.message : "Erro ao carregar produtos.");
-    } finally {
-      setLoading(false);
-    }
-  }, [handleUnauthorized]);
+  const {
+    products,
+    categories,
+    config: loyaltyCfg,
+    hasCashSession,
+    loading,
+    error,
+    reload,
+  } = useCatalog({ onUnauthorized: handleUnauthorized });
+
+  const {
+    cart,
+    items,
+    addSimple,
+    addCustom,
+    setQuantity,
+    clear: clearCart,
+    quote,
+    quoteError,
+    quoting,
+    couponCode,
+    setCouponCode,
+    appliedCoupon,
+    appliedCouponCode,
+    couponError,
+    setCouponError,
+    applyingCoupon,
+    couponDiscountCents,
+    applyCoupon,
+    removeCoupon,
+  } = useOrderCart({ orderType, onUnauthorized: handleUnauthorized });
 
   useEffect(() => {
     if (!getToken()) {
@@ -154,9 +108,9 @@ export default function PdvPage() {
       return;
     }
     queueMicrotask(() => {
-      void load();
+      void reload();
     });
-  }, [router, load]);
+  }, [router, reload]);
 
   // Toast de fidelidade: some sozinho apos 6s
   useEffect(() => {
@@ -169,62 +123,6 @@ export default function PdvPage() {
     logout();
     router.push("/login");
   }
-
-  // Itens do pedido na ordem das linhas (o backend preserva a ordem → quote casa por índice).
-  const items: OrderItemInput[] = useMemo(
-    () => cart.map((l) => ({ ...l.item, quantity: l.quantity })),
-    [cart],
-  );
-
-  // Recota no servidor a cada mudança. O total NUNCA é somado no front.
-  const quoteSeq = useRef(0);
-  useEffect(() => {
-    let cancelled = false;
-
-    if (items.length === 0) {
-      quoteSeq.current += 1;
-      queueMicrotask(() => {
-        if (cancelled) return;
-        setQuote(null);
-        setQuoteError(null);
-        setQuoting(false);
-      });
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    const seq = ++quoteSeq.current;
-    queueMicrotask(() => {
-      if (cancelled || seq !== quoteSeq.current) return;
-      setQuoting(true);
-      setQuoteError(null);
-    });
-    const body: QuoteRequest = { orderType, items };
-    api
-      .post<QuoteResponse>("/orders/quote", body)
-      .then((res) => {
-        if (cancelled || seq !== quoteSeq.current) return;
-        setQuote(res);
-      })
-      .catch((err) => {
-        if (cancelled || seq !== quoteSeq.current) return;
-        if (handleUnauthorized(err)) return;
-        setQuote(null);
-        setQuoteError(
-          err instanceof ApiError
-            ? err.message
-            : "Não foi possível calcular o total.",
-        );
-      })
-      .finally(() => {
-        if (!cancelled && seq === quoteSeq.current) setQuoting(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [handleUnauthorized, items, orderType]);
 
   // Clicar num produto: descobre variações; se houver, abre o modal; senão entra direto.
   async function onPickProduct(p: Product) {
@@ -262,146 +160,6 @@ export default function PdvPage() {
     }
   }
 
-  // Produto simples: se já há uma linha simples do mesmo produto, incrementa.
-  function addSimple(p: Product) {
-    setCart((prev) => {
-      const idx = prev.findIndex(
-        (l) => l.productId === p.id && isSimpleLine(l.item),
-      );
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 };
-        return next;
-      }
-      return [
-        ...prev,
-        {
-          lineId: crypto.randomUUID(),
-          productId: p.id,
-          productName: p.name,
-          quantity: 1,
-          item: { productId: p.id, quantity: 1 },
-          label: "",
-        },
-      ];
-    });
-  }
-
-  function addCustom(line: CartLine) {
-    setCart((prev) => [...prev, line]);
-  }
-
-  function setQuantity(lineId: string, quantity: number) {
-    setCart((prev) =>
-      quantity <= 0
-        ? prev.filter((l) => l.lineId !== lineId)
-        : prev.map((l) => (l.lineId === lineId ? { ...l, quantity } : l)),
-    );
-  }
-
-  function clearCart() {
-    setCart([]);
-    setQuote(null);
-    setQuoteError(null);
-    removeCoupon();
-  }
-
-  async function applyCoupon() {
-    const code = couponCode.trim().toUpperCase();
-    if (!code || !quote || applyingCoupon) return;
-    setApplyingCoupon(true);
-    setCouponError(null);
-    try {
-      const res = await fetch(
-        `${API_BASE}/public/${getTenant() ?? ""}/apply-coupon`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code, subtotalCents: quote.subtotalCents }),
-        },
-      );
-      const data = (await res.json()) as ApplyCouponResponse & {
-        message?: string;
-      };
-      if (!res.ok || !data.valid) {
-        setAppliedCoupon(null);
-        setAppliedCouponCode(null);
-        setCouponError(
-          typeof data.message === "string"
-            ? data.message
-            : "Cupom invalido ou expirado.",
-        );
-      } else {
-        setAppliedCoupon(data);
-        setAppliedCouponCode(code);
-        setCouponCode("");
-      }
-    } catch {
-      setCouponError("Nao foi possivel verificar o cupom. Tente novamente.");
-    } finally {
-      setApplyingCoupon(false);
-    }
-  }
-
-  function removeCoupon() {
-    setAppliedCoupon(null);
-    setAppliedCouponCode(null);
-    setCouponCode("");
-    setCouponError(null);
-  }
-
-  // Revalida o cupom quando o subtotal muda (min_order pode deixar de valer).
-  // Se a rede falhar, mantem o cupom: o servidor revalida ao criar o pedido.
-  useEffect(() => {
-    if (!appliedCouponCode) return;
-    const subtotal = quote?.subtotalCents;
-    if (subtotal == null) {
-      setAppliedCoupon(null);
-      setAppliedCouponCode(null);
-      setCouponError(null);
-      return;
-    }
-    let cancelled = false;
-    const t = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const res = await fetch(
-            `${API_BASE}/public/${getTenant() ?? ""}/apply-coupon`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                code: appliedCouponCode,
-                subtotalCents: subtotal,
-              }),
-            },
-          );
-          const data = (await res.json()) as ApplyCouponResponse & {
-            message?: string;
-          };
-          if (cancelled) return;
-          if (!res.ok || !data.valid) {
-            setAppliedCoupon(null);
-            setAppliedCouponCode(null);
-            setCouponError(
-              typeof data.message === "string"
-                ? data.message
-                : "O cupom deixou de valer para este pedido.",
-            );
-          } else {
-            setAppliedCoupon(data);
-          }
-        } catch {
-          // rede indisponivel: mantem o cupom aplicado
-        }
-      })();
-    }, 300);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-    };
-  }, [quote?.subtotalCents, appliedCouponCode]);
-
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     let visible = products.filter((p) => p.active);
@@ -429,7 +187,7 @@ export default function PdvPage() {
           {error}
         </p>
         <div className="flex gap-2">
-          <button className="btn-primary" onClick={() => void load()}>
+          <button className="btn-primary" onClick={() => void reload()}>
             Tentar de novo
           </button>
           <button className="btn-outline" onClick={onLogout}>
