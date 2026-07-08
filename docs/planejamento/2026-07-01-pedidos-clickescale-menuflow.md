@@ -250,3 +250,9 @@ Antes de mexer em backend, adicionar no frontend:
 - Limitacao conhecida: busca por nome/telefone do cliente ainda depende do backend expor esses campos em `OrderResponse`.
 - 2026-07-01: Validacao tecnica passou com `npm run type-check`, `npm run lint` e `npm run build`; Next listou `/pedidos`.
 - 2026-07-01: Validacao visual local em `http://127.0.0.1:3013/pedidos`: PC 1366, tablet 834 e mobile 390 sem overflow horizontal; evidencias salvas em `docs/outputs/pedidos-audit/`.
+
+## 11. Atualizacao 2026-07-08 — estado real (via git, main @2e474c4)
+
+- **Fase 1 (central `/pedidos`: consulta + detalhe + avancar/cancelar) — UNICA entregue**, em `main`. Fases 2–5 (acoes operacionais, novo pedido manual, delivery/roteirizacao, historico/auditoria) **NAO iniciadas**.
+- Limitacao da Fase 1 permanece: busca por nome/telefone depende do backend expor esses campos em `OrderResponse`.
+- Parkado enquanto o foco esteve em mobile/delivery/growth. **Proxima fatia: Fase 2 — acoes operacionais.**

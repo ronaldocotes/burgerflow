@@ -355,3 +355,10 @@ Decisoes pendentes (com recomendacao):
 - Estados 4/4 em toda tela; RBAC deny-by-default nas 2 camadas; re-autorizacao do objeto = slug via
   tabela de controle; auditoria em toda mutacao; query parametrizada (JPA); segredo fora de
   front/git/log; fail-closed nos gates; idempotencia no provisioning e nos toggles.
+
+## 10. Registro de execucao (adicionado 2026-07-08 — via git, main @2e474c4)
+
+- 2026-07-01: **F1 — Fundacao** entregue: `a68271e` (backend tenants/modulos/auditoria/gate) + `77d3d3b` (frontend layout + guard SUPER_ADMIN) + `8588d93` (@RequiresModule + ModuleGateAspect, cache 60s) + `ab76e1d` (fix Centuriao: SLUG_REGEX sem hifen + @Email no adminEmail).
+- 2026-07-02: **F2 — Operacao** e **F3 — Billing/usuarios/2FA** entregues: `d6141f6` (health das integracoes, uso/custo de IA por tenant, usuarios SUPER_ADMIN com anti-lockout) + `41fdf83` (**2FA TOTP persistente AES-256-GCM, V15** — secret sobrevive a restart).
+- ⚠️ Pendencia de deploy (Capataz): `MENUFLOW_TOTP_AES_KEY` **obrigatoria** no `.env.prod` da A1 (sem ela o 2FA quebra no boot); migrations de CONTROLE aplicadas antes do deploy.
+- Status geral: **F1–F3 concluidas e em `main`.**

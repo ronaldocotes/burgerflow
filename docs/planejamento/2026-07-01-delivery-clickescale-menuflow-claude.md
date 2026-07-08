@@ -653,3 +653,8 @@ Validar: npm run type-check, npm run lint, npm run build, screenshots em docs/ou
 | 2026-07-01 | Sidebar + Topbar | Concluída | Entrada  em OPERAÇÃO (Truck, ADMIN/MANAGER/STAFF/CASHIER). Topbar mapeia para título 'Entregas'. |
 | 2026-07-01 | Validação frontend | PASSOU | tsc --noEmit: 0 erros. eslint: 0 warnings. next build:  compilado como rota estática. |
 | 2026-07-01 | Screenshots QA | Parcial | Arquivos PNG salvos em docs/outputs/delivery-audit/ mas renderizaram em branco por limitação WSL networking (standalone server + Playwright). Validação visual pendente em browser real. |
+| 2026-07-02 | Dispatch Fases A–E | Concluida | Endereco/pricing/auto-assign (A/B1), WAHA rastreio+cadastro (B2/B3/C1/C2), bot-como-ferramenta (D), OSRM self-hosted custo-zero (E). |
+| 2026-07-05 | Fase 6.2 — Backend app motoboy | Concluida | `2b7cbef`: GET /delivery/me, POST /shift, /offers/my, /earnings/my, POST /orders/{id}/status idempotente + PUT /drivers/{id}/user (elo user↔driver, indice unico V35). Auditoria Centuriao aplicada: A1 BOLA, M1 PII/GPS restrito, M2 token 72h (V52), B1 LGPD. |
+| 2026-07-05 | Fase 6.2 — App motoboy (React Native) | Concluida | `19baf09`+`fe6d602`: turno, ofertas, entregas, ganhos e GPS; casado com o contrato real de /earnings/my. |
+| 2026-07-05 | Fase 6.2 — Frontend vinculo user↔driver | Concluida | `2abc3f2`/`2dbcddb`: /admin/entregadores com Vincular/Desvincular; integrado em release/sprint-6.2 e main. |
+| 2026-07-08 | Reconciliacao do registro | — | Estado real confirmado via git (main @2e474c4). Screenshots QA seguem pendentes (limitacao WSL). |

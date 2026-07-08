@@ -355,3 +355,11 @@ Tarefas:
 - 2026-07-01: Fase 1 iniciada no frontend: rota `/dashboard`, tabs, KPIs, cards, graficos, alertas, sidebar e redirecionamento inicial implementados.
 - 2026-07-01: Validacao tecnica da Fase 1: `npm run type-check`, `npm run lint` e `npm run build` passaram; Next listou `/dashboard` como rota gerada.
 - 2026-07-01: Validacao visual local em `http://127.0.0.1:3011/dashboard`: PC 1366, tablet 834 e mobile 390 sem overflow horizontal; evidencias salvas em `docs/outputs/dashboard-audit/`.
+
+## 11. Atualizacao 2026-07-08 — estado real (via git, main @2e474c4)
+
+> O registro acima congelou em 2026-07-01. Reconciliacao com o codigo entregue ate 08/07:
+
+- **Fase 1 (casca `/dashboard`) — UNICA entregue.** O shell esta em `main`; Fases 2–7 (dados reais, pedidos/operacao, clientes/recompra, marketing/funil, IA do dono, qualidade) **NAO iniciadas**.
+- Motivo do parking: o esforco de 02–08/07 pivotou para o **app mobile (M1 KDS → M4 Caixa)**, **delivery/motoboy (Fase 6.2)**, **growth (cupons/fidelidade/RFV)** e **super-admin (F1–F3)**.
+- **Proxima fatia natural: Fase 2 — dados reais minimos** (ligar KPIs/cards aos endpoints do backend).
