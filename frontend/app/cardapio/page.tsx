@@ -2,8 +2,8 @@
 
 import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { API_BASE, api, TOKEN_KEY } from "@/lib/api";
-import { Category, Page, Product, formatBRL } from "@/types/menu";
+import { API_BASE } from "@/lib/api";
+import { Category, Product, formatBRL } from "@/types/menu";
 import LoadingSpinner from "@/components/loading-spinner";
 import { cartReducer } from "@/components/cardapio/types";
 import type { CartLine } from "@/components/cardapio/types";
@@ -157,29 +157,21 @@ function CardapioContent() {
     setLoading(true);
     setError(null);
     try {
-      const token =
-        typeof window !== "undefined"
-          ? window.localStorage.getItem(TOKEN_KEY)
-          : null;
-
-      if (token) {
-        const [cats, prods] = await Promise.all([
-          api.get<Page<Category>>("/categories?size=100"),
-          api.get<Page<Product>>("/products?size=200"),
-        ]);
-        setCategories(cats.content);
-        setProducts(prods.content);
-        setPixKey(null);
-      } else {
-        const res = await fetch(`${API_BASE}/public/${PUBLIC_TENANT}/menu`);
-        if (!res.ok) throw new Error("Cardápio indisponível no momento.");
-        const data = (await res.json()) as PublicMenuResponse;
-        setCategories(data.categories);
-        setProducts(data.products);
-        setPixKey(data.pixKey ?? null);
-        setRestaurantInfo(data.restaurantInfo ?? EMPTY_RESTAURANT_INFO);
-        setBestsellerIds(data.bestsellerIds ?? []);
-      }
+      // Vitrine PUBLICA: sempre o endpoint publico, sem Authorization. Antes a
+      // pagina usava o token de admin do localStorage (login anterior no mesmo
+      // navegador) e chamava /categories e /products protegidos; um token
+      // expirado devolvia 401 e derrubava o cardapio inteiro ("Erro 401"). O
+      // cardapio do cliente nao depende de sessao — e o endpoint publico ainda
+      // traz hero, PIX, mais-vendidos e complementos, que o caminho autenticado
+      // nao trazia.
+      const res = await fetch(`${API_BASE}/public/${PUBLIC_TENANT}/menu`);
+      if (!res.ok) throw new Error("Cardápio indisponível no momento.");
+      const data = (await res.json()) as PublicMenuResponse;
+      setCategories(data.categories);
+      setProducts(data.products);
+      setPixKey(data.pixKey ?? null);
+      setRestaurantInfo(data.restaurantInfo ?? EMPTY_RESTAURANT_INFO);
+      setBestsellerIds(data.bestsellerIds ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar o cardápio.");
     } finally {
