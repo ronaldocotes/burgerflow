@@ -253,6 +253,8 @@ Antes de mexer em backend, adicionar no frontend:
 
 ## 11. Atualizacao 2026-07-08 — estado real (via git, main @2e474c4)
 
-- **Fase 1 (central `/pedidos`: consulta + detalhe + avancar/cancelar) — UNICA entregue**, em `main`. Fases 2–5 (acoes operacionais, novo pedido manual, delivery/roteirizacao, historico/auditoria) **NAO iniciadas**.
-- Limitacao da Fase 1 permanece: busca por nome/telefone depende do backend expor esses campos em `OrderResponse`.
-- Parkado enquanto o foco esteve em mobile/delivery/growth. **Proxima fatia: Fase 2 — acoes operacionais.**
+> ⚠️ CORRECAO 2026-07-08 (2a passada): verificado no CODIGO (`frontend/app/pedidos/page.tsx`, 813 linhas, commit `15bff06`), nao no registro:
+
+- **Fase 1 completa + PARTE da Fase 2 ja entregues** em `main`: consulta com filtros por periodo/status, busca local, lista de cards, detalhe lateral, **avancar status** (NEXT_STATUS + estado busy "Atualizando...") e **cancelar com motivo** (modal com razao obrigatoria) — tudo real via `/orders`.
+- **Genuinamente pendente da Fase 2+:** acoes em LOTE, impressao, novo pedido manual (Fase 3), delivery/roteirizacao (Fase 4), historico/auditoria (Fase 5).
+- Limitacao conhecida: busca por nome/telefone do cliente depende do backend expor esses campos em `OrderResponse` (ainda nao exposto).

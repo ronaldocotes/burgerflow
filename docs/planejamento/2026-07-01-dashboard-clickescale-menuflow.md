@@ -358,8 +358,9 @@ Tarefas:
 
 ## 11. Atualizacao 2026-07-08 — estado real (via git, main @2e474c4)
 
-> O registro acima congelou em 2026-07-01. Reconciliacao com o codigo entregue ate 08/07:
+> ⚠️ CORRECAO 2026-07-08 (2a passada): a nota anterior desta secao subestimava o estado.
+> Verificado no CODIGO (`frontend/app/dashboard/page.tsx`, commit `e80c613`), nao no registro do plano:
 
-- **Fase 1 (casca `/dashboard`) — UNICA entregue.** O shell esta em `main`; Fases 2–7 (dados reais, pedidos/operacao, clientes/recompra, marketing/funil, IA do dono, qualidade) **NAO iniciadas**.
-- Motivo do parking: o esforco de 02–08/07 pivotou para o **app mobile (M1 KDS → M4 Caixa)**, **delivery/motoboy (Fase 6.2)**, **growth (cupons/fidelidade/RFV)** e **super-admin (F1–F3)**.
-- **Proxima fatia natural: Fase 2 — dados reais minimos** (ligar KPIs/cards aos endpoints do backend).
+- **Fase 2 (dados reais) JA ESTA ENTREGUE.** As 4 abas (Visao Geral, Pedidos, Clientes, Marketing) renderizam **dados reais**, sem placeholder/TODO/mock. A pagina busca via `Promise.allSettled` de **7 endpoints existentes** — `/dre/summary`, `/cash-sessions/current`, `/tracking/summary`, `/campaigns`, `/cart-sessions`, `/conversions/dispatches`, `/rfv` — com loading/erro/timeout por tile (cada card degrada sozinho).
+- **Decisao de arquitetura divergiu do §6:** NAO foi criado `DashboardController`/`GET /dashboard/overview`. A composicao resiliente no frontend cobriu o caso melhor. O agregador do §6 fica **desnecessario** salvo se performance/N+1 exigir depois.
+- **Genuinamente pendente:** Fase 3 (acoes OPERACIONAIS no dashboard — hoje as abas sao read-only), Fase 6 (IA do dono embutida) e Fase 7 (qualidade/auditoria). O painel de dados em si esta completo.
