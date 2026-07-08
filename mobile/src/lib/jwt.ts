@@ -67,3 +67,17 @@ export function isKitchenOnlyToken(token: string | null): boolean {
     !roles.includes('MANAGER')
   );
 }
+
+/**
+ * True quando o token pode operar o Caixa (CashSession). O backend restringe os
+ * endpoints /cash-sessions a ADMIN/MANAGER/CASHIER (@PreAuthorize); o app
+ * espelha isso para so exibir a aba Caixa a esses papeis.
+ */
+export function canAccessCaixaToken(token: string | null): boolean {
+  const roles = rolesOf(token);
+  return (
+    roles.includes('ADMIN') ||
+    roles.includes('MANAGER') ||
+    roles.includes('CASHIER')
+  );
+}
