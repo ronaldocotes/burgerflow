@@ -706,7 +706,14 @@ class OrderService(
             else -> {}
         }
         val saved = orderRepository.save(order)
-        // Cancelamento é ato sensível: auditar com o status anterior e o motivo.
+        // Toda transição de status válida é auditada — não só o cancelamento (Centurião,
+        // 2026-07-08): avançar em lote (PENDING→PREPARING→READY→DELIVERED) hoje só
+        // sobrescrevia updatedAt, sem trilha de status anterior nem autoria por pedido.
+        // Cancelamento mantém a action específica "order.cancel" (já existente, com o
+        // motivo em `reason`); demais avanços usam "order.status_change" com o status
+        // novo em `after`. Ator vem do JWT/principal autenticado dentro de
+        // auditLogService.log (SecurityUtils.currentPrincipal) — não é passado aqui, logo
+        // não é forjável pelo corpo da requisição.
         if (req.status == OrderStatus.CANCELLED) {
             auditLogService.log(
                 action = "order.cancel",
@@ -714,6 +721,14 @@ class OrderService(
                 entityId = saved.id,
                 before = mapOf("status" to previousStatus.name),
                 reason = order.cancelledReason,
+            )
+        } else {
+            auditLogService.log(
+                action = "order.status_change",
+                entity = "order",
+                entityId = saved.id,
+                before = mapOf("status" to previousStatus.name),
+                after = mapOf("status" to req.status.name),
             )
         }
         // Broadcast to the KDS for THIS tenant (slug from the signed token via
