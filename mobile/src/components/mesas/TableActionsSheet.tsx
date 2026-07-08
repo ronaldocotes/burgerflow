@@ -56,7 +56,7 @@ export const TableActionsSheet = forwardRef<TableActionsSheetRef, TableActionsSh
           sheetRef.current?.dismiss();
           await onSuccess();
         } catch (e) {
-          setErr(e instanceof ApiError ? e.message : 'Erro ao executar acao.');
+          setErr(e instanceof ApiError ? e.message : 'Erro ao executar ação.');
         } finally {
           setBusy(false);
         }
@@ -76,7 +76,7 @@ export const TableActionsSheet = forwardRef<TableActionsSheetRef, TableActionsSh
         // billing: confirmacao obrigatoria
         Alert.alert(
           'Fechar mesa?',
-          `A sessao de ${table.label} sera encerrada. Essa acao nao pode ser desfeita.`,
+          `A sessão de ${table.label} será encerrada. Essa ação não pode ser desfeita.`,
           [
             { text: 'Cancelar', style: 'cancel' },
             {
