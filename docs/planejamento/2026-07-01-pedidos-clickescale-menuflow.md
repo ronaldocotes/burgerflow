@@ -258,3 +258,10 @@ Antes de mexer em backend, adicionar no frontend:
 - **Fase 1 completa + PARTE da Fase 2 ja entregues** em `main`: consulta com filtros por periodo/status, busca local, lista de cards, detalhe lateral, **avancar status** (NEXT_STATUS + estado busy "Atualizando...") e **cancelar com motivo** (modal com razao obrigatoria) — tudo real via `/orders`.
 - **Genuinamente pendente da Fase 2+:** acoes em LOTE, impressao, novo pedido manual (Fase 3), delivery/roteirizacao (Fase 4), historico/auditoria (Fase 5).
 - Limitacao conhecida: busca por nome/telefone do cliente depende do backend expor esses campos em `OrderResponse` (ainda nao exposto).
+
+### Progresso 2026-07-08 (fatia "ações operacionais") — via agentes
+- ✅ **Impressão de comanda** (cupom térmico ~76mm, escapeHtml em todo texto do cliente) — commit `6a783a4`.
+- ✅ **Ações em lote** (multi-seleção + Avançar N + Imprimir N em janela única) — implementado pelo agente **Nick**, commit `a56f7a4`. Lote via `Promise.allSettled` sobre `PUT /orders/{id}/status` (sem endpoint novo).
+- ✅ **Auditoria de TODA transição de status** (`order.status_change` com status anterior/novo; ator do JWT) — achado MÉDIO do **Centurião**, implementado+testado pelo **Cráudio** (branch `fix/orders-audit-transitions`, `OrderStatusTransitionTest` verde), commit `20d9a73`.
+- ⏸️ **Rate-limit no `PUT /orders/{id}/status`**: DISPENSADO/ADIADO — ameaça só insider e conflitaria com o lote (ver diário do Cráudio 2026-07-08).
+- 🔎 Auditoria de segurança do fluxo: **Centurião VERDE** (sem crítico/alto). Pendências: validação visual da UI no browser; branches ainda não mergeados/pushados.
