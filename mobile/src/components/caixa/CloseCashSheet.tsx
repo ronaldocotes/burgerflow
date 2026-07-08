@@ -82,7 +82,7 @@ export const CloseCashSheet = forwardRef<CloseCashSheetRef, CloseCashSheetProps>
             : `Falta de ${formatBRL(Math.abs(diffCents))} sobre o teorico.`;
       Alert.alert(
         'Fechar o caixa?',
-        `${diffLabel}\n\nEssa acao encerra o turno e nao pode ser desfeita.`,
+        `${diffLabel}\n\nEssa ação encerra o turno e não pode ser desfeita.`,
         [
           { text: 'Cancelar', style: 'cancel' },
           {

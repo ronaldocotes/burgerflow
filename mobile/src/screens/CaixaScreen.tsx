@@ -3,7 +3,7 @@
 // Acesso ADMIN/MANAGER/CASHIER (a aba so aparece para esses papeis; o backend
 // tambem valida). 4 estados: loading, erro, caixa fechado (abrir) e aberto
 // (resumo teorico + Sangria/Reforco/Fechar).
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Snackbar } from 'react-native-paper';
 import {
   ArrowDown,
@@ -58,6 +59,7 @@ export default function CaixaScreen() {
 
   const entryRef = useRef<EntrySheetRef>(null);
   const closeRef = useRef<CloseCashSheetRef>(null);
+  const didInitialLoad = useRef(false);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setState('loading');
@@ -70,9 +72,16 @@ export default function CaixaScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  // Recarrega o estado do caixa sempre que a aba ganha foco, evitando
+  // valores velhos (ex.: apos uma venda em dinheiro feita no PDV). O
+  // primeiro foco faz a carga completa (spinner); os seguintes recarregam
+  // em silencio para nao piscar a tela. `load` e estavel (useCallback).
+  useFocusEffect(
+    useCallback(() => {
+      void load(didInitialLoad.current);
+      didInitialLoad.current = true;
+    }, [load]),
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -110,7 +119,7 @@ export default function CaixaScreen() {
     if (cents === 0) {
       Alert.alert(
         'Abrir caixa com R$ 0,00?',
-        'Nenhum fundo de troco inicial sera registrado.',
+        'Nenhum fundo de troco inicial será registrado.',
         [
           { text: 'Cancelar', style: 'cancel' },
           { text: 'Abrir assim', onPress: () => void doOpen(0, true) },
@@ -144,7 +153,7 @@ export default function CaixaScreen() {
         <WarningCircle color={semantic.error.DEFAULT} size={56} weight="fill" />
         <Text style={styles.centerTitle}>Erro ao carregar</Text>
         <Text style={styles.centerText}>
-          Nao foi possivel consultar o caixa. Verifique a conexao.
+          Não foi possivel consultar o caixa. Verifique a conexao.
         </Text>
         <Pressable
           style={styles.primaryBtn}
