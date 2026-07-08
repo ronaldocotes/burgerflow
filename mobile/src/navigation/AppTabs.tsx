@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { CookingPot, ShoppingCart, Table } from 'phosphor-react-native';
+import { CookingPot, Money, ShoppingCart, Table } from 'phosphor-react-native';
 
 import { getToken } from '@/lib/auth';
-import { isKitchenOnlyToken } from '@/lib/jwt';
+import { canAccessCaixaToken, isKitchenOnlyToken } from '@/lib/jwt';
 import KdsScreen from '@/screens/KdsScreen';
 import PdvScreen from '@/screens/PdvScreen';
 import MesasScreen from '@/screens/MesasScreen';
+import CaixaScreen from '@/screens/CaixaScreen';
 
 // --- Tokens (nao inventar outros) ---
 const COLOR_ACTIVE = '#047857';   // primary-700
@@ -48,27 +49,46 @@ function MesasIcon({ color, size, focused }: TabIconProps) {
   );
 }
 
+function CaixaIcon({ color, size, focused }: TabIconProps) {
+  return (
+    <Money
+      color={color}
+      size={size}
+      weight={focused ? 'fill' : 'regular'}
+    />
+  );
+}
+
 /**
  * M1: gate por papel (roles do JWT — mesma técnica do isDriverToken no login).
  * - KITCHEN puro (sem ADMIN/MANAGER): vê SÓ o KDS, em tela cheia (sem tab bar —
  *   mais área útil no tablet da cozinha).
  * - Demais papéis da loja (ADMIN, MANAGER, STAFF, CASHIER, OPERATOR, WAITER):
  *   todas as abas, incluindo Cozinha.
+ * - M4: a aba Caixa aparece SO para ADMIN/MANAGER/CASHIER (mesmo RBAC do backend).
  * - DRIVER nunca chega aqui (RootNavigator/Login roteiam para DriverTabs).
  */
 export default function AppTabs() {
-  const [kitchenOnly, setKitchenOnly] = useState<boolean | null>(null);
+  const [gate, setGate] = useState<{
+    kitchenOnly: boolean;
+    canCaixa: boolean;
+  } | null>(null);
 
   useEffect(() => {
     getToken()
-      .then((t) => setKitchenOnly(isKitchenOnlyToken(t)))
-      .catch(() => setKitchenOnly(false));
+      .then((t) =>
+        setGate({
+          kitchenOnly: isKitchenOnlyToken(t),
+          canCaixa: canAccessCaixaToken(t),
+        }),
+      )
+      .catch(() => setGate({ kitchenOnly: false, canCaixa: false }));
   }, []);
 
   // Leitura do token é local e rápida; evita montar as abas erradas por um frame.
-  if (kitchenOnly === null) return null;
+  if (gate === null) return null;
 
-  if (kitchenOnly) return <KdsScreen />;
+  if (gate.kitchenOnly) return <KdsScreen />;
 
   return (
     <Tab.Navigator
@@ -101,6 +121,15 @@ export default function AppTabs() {
           tabBarIcon: (props) => <MesasIcon {...props} />,
         }}
       />
+      {gate.canCaixa && (
+        <Tab.Screen
+          name="Caixa"
+          component={CaixaScreen}
+          options={{
+            tabBarIcon: (props) => <CaixaIcon {...props} />,
+          }}
+        />
+      )}
       <Tab.Screen
         name="Cozinha"
         component={KdsScreen}
