@@ -91,7 +91,7 @@ export function TableCard({
       await api.post(ep, {});
       await onActionSuccess();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Erro ao executar acao.';
+      const msg = e instanceof ApiError ? e.message : 'Erro ao executar ação.';
       Alert.alert('Erro', msg);
     } finally {
       setBusy(false);
@@ -105,7 +105,7 @@ export function TableCard({
     if (state === 'billing') {
       Alert.alert(
         'Fechar mesa?',
-        `A sessao de ${table.label} sera encerrada. Essa acao nao pode ser desfeita.`,
+        `A sessão de ${table.label} será encerrada. Essa ação não pode ser desfeita.`,
         [
           { text: 'Cancelar', style: 'cancel' },
           {
