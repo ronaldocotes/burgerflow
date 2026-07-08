@@ -13,6 +13,7 @@ import {
   CreditCard,
   FileClock,
   PackageCheck,
+  Printer,
   Receipt,
   RefreshCcw,
   Search,
@@ -171,6 +172,83 @@ function formatDateTime(iso: string): string {
     dateStyle: "short",
     timeStyle: "short",
   });
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * Imprime a comanda do pedido numa janela própria (HTML autocontido em ~76mm,
+ * estilo cupom térmico) — evita poluir o CSS do SPA com regras @media print
+ * globais. Disparado por clique do usuário, então o popup não é bloqueado.
+ */
+function printComanda(order: OrderResponse) {
+  const win = window.open("", "_blank", "width=380,height=680");
+  if (!win) {
+    alert("Não foi possível abrir a janela de impressão. Verifique o bloqueador de pop-ups.");
+    return;
+  }
+  const title = order.externalDisplayId ?? `#${order.orderNumber}`;
+  const tipo = ORDER_TYPE_LABEL[order.orderType] + (order.tableNumber ? ` ${order.tableNumber}` : "");
+  const pagamento = order.paymentMethod ? PAYMENT_LABEL[order.paymentMethod] : "A definir";
+  const itemsHtml = order.items
+    .map((item) => {
+      const mods = [item.sizeName, item.flavor1Name, item.flavor2Name, ...(item.options ?? []).map((o) => o.optionName)]
+        .filter(Boolean)
+        .join(" · ");
+      return `<div class="it"><div class="q">${item.quantity}x</div><div class="n">${escapeHtml(item.productName)}${
+        mods ? `<div class="m">${escapeHtml(mods)}</div>` : ""
+      }${item.notes ? `<div class="obs">Obs.: ${escapeHtml(item.notes)}</div>` : ""}</div><div class="p">${formatCents(
+        item.totalPriceCents,
+      )}</div></div>`;
+    })
+    .join("");
+  const linhaResumo = (label: string, valor: string, strong = false) =>
+    `<div class="row${strong ? " tot" : ""}"><span>${label}</span><span>${valor}</span></div>`;
+  win.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Comanda ${escapeHtml(
+    title,
+  )}</title><style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "Courier New", monospace; width: 76mm; padding: 6mm 4mm; color: #000; font-size: 12px; }
+    h1 { font-size: 16px; text-align: center; }
+    .sub { text-align: center; font-size: 11px; margin-bottom: 6px; }
+    hr { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+    .meta { font-size: 11px; line-height: 1.5; }
+    .it { display: flex; justify-content: space-between; gap: 6px; margin: 4px 0; }
+    .it .q { font-weight: bold; }
+    .it .n { flex: 1; }
+    .it .m { font-size: 10px; color: #333; }
+    .it .obs { font-size: 10px; font-weight: bold; }
+    .it .p { white-space: nowrap; }
+    .row { display: flex; justify-content: space-between; font-size: 11px; margin: 2px 0; }
+    .row.tot { font-weight: bold; font-size: 13px; margin-top: 4px; }
+    .foot { text-align: center; font-size: 10px; margin-top: 8px; }
+    @media print { body { width: auto; } }
+  </style></head><body onload="window.print()">
+    <h1>COMANDA ${escapeHtml(title)}</h1>
+    <div class="sub">${escapeHtml(tipo)}</div>
+    <hr>
+    <div class="meta">
+      <div>Emitida: ${escapeHtml(formatDateTime(new Date().toISOString()))}</div>
+      <div>Pedido criado: ${escapeHtml(formatDateTime(order.createdAt))}</div>
+      <div>Pagamento: ${escapeHtml(pagamento)}</div>
+    </div>
+    <hr>
+    ${itemsHtml}
+    <hr>
+    ${linhaResumo("Subtotal", formatCents(order.subtotalCents))}
+    ${order.discountCents > 0 ? linhaResumo("Desconto", "-" + formatCents(order.discountCents)) : ""}
+    ${order.deliveryFeeCents > 0 ? linhaResumo("Entrega", formatCents(order.deliveryFeeCents)) : ""}
+    ${linhaResumo("TOTAL", formatCents(order.totalCents), true)}
+    ${order.notes ? `<hr><div class="meta"><strong>Obs.:</strong> ${escapeHtml(order.notes)}</div>` : ""}
+    <div class="foot">MenuFlow</div>
+  </body></html>`);
+  win.document.close();
 }
 
 function friendlyError(err: unknown): string {
@@ -485,6 +563,10 @@ function DetailPanel({
               Cancelar
             </button>
           )}
+          <button type="button" onClick={() => printComanda(order)} className="btn-outline gap-2">
+            <Printer className="h-4 w-4" aria-hidden="true" />
+            Imprimir comanda
+          </button>
         </div>
       </div>
     </aside>
