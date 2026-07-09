@@ -38,6 +38,8 @@ export function OrderPaymentModal({
   couponDiscountCents,
   hasCashSession,
   loyaltyEnabled,
+  notes,
+  initialPhone,
   onClose,
   onUnauthorized,
   onConfirmed,
@@ -50,16 +52,21 @@ export function OrderPaymentModal({
   couponDiscountCents: number;
   hasCashSession: boolean;
   loyaltyEnabled: boolean;
+  /** Observação do pedido inteiro (ex.: vinda do Novo Pedido em /pedidos); opcional. */
+  notes?: string;
+  /** Telefone já digitado antes de abrir o pagamento (evita re-pedir o dado — WCAG 3.3.7). */
+  initialPhone?: string;
   onClose: () => void;
   onUnauthorized: () => void;
-  /** customerPhone = telefone enviado no pedido (digitos), ou null se nao informado */
-  onConfirmed: (customerPhone: string | null) => void;
+  /** customerPhone = telefone enviado no pedido (digitos), ou null se nao informado.
+   *  orderId = id do pedido criado (POST /orders), para quem precisa selecioná-lo depois. */
+  onConfirmed: (customerPhone: string | null, orderId: string) => void;
 }) {
   const [method, setMethod] = useState<PaymentMethod>("CASH");
   const [received, setReceived] = useState(""); // valor recebido em reais (texto)
   // Telefone do cliente (opcional): avisos WhatsApp (2.4) + fidelidade (3.3).
   // So vai no pedido com DDD completo (>= 10 digitos); menos que isso e ruido.
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(initialPhone ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   // Quando PIX: guarda a intenção de pagamento gerada após criar o pedido
@@ -102,6 +109,7 @@ export function OrderPaymentModal({
         paymentMethod: method,
         couponCode: couponCode ?? undefined,
         customerPhone: sentPhone ?? undefined,
+        notes: notes?.trim() ? notes.trim() : undefined,
       };
       const created = await api.post<OrderCreatedResponse>("/orders", body, {
         "Idempotency-Key": crypto.randomUUID(),
@@ -116,7 +124,7 @@ export function OrderPaymentModal({
         setSubmitting(false);
       } else {
         // CASH, CARD, OTHER: encerra normalmente.
-        onConfirmed(sentPhone);
+        onConfirmed(sentPhone, created.id);
       }
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
@@ -304,7 +312,7 @@ export function OrderPaymentModal({
     {pixIntent && (
       <PixPaymentModal
         intent={pixIntent}
-        onPaid={() => onConfirmed(sentPhone)}
+        onPaid={() => onConfirmed(sentPhone, pixIntent.orderId)}
         onCancel={() => setPixIntent(null)}
         onUnauthorized={onUnauthorized}
       />

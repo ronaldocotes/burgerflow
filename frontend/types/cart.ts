@@ -50,6 +50,8 @@ export interface OrderCreateInput {
   couponCode?: string;
   /** telefone do cliente (opcional): avisos WhatsApp (Fase 2.4) + fidelidade (Fase 3.3) */
   customerPhone?: string;
+  /** observação do pedido inteiro (distinta de item.notes, por item); vira OrderCreateRequest.notes */
+  notes?: string;
 }
 
 // Linha do carrinho no PDV. Tem id próprio porque o mesmo produto com escolhas
