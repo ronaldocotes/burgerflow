@@ -265,3 +265,11 @@ Antes de mexer em backend, adicionar no frontend:
 - ✅ **Auditoria de TODA transição de status** (`order.status_change` com status anterior/novo; ator do JWT) — achado MÉDIO do **Centurião**, implementado+testado pelo **Cráudio** (branch `fix/orders-audit-transitions`, `OrderStatusTransitionTest` verde), commit `20d9a73`.
 - ⏸️ **Rate-limit no `PUT /orders/{id}/status`**: DISPENSADO/ADIADO — ameaça só insider e conflitaria com o lote (ver diário do Cráudio 2026-07-08).
 - 🔎 Auditoria de segurança do fluxo: **Centurião VERDE** (sem crítico/alto). Pendências: validação visual da UI no browser; branches ainda não mergeados/pushados.
+
+### Progresso 2026-07-09 — Fase 3 (Novo Pedido Manual) CONCLUÍDA
+- ✅ **Fase 3 entregue** e em `main` (merge `1d55360`). "Novo Pedido Manual integrado" via **NovoPedidoSheet** em /pedidos — os botões "Novo pedido" abrem o sheet (não mais `Link→/pdv`), reusando o núcleo do /pdv.
+- **Como (plano do Construtor, 3 fatias):** (1) extração dos modais prop-driven do /pdv → `components/order/` (`57ac1ba`); (2) extração dos hooks `useCatalog`/`useOrderCart` → `lib/` (`8302623`); (3) `NovoPedidoSheet` reusando hooks+modais (`89eece5`). `/pdv` refatorado 1850→624 linhas, behavior-preserving.
+- **RBAC:** botão gated por papel do token (ADMIN/MANAGER/STAFF/CASHIER; KITCHEN não vê), espelhando o `@PreAuthorize` do `POST /orders`. Total sempre do servidor (quote/create).
+- **Descopes (decisão Construtor):** agendamento fora (backend sem `scheduledAt`); cliente = só telefone; endereço DELIVERY com aviso (fatia posterior).
+- **Pendente (Fase 3+):** endereço de entrega para DELIVERY, picker de cliente (precisa `GET /customers?search=`).
+- Feature construída pelo lab de agentes (Construtor planejou, Nick implementou, orquestrador verificou) e validada em app rodando.
