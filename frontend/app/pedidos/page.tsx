@@ -23,8 +23,14 @@ import {
   X,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import { getToken } from "@/lib/auth";
+import { getToken, getUserRole } from "@/lib/auth";
 import { useModalA11y } from "@/lib/use-modal-a11y";
+import { NovoPedidoSheet } from "@/components/order/NovoPedidoSheet";
+
+// RBAC (deny-by-default, espelha @PreAuthorize de POST /orders no backend —
+// ver OrderController.kt): só estes papéis podem criar pedido. A checagem real
+// é do servidor; isto só evita mostrar ao KITCHEN um botão que ele não pode usar.
+const CAN_CREATE_ORDER_ROLES = new Set(["ADMIN", "MANAGER", "STAFF", "CASHIER"]);
 
 type OrderStatus = "PENDING" | "PREPARING" | "READY" | "DELIVERED" | "CANCELLED";
 type OrderType = "DINE_IN" | "TAKEAWAY" | "DELIVERY";
@@ -360,23 +366,33 @@ function TypeIcon({ type }: { type: OrderType }) {
   return <UtensilsCrossed className="h-4 w-4" aria-hidden="true" />;
 }
 
-function EmptyState({ onReload }: { onReload: () => void }) {
+function EmptyState({
+  onReload,
+  canCreateOrder,
+  onNewOrder,
+}: {
+  onReload: () => void;
+  canCreateOrder: boolean;
+  onNewOrder: () => void;
+}) {
   return (
     <div className="flex min-h-[360px] flex-col items-center justify-center rounded-lg border border-dashed border-border-medium bg-bg-primary p-8 text-center">
       <FileClock className="h-12 w-12 text-text-muted" aria-hidden="true" />
       <h2 className="mt-4 text-base font-semibold text-text-primary">Nenhum pedido encontrado</h2>
       <p className="mt-1 max-w-sm text-sm text-text-muted">
-        Ajuste os filtros, atualize a lista ou lance um novo pedido pelo PDV.
+        Ajuste os filtros, atualize a lista{canCreateOrder ? " ou lance um novo pedido" : ""}.
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         <button type="button" onClick={onReload} className="btn-outline gap-2">
           <RefreshCcw className="h-4 w-4" aria-hidden="true" />
           Atualizar
         </button>
-        <Link href="/pdv" className="btn-primary gap-2">
-          <ShoppingBag className="h-4 w-4" aria-hidden="true" />
-          Novo pedido
-        </Link>
+        {canCreateOrder && (
+          <button type="button" onClick={onNewOrder} className="btn-primary gap-2">
+            <ShoppingBag className="h-4 w-4" aria-hidden="true" />
+            Novo pedido
+          </button>
+        )}
       </div>
     </div>
   );
@@ -766,6 +782,15 @@ export default function PedidosPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<OrderResponse | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [showNovoPedido, setShowNovoPedido] = useState(false);
+
+  // Papel lido do token (não da URL) — mesmo padrão de components/layout/Sidebar.tsx.
+  // Roda em useEffect (não no render) para não divergir do HTML gerado no servidor.
+  useEffect(() => {
+    setUserRole(getUserRole());
+  }, []);
+  const canCreateOrder = userRole !== null && CAN_CREATE_ORDER_ROLES.has(userRole);
 
   const load = useCallback(async () => {
     const token = getToken();
@@ -943,10 +968,16 @@ export default function PedidosPage() {
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <Link href="/pdv" className="btn-primary gap-2">
-                <ShoppingBag className="h-4 w-4" aria-hidden="true" />
-                Novo pedido
-              </Link>
+              {canCreateOrder && (
+                <button
+                  type="button"
+                  onClick={() => setShowNovoPedido(true)}
+                  className="btn-primary gap-2"
+                >
+                  <ShoppingBag className="h-4 w-4" aria-hidden="true" />
+                  Novo pedido
+                </button>
+              )}
               <button
                 type="button"
                 className="btn-outline gap-2 cursor-not-allowed opacity-60"
@@ -1093,7 +1124,11 @@ export default function PedidosPage() {
             <div className="hidden min-h-[520px] animate-pulse rounded-lg border border-border-light bg-bg-primary shadow-card lg:block" />
           </div>
         ) : filteredOrders.length === 0 ? (
-          <EmptyState onReload={() => void load()} />
+          <EmptyState
+            onReload={() => void load()}
+            canCreateOrder={canCreateOrder}
+            onNewOrder={() => setShowNovoPedido(true)}
+          />
         ) : (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,1.05fr)]">
             <section className="grid gap-3">
@@ -1129,6 +1164,23 @@ export default function PedidosPage() {
           busy={busy}
           onClose={() => setCancelTarget(null)}
           onConfirm={(reason) => void updateStatus(cancelTarget, "CANCELLED", reason)}
+        />
+      )}
+
+      {showNovoPedido && canCreateOrder && (
+        <NovoPedidoSheet
+          onClose={() => setShowNovoPedido(false)}
+          onCreated={(orderId) => {
+            // Sucesso: fecha o sheet, recarrega a lista e seleciona o pedido
+            // recém-criado. Também limpa filtro de status/busca — senão o
+            // pedido novo (status PENDING) pode ficar escondido por um filtro
+            // antigo (ex.: "Concluído") e parecer que "sumiu".
+            setShowNovoPedido(false);
+            setStatus("ALL");
+            setSearch("");
+            setSelectedId(orderId);
+            void load();
+          }}
         />
       )}
     </main>

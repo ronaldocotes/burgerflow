@@ -44,3 +44,25 @@ export function getTenant(): string | null {
     ? window.localStorage.getItem(TENANT_KEY)
     : null;
 }
+
+/**
+ * Decodifica o papel (role) do JWT salvo no localStorage. Mesmo padrão inline
+ * usado em `components/layout/Sidebar.tsx` e `hooks/useSuperAdminGuard.ts`
+ * (não deduplicado ali para não arriscar essas duas telas já em produção) —
+ * aqui centralizado para o RBAC de UI de /pedidos (fatia 3 do Novo Pedido).
+ * RBAC real (deny-by-default) é do backend (@PreAuthorize); isto é só a UI
+ * escondendo uma ação que o servidor recusaria de qualquer forma.
+ */
+export function getUserRole(): string | null {
+  try {
+    const token = getToken();
+    if (!token) return null;
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(b64)) as { role?: string; roles?: string[] };
+    return payload.role ?? ((Array.isArray(payload.roles) && payload.roles[0]) || null);
+  } catch {
+    return null;
+  }
+}
