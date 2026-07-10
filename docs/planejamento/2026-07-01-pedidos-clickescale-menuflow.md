@@ -273,3 +273,10 @@ Antes de mexer em backend, adicionar no frontend:
 - **Descopes (decisão Construtor):** agendamento fora (backend sem `scheduledAt`); cliente = só telefone; endereço DELIVERY com aviso (fatia posterior).
 - **Pendente (Fase 3+):** endereço de entrega para DELIVERY, picker de cliente (precisa `GET /customers?search=`).
 - Feature construída pelo lab de agentes (Construtor planejou, Nick implementou, orquestrador verificou) e validada em app rodando.
+
+### Progresso 2026-07-10 — Fase 4 (delivery/roteirização) — integração enxuta
+- ✅ **Fase 4 entregue** em `main`. Decisão (verificada no código): NÃO recriar despacho — a tela **`/delivery`** (central da 6.1, 1167 linhas) já faz mapa/atribuição/auto-assign. Fase 4 = **integração**.
+- Botão **"Roteirizar"** (era stub `disabled`) agora navega para `/delivery`, gated por papel do token (espelha o item /delivery da Sidebar).
+- Painel de detalhe: pedidos **DELIVERY** ganham seção **Entrega** (status de despacho + motoboy atribuído + destinatário/bairro) via `GET /delivery/orders/active` mapeado por `orderId`; **403** de STAFF/CASHIER tratado como enriquecimento indisponível (sem quebrar a tela).
+- Frontend puro, sem backend novo. **Pendente:** validação visual no browser; atribuição inline de motoboy (fica na /delivery por decisão de escopo — RBAC OPERATOR/ADMIN + auto-assign já vivem lá).
+- Resta a **Fase 5** (histórico/auditoria) para fechar o roadmap de /pedidos.
