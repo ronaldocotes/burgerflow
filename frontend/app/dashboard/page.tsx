@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import {
   ResponsiveContainer,
   BarChart,
@@ -12,21 +13,33 @@ import {
 } from 'recharts'
 import {
   AlertTriangle,
+  ArrowRight,
   Bot,
   CalendarDays,
+  ChefHat,
   CheckCircle2,
   CircleDollarSign,
   Clock,
+  ClipboardList,
+  LayoutGrid,
   Link2,
   Megaphone,
   Receipt,
   RefreshCcw,
   ShoppingBag,
+  ShoppingCart,
   TrendingUp,
+  Truck,
   Users2,
   Wallet,
+  type LucideIcon,
 } from 'lucide-react'
 import { api, ApiError } from '@/lib/api'
+import { getUserRole } from '@/lib/auth'
+import { useKdsFeed, type KdsFeed } from '@/lib/use-kds-feed'
+import { useTablesFeed, type TablesFeed } from '@/lib/use-tables-feed'
+import { isLate, elapsedMinutes } from '@/lib/kds-aging'
+import { NAV_GROUPS, isRouteVisibleForRole } from '@/components/layout/Sidebar'
 import type { DreResponse, DrePeriod } from '@/types/dre'
 import type { CashSessionResponse } from '@/types/cash'
 import type { TrackingSummaryResponse } from '@/types/tracking'
@@ -46,6 +59,13 @@ interface DashboardData {
   cartsTotal: number
   conversionsTotal: number
   rfv: RfvScoreResponse[]
+  /** null = não carregou (falha/timeout) — nunca exibir "0" quando é desconhecido. */
+  cancelledTodayCount: number | null
+}
+
+/** Página mínima retornada por endpoints paginados quando só o total importa. */
+interface CountPage {
+  totalElements: number
 }
 
 interface ChartDatum {
@@ -62,6 +82,7 @@ const EMPTY_DATA: DashboardData = {
   cartsTotal: 0,
   conversionsTotal: 0,
   rfv: [],
+  cancelledTodayCount: null,
 }
 
 const PERIOD_OPTIONS: { label: string; value: Exclude<DrePeriod, 'custom'> }[] = [
@@ -131,6 +152,13 @@ function periodRange(period: Exclude<DrePeriod, 'custom'>): { from: string; to: 
   from.setDate(1)
   from.setHours(0, 0, 0, 0)
   return { from: from.toISOString(), to: now.toISOString(), label: 'Mês atual' }
+}
+
+/** Início do dia de HOJE (00:00 local) — independente do filtro de período (Hoje/Semana/Mês). */
+function startOfToday(): string {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d.toISOString()
 }
 
 function mapBreakdown(source: Record<string, number> | undefined, labels: Record<string, string>): ChartDatum[] {
@@ -272,7 +300,16 @@ function FinancialSummary({ dre, cash }: { dre: DreResponse | null; cash: CashSe
   )
 }
 
-function OperationalAlerts({ dre, cash }: { dre: DreResponse | null; cash: CashSessionResponse | null }) {
+function OperationalAlerts({
+  dre,
+  cash,
+  lateCount,
+}: {
+  dre: DreResponse | null
+  cash: CashSessionResponse | null
+  /** Nº de pedidos atrasados no KDS agora (via useKdsFeed compartilhado com o card "Cozinha agora"). */
+  lateCount: number
+}) {
   const alerts = [
     {
       icon: cash?.status === 'OPEN' ? CheckCircle2 : AlertTriangle,
@@ -281,18 +318,27 @@ function OperationalAlerts({ dre, cash }: { dre: DreResponse | null; cash: CashS
         ? `Previsto no caixa: ${formatCents(cash.expectedCents)}`
         : 'Abra o caixa antes de iniciar a operação do dia.',
       tone: cash?.status === 'OPEN' ? 'good' : 'bad',
+      live: false,
     },
     {
       icon: dre && dre.netProfitCents >= 0 ? TrendingUp : AlertTriangle,
       title: dre && dre.netProfitCents >= 0 ? 'Resultado positivo' : 'Margem em atenção',
       text: dre ? `Margem líquida: ${dre.netMarginPct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%` : 'Sem DRE carregado para o período.',
       tone: dre && dre.netProfitCents >= 0 ? 'good' : 'warn',
+      live: false,
     },
     {
-      icon: Clock,
-      title: 'Cozinha e mesas',
-      text: 'A fase operacional vai trazer atrasos do KDS e mesas abertas aqui.',
-      tone: 'neutral',
+      // Alerta real (substitui o placeholder da Fase 2): estado vazio é
+      // POSITIVO ("cozinha em dia"), não um erro. É o único item que anuncia
+      // mudança via role="status" — os contadores dos cards abaixo não têm
+      // aria-live para não gerar verborragia a cada evento STOMP.
+      icon: lateCount > 0 ? AlertTriangle : CheckCircle2,
+      title: lateCount > 0 ? 'Atraso na cozinha' : 'Cozinha em dia',
+      text: lateCount > 0
+        ? `${lateCount} pedido${lateCount !== 1 ? 's' : ''} atrasado${lateCount !== 1 ? 's' : ''} na cozinha`
+        : 'Nenhum pedido atrasado na fila do KDS.',
+      tone: lateCount > 0 ? 'bad' : 'good',
+      live: true,
     },
   ] as const
 
@@ -300,8 +346,12 @@ function OperationalAlerts({ dre, cash }: { dre: DreResponse | null; cash: CashS
     <section className="rounded-lg border border-border-light bg-bg-primary p-5 shadow-card">
       <h2 className="text-base font-semibold text-text-primary">Alertas operacionais</h2>
       <div className="mt-4 grid gap-3">
-        {alerts.map(({ icon: Icon, title, text, tone }) => (
-          <div key={title} className="flex gap-3 rounded-lg bg-bg-secondary p-3">
+        {alerts.map(({ icon: Icon, title, text, tone, live }) => (
+          <div
+            key={title}
+            role={live ? 'status' : undefined}
+            className="flex gap-3 rounded-lg bg-bg-secondary p-3"
+          >
             <span
               className={[
                 'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
@@ -441,12 +491,271 @@ function OrdersPanel({ dre }: { dre: DreResponse | null }) {
   )
 }
 
+// ── Operação agora (Fase 3) ─────────────────────────────────────────────────
+// Faixa acima dos KPIs financeiros: painel operacional do dia. Reusa os MESMOS
+// hooks de tempo real de /kds e /mesas (useKdsFeed/useTablesFeed) — nasce com
+// REST, STOMP entra por cima, cai para polling sozinho. Se um hook degradar
+// (403/erro), o card correspondente some/zera silenciosamente e o resto do
+// dashboard segue funcionando (mesmo espírito do Promise.allSettled do load()).
+
+type FeedStatusValue = 'connecting' | 'live' | 'reconnecting' | 'polling'
+
+function FeedStatusBadge({ status }: { status: FeedStatusValue }) {
+  const isLive = status === 'live'
+  const label =
+    status === 'live' ? 'Ao vivo'
+      : status === 'connecting' ? 'Conectando'
+        : status === 'reconnecting' ? 'Reconectando'
+          : 'A cada 10s'
+  return (
+    <span
+      className={[
+        'inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium',
+        isLive ? 'bg-primary-50 text-primary-700' : 'bg-secondary-50 text-secondary-800',
+      ].join(' ')}
+    >
+      <span
+        className={['h-1.5 w-1.5 rounded-full', isLive ? 'bg-primary-600' : 'bg-secondary-600 animate-pulse'].join(' ')}
+        aria-hidden="true"
+      />
+      {label}
+    </span>
+  )
+}
+
+function KitchenNowCard({ kds }: { kds: KdsFeed }) {
+  const { orders, feedStatus, now } = kds
+  const pendingCount = orders.filter((o) => o.status === 'PENDING').length
+  const preparingCount = orders.filter((o) => o.status === 'PREPARING').length
+  const readyCount = orders.filter((o) => o.status === 'READY').length
+  // Contadores acima NÃO têm aria-live: atualizam via STOMP a cada evento e
+  // anunciar isso a cada troca seria verborragia para leitor de tela. Só o
+  // alerta de atrasados (em OperationalAlerts) anuncia mudança de estado.
+  const lateCount = orders.filter((o) => isLate(o, now)).length
+  const oldest = orders.reduce<(typeof orders)[number] | null>((acc, o) => {
+    if (!acc) return o
+    return new Date(o.createdAt).getTime() < new Date(acc.createdAt).getTime() ? o : acc
+  }, null)
+  // "Espera do mais antigo", não "tempo de preparo": não há medição real de
+  // preparo, só o tempo decorrido desde a criação do pedido.
+  const oldestWaitMinutes = oldest ? Math.floor(elapsedMinutes(oldest, now)) : null
+
+  return (
+    <section className="rounded-lg border border-border-light bg-bg-primary p-5 shadow-card">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <ChefHat className="h-5 w-5 text-primary-700" aria-hidden="true" />
+          <h2 className="text-base font-semibold text-text-primary">Cozinha agora</h2>
+        </div>
+        <FeedStatusBadge status={feedStatus} />
+      </div>
+
+      {orders.length === 0 ? (
+        <div className="mt-4 flex items-center gap-3 rounded-lg bg-primary-50 p-3 text-primary-700">
+          <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden="true" />
+          <p className="text-sm font-medium">Cozinha em dia — nenhum pedido na fila.</p>
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="rounded-lg bg-bg-secondary p-3 text-center">
+              <p className="text-xl font-bold text-text-primary">{pendingCount}</p>
+              <p className="text-xs text-text-muted">Novos</p>
+            </div>
+            <div className="rounded-lg bg-bg-secondary p-3 text-center">
+              <p className="text-xl font-bold text-text-primary">{preparingCount}</p>
+              <p className="text-xs text-text-muted">Em preparo</p>
+            </div>
+            <div className="rounded-lg bg-bg-secondary p-3 text-center">
+              <p className="text-xl font-bold text-text-primary">{readyCount}</p>
+              <p className="text-xs text-text-muted">Prontos</p>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <span
+              className={[
+                'inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-medium',
+                lateCount > 0 ? 'bg-red-50 text-red-700' : 'bg-primary-50 text-primary-700',
+              ].join(' ')}
+            >
+              {lateCount > 0
+                ? <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+                : <CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
+              {lateCount > 0 ? `${lateCount} atrasado${lateCount !== 1 ? 's' : ''}` : 'Nenhum atrasado'}
+            </span>
+            {oldestWaitMinutes !== null && (
+              <span className="inline-flex items-center gap-1 text-text-muted">
+                <Clock className="h-4 w-4" aria-hidden="true" />
+                Espera do mais antigo: {oldestWaitMinutes} min
+              </span>
+            )}
+          </div>
+        </>
+      )}
+
+      <Link
+        href="/kds"
+        className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary-700 hover:underline"
+      >
+        Abrir Cozinha (KDS)
+        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+      </Link>
+    </section>
+  )
+}
+
+function TablesNowCard({ tablesFeed }: { tablesFeed: TablesFeed }) {
+  const { tables, feedStatus } = tablesFeed
+  // Mesma derivação de /mesas: mesa inativa fica fora da contagem.
+  const active = tables.filter((t) => t.active)
+  const billingCount = active.filter((t) => t.session?.status === 'BILLING').length
+  const openCount = active.filter((t) => t.session && t.session.status !== 'BILLING').length
+  const freeCount = active.filter((t) => !t.session).length
+
+  return (
+    <section className="rounded-lg border border-border-light bg-bg-primary p-5 shadow-card">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <LayoutGrid className="h-5 w-5 text-primary-700" aria-hidden="true" />
+          <h2 className="text-base font-semibold text-text-primary">Mesas agora</h2>
+        </div>
+        <FeedStatusBadge status={feedStatus} />
+      </div>
+
+      {active.length === 0 ? (
+        <div className="mt-4">
+          <EmptyBlock title="Nenhuma mesa cadastrada" text="Configure as mesas no painel administrativo para acompanhar aqui." />
+        </div>
+      ) : (
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <div className="rounded-lg bg-bg-secondary p-3 text-center">
+            <p className="text-xl font-bold text-text-primary">{openCount}</p>
+            <p className="text-xs text-text-muted">Ocupadas</p>
+          </div>
+          <div className="rounded-lg bg-bg-secondary p-3 text-center">
+            <p className="text-xl font-bold text-text-primary">{freeCount}</p>
+            <p className="text-xs text-text-muted">Livres</p>
+          </div>
+          <div className={['rounded-lg p-3 text-center', billingCount > 0 ? 'bg-secondary-50' : 'bg-bg-secondary'].join(' ')}>
+            <p className={['text-xl font-bold', billingCount > 0 ? 'text-secondary-800' : 'text-text-primary'].join(' ')}>
+              {billingCount}
+            </p>
+            <p className={['text-xs', billingCount > 0 ? 'font-semibold text-secondary-800' : 'text-text-muted'].join(' ')}>
+              Pedindo conta
+            </p>
+          </div>
+        </div>
+      )}
+
+      <Link
+        href="/mesas"
+        className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary-700 hover:underline"
+      >
+        Abrir Mesas
+        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+      </Link>
+    </section>
+  )
+}
+
+interface ShortcutLink {
+  href: string
+  label: string
+  icon: LucideIcon
+}
+
+const SHORTCUT_LINKS: ShortcutLink[] = [
+  { href: '/pdv', label: 'PDV', icon: ShoppingCart },
+  { href: '/kds', label: 'Cozinha', icon: ChefHat },
+  { href: '/mesas', label: 'Mesas', icon: LayoutGrid },
+  { href: '/caixa', label: 'Caixa', icon: Wallet },
+  { href: '/pedidos', label: 'Pedidos', icon: ClipboardList },
+  { href: '/delivery', label: 'Entregas', icon: Truck },
+]
+
+/** Papéis permitidos por rota, lidos da MESMA matriz de components/layout/Sidebar.tsx
+ * (NAV_GROUPS) — fonte única da verdade, não duplicar a lista de papéis aqui. */
+function navRolesFor(href: string): string[] | undefined {
+  for (const group of NAV_GROUPS) {
+    const item = group.items.find((i) => i.href === href)
+    if (item) return item.roles
+  }
+  return undefined
+}
+
+function ShortcutsCard({ cancelledToday }: { cancelledToday: number | null }) {
+  const [role, setRole] = useState<string | null>(null)
+  useEffect(() => {
+    setRole(getUserRole())
+  }, [])
+
+  // Gate por papel à prova de futuro: hoje /dashboard só abre para
+  // ADMIN/MANAGER (que têm acesso a tudo abaixo), mas se um papel mais
+  // restrito ganhar acesso ao dashboard amanhã, os atalhos já respeitam a
+  // mesma matriz da Sidebar sem precisar editar esta tela.
+  const visibleLinks = SHORTCUT_LINKS.filter((link) => isRouteVisibleForRole(navRolesFor(link.href), role))
+
+  return (
+    <section className="rounded-lg border border-border-light bg-bg-primary p-5 shadow-card">
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="text-base font-semibold text-text-primary">Atalhos rápidos</h2>
+        {cancelledToday !== null && (
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-bg-tertiary px-2.5 py-1 text-xs font-medium text-text-secondary">
+            {cancelledToday} cancelado{cancelledToday !== 1 ? 's' : ''} hoje
+          </span>
+        )}
+      </div>
+      <p className="mt-1 text-sm text-text-muted">Vá direto para a tela de operação — a ação acontece lá, não aqui.</p>
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {visibleLinks.map(({ href, label, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            className="flex min-h-11 items-center gap-2 rounded-lg border border-border-light bg-bg-secondary px-3 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary"
+          >
+            <Icon className="h-4 w-4 shrink-0 text-primary-700" aria-hidden="true" />
+            {label}
+          </Link>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function OperationNowSection({
+  kds,
+  tablesFeed,
+  cancelledToday,
+}: {
+  kds: KdsFeed
+  tablesFeed: TablesFeed
+  cancelledToday: number | null
+}) {
+  return (
+    <div className="grid gap-4 xl:grid-cols-3">
+      <KitchenNowCard kds={kds} />
+      <TablesNowCard tablesFeed={tablesFeed} />
+      <ShortcutsCard cancelledToday={cancelledToday} />
+    </div>
+  )
+}
+
 function OverviewPanel({ data }: { data: DashboardData }) {
   const dre = data.dre
   const channelData = mapBreakdown(dre?.ordersByChannel, CHANNEL_LABELS)
+  // Hooks de tempo real chamados UMA VEZ aqui e compartilhados entre o card
+  // "Cozinha agora"/"Mesas agora" e o alerta de atraso — evita 2 conexões
+  // STOMP concorrentes para o mesmo feed. Só existem enquanto a aba "Visão
+  // Geral" está montada (o board fica em /kds e /mesas de qualquer forma).
+  const kds = useKdsFeed()
+  const tablesFeed = useTablesFeed()
+  const lateCount = kds.orders.filter((o) => isLate(o, kds.now)).length
 
   return (
     <div className="grid gap-4">
+      <OperationNowSection kds={kds} tablesFeed={tablesFeed} cancelledToday={data.cancelledTodayCount} />
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Faturamento total" value={formatCents(dre?.grossRevenueCents ?? 0)} helper="Receita bruta confirmada" icon={CircleDollarSign} tone="good" />
         <KpiCard label="Número de pedidos" value={formatNumber(dre?.orderCount ?? 0)} helper="Pedidos concluídos" icon={ShoppingBag} tone="neutral" />
@@ -456,7 +765,7 @@ function OverviewPanel({ data }: { data: DashboardData }) {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(340px,0.9fr)]">
         <ChartPanel title="Distribuição por canal" subtitle="Onde os pedidos estão acontecendo." data={channelData} />
-        <OperationalAlerts dre={dre} cash={data.cash} />
+        <OperationalAlerts dre={dre} cash={data.cash} lateCount={lateCount} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -494,6 +803,15 @@ export default function DashboardPage() {
         }),
       ])
 
+    // "Cancelados hoje" é sempre o dia corrente (00:00 local), independente
+    // do filtro de período (Hoje/Semana/Mês) escolhido acima — é um sinal
+    // operacional do dia, não do período do DRE.
+    const cancelledParams = new URLSearchParams({
+      status: 'CANCELLED',
+      from: startOfToday(),
+      size: '1',
+    })
+
     const [
       dreResult,
       cashResult,
@@ -502,6 +820,7 @@ export default function DashboardPage() {
       cartResult,
       conversionResult,
       rfvResult,
+      cancelledResult,
     ] = await Promise.allSettled([
       withTimeout(api.get<DreResponse>(`/dre/summary?period=${period}`), 'DRE'),
       withTimeout(api.get<CashSessionResponse | undefined>('/cash-sessions/current'), 'Caixa'),
@@ -510,6 +829,7 @@ export default function DashboardPage() {
       withTimeout(api.get<CartSessionPage>('/cart-sessions?page=0&size=1'), 'Carrinhos'),
       withTimeout(api.get<ConversionDispatchPage>('/conversions/dispatches?page=0&size=1'), 'Conversões'),
       withTimeout(api.get<RfvScoreResponse[]>('/rfv'), 'RFV'),
+      withTimeout(api.get<CountPage>(`/orders?${cancelledParams.toString()}`), 'Cancelados hoje'),
     ])
 
     if (dreResult.status === 'rejected') {
@@ -530,6 +850,8 @@ export default function DashboardPage() {
       cartsTotal: cartResult.status === 'fulfilled' ? cartResult.value.totalElements : 0,
       conversionsTotal: conversionResult.status === 'fulfilled' ? conversionResult.value.totalElements : 0,
       rfv: rfvResult.status === 'fulfilled' ? rfvResult.value : [],
+      // null (não 0) quando a chamada falha/expira — nunca afirmar "0 cancelados" sem ter carregado.
+      cancelledTodayCount: cancelledResult.status === 'fulfilled' ? cancelledResult.value.totalElements : null,
     })
     setState('ready')
   }, [period, range.from, range.to])
