@@ -32,6 +32,13 @@ import { NovoPedidoSheet } from "@/components/order/NovoPedidoSheet";
 // é do servidor; isto só evita mostrar ao KITCHEN um botão que ele não pode usar.
 const CAN_CREATE_ORDER_ROLES = new Set(["ADMIN", "MANAGER", "STAFF", "CASHIER"]);
 
+// RBAC do botão "Roteirizar" (navega para /delivery, a central de despacho):
+// espelha o gate da própria Sidebar para o item "Entregas" — ver
+// components/layout/Sidebar.tsx, NAV_GROUPS, item href '/delivery'. Hoje é o
+// mesmo conjunto de CAN_CREATE_ORDER_ROLES, mas mantido como constante à
+// parte porque os dois gates protegem coisas diferentes e podem divergir.
+const CAN_ACCESS_DELIVERY_ROLES = new Set(["ADMIN", "MANAGER", "STAFF", "CASHIER"]);
+
 type OrderStatus = "PENDING" | "PREPARING" | "READY" | "DELIVERED" | "CANCELLED";
 type OrderType = "DINE_IN" | "TAKEAWAY" | "DELIVERY";
 type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "REFUNDED" | "PARTIALLY_REFUNDED";
@@ -94,6 +101,46 @@ interface OrdersPage {
   number: number;
   size: number;
 }
+
+// Enriquecimento opcional de pedidos DELIVERY com o status de despacho.
+// Espelha (subconjunto de) DeliveryOrderResponse do backend — ver
+// backend/src/main/kotlin/com/menuflow/dto/DeliveryDtos.kt:121-147. Só os
+// campos que este painel exibe; a central completa é /delivery.
+type DeliveryDispatchStatus =
+  | "PENDING"
+  | "OFFERED"
+  | "ACCEPTED"
+  | "ASSIGNED"
+  | "ARRIVED_AT_STORE"
+  | "PICKED_UP"
+  | "OUT_FOR_DELIVERY"
+  | "ARRIVED_AT_CUSTOMER"
+  | "DELIVERED"
+  | "FAILED";
+
+interface DeliveryOrderInfo {
+  orderId: string;
+  driverId: string | null;
+  deliveryStatus: DeliveryDispatchStatus | null;
+  deliveryRecipientName: string | null;
+  deliveryNeighborhood: string | null;
+}
+
+// Rótulos em pt-BR do status de despacho — espelha STATUS_LABEL de
+// app/delivery/page.tsx (as duas telas não compartilham hoje um módulo de
+// tipos de delivery; duplicado deliberadamente para não acoplar as páginas).
+const DELIVERY_DISPATCH_LABEL: Record<string, string> = {
+  PENDING: "Aguardando motoboy",
+  OFFERED: "Oferta enviada",
+  ACCEPTED: "Aceito",
+  ASSIGNED: "Atribuído",
+  ARRIVED_AT_STORE: "Na loja",
+  PICKED_UP: "Coletado",
+  OUT_FOR_DELIVERY: "Em rota",
+  ARRIVED_AT_CUSTOMER: "No cliente",
+  DELIVERED: "Entregue",
+  FAILED: "Falha na entrega",
+};
 
 type Period = "today" | "week" | "month";
 type StatusFilter = OrderStatus | "ALL";
@@ -493,11 +540,13 @@ function DetailPanel({
   onAdvance,
   onCancel,
   busy,
+  deliveryInfo,
 }: {
   order: OrderResponse | null;
   onAdvance: (order: OrderResponse) => void;
   onCancel: (order: OrderResponse) => void;
   busy: boolean;
+  deliveryInfo?: DeliveryOrderInfo | null;
 }) {
   if (!order) {
     return (
@@ -546,6 +595,49 @@ function DetailPanel({
       </div>
 
       <div className="grid gap-5 p-5">
+        {order.orderType === "DELIVERY" && (
+          <section className="rounded-lg border border-primary-200 bg-primary-50 p-3">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-primary-900">
+              <Bike className="h-4 w-4" aria-hidden="true" />
+              Entrega
+            </h3>
+            {deliveryInfo ? (
+              <div className="mt-2 grid gap-1 text-sm text-primary-900">
+                <p>
+                  Status:{" "}
+                  <span className="font-semibold">
+                    {DELIVERY_DISPATCH_LABEL[deliveryInfo.deliveryStatus ?? ""] ?? "Aguardando motoboy"}
+                  </span>
+                </p>
+                <p>
+                  Motoboy:{" "}
+                  <span className="font-semibold">
+                    {deliveryInfo.driverId ? "Atribuído" : "Ainda não atribuído"}
+                  </span>
+                </p>
+                {(deliveryInfo.deliveryRecipientName || deliveryInfo.deliveryNeighborhood) && (
+                  <p className="text-primary-800">
+                    {[deliveryInfo.deliveryRecipientName, deliveryInfo.deliveryNeighborhood]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-primary-800">
+                Status de entrega não disponível aqui — acompanhe pela central de despacho.
+              </p>
+            )}
+            <Link
+              href="/delivery"
+              className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary-700 hover:underline"
+            >
+              Ver na entrega
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </section>
+        )}
+
         <section>
           <h3 className="text-sm font-semibold text-text-primary">Itens</h3>
           <ul className="mt-3 grid gap-2">
@@ -791,6 +883,28 @@ export default function PedidosPage() {
     setUserRole(getUserRole());
   }, []);
   const canCreateOrder = userRole !== null && CAN_CREATE_ORDER_ROLES.has(userRole);
+  const canAccessDelivery = userRole !== null && CAN_ACCESS_DELIVERY_ROLES.has(userRole);
+
+  // Enriquecimento opcional dos pedidos DELIVERY com o status de despacho.
+  // GET /delivery/orders/active é RBAC OPERATOR/MANAGER/ADMIN no backend (ver
+  // DeliveryController.kt:80-81) — mais estreito que quem acessa /pedidos
+  // (ADMIN/MANAGER/STAFF/CASHIER). Para STAFF/CASHIER o backend responde 403;
+  // tratamos como "enriquecimento indisponível" (mapa vazio), sem erro na
+  // tela — a central de despacho (/delivery) continua acessível pelo botão
+  // Roteirizar e é onde de fato se atua sobre a entrega.
+  const [deliveryInfoById, setDeliveryInfoById] = useState<Map<string, DeliveryOrderInfo>>(
+    () => new Map(),
+  );
+  const loadDeliveryInfo = useCallback(async () => {
+    try {
+      const active = await api.get<DeliveryOrderInfo[]>("/delivery/orders/active");
+      setDeliveryInfoById(new Map(active.map((info) => [info.orderId, info])));
+    } catch {
+      // 403 (sem permissão) ou qualquer outra falha: enriquecimento é
+      // acessório, nunca pode derrubar a tela de pedidos.
+      setDeliveryInfoById(new Map());
+    }
+  }, []);
 
   const load = useCallback(async () => {
     const token = getToken();
@@ -818,6 +932,7 @@ export default function PedidosPage() {
         if (current && page.content.some((order) => order.id === current)) return current;
         return page.content[0]?.id ?? null;
       });
+      void loadDeliveryInfo();
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         router.replace("/login");
@@ -827,7 +942,7 @@ export default function PedidosPage() {
     } finally {
       setLoading(false);
     }
-  }, [period, router, status]);
+  }, [period, router, status, loadDeliveryInfo]);
 
   useEffect(() => {
     void load();
@@ -978,15 +1093,17 @@ export default function PedidosPage() {
                   Novo pedido
                 </button>
               )}
-              <button
-                type="button"
-                className="btn-outline gap-2 cursor-not-allowed opacity-60"
-                disabled
-                title="Roteirização entra na fase de delivery"
-              >
-                <Bike className="h-4 w-4" aria-hidden="true" />
-                Roteirizar
-              </button>
+              {canAccessDelivery && (
+                <button
+                  type="button"
+                  onClick={() => router.push("/delivery")}
+                  className="btn-outline gap-2"
+                  title="Abrir a central de despacho de entregas"
+                >
+                  <Bike className="h-4 w-4" aria-hidden="true" />
+                  Roteirizar
+                </button>
+              )}
               <button type="button" onClick={() => void load()} className="btn-outline gap-2">
                 <RefreshCcw className="h-4 w-4" aria-hidden="true" />
                 Atualizar
@@ -1152,6 +1269,7 @@ export default function PedidosPage() {
                 }}
                 onCancel={setCancelTarget}
                 busy={busy || batchBusy}
+                deliveryInfo={selectedOrder ? deliveryInfoById.get(selectedOrder.id) : undefined}
               />
             </div>
           </div>
