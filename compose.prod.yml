@@ -71,6 +71,11 @@ services:
       MF_JWT_SECRET: ${MF_JWT_SECRET}
       MF_RATELIMIT_LOGIN_BACKEND: redis
       SERVER_PORT: "8080"
+      # Cifra AES-256-GCM: tokens iFood (IfoodTokenCipher) E segredo TOTP do 2FA
+      # (TotpService reusa o mesmo cifrador, ver migration V15). Sem isto o
+      # container usa o placeholder do application.yml e a cifra fica inválida
+      # entre deploys — 2FA já configurado vira ilegível, não é fail-fast no boot.
+      IFOOD_ENCRYPTION_KEY: ${IFOOD_ENCRYPTION_KEY}
       SPRING_AUTOCONFIGURE_EXCLUDE: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
       # OSRM self-hosted na A1 para distância rodoviária (despacho de motoboys).
       # Container osrm-norte na rede menuflow-net; vazio = OSRM desabilitado (fallback Haversine).
