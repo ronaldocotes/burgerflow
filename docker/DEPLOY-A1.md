@@ -49,9 +49,12 @@ Os arquivos `docker/docker-compose.prod.yml` e `docker/Caddyfile` ficam como ref
    ```bash
    scripts/deploy-prod-a1.sh
    ```
-7. **Tenant demo (cardápio público):** o frontend é buildado com
-   `NEXT_PUBLIC_TENANT_SLUG=demo`, e o `DevDataSeeder` que cria esse tenant só
-   roda no perfil `dev` — em prod ninguém o cria sozinho. O
+7. **Tenant demo (cardápio público):** o build do frontend é tenant-agnóstico
+   — o storefront resolve o tenant pela URL (`/l/{tenant}/{slug}` →
+   `/cardapio?tenant=`), e o código cai no fallback `"demo"` quando não há
+   query/slug (rota legada `/cardapio`), sem precisar de
+   `NEXT_PUBLIC_TENANT_SLUG` no build. O `DevDataSeeder` que cria esse tenant
+   só roda no perfil `dev` — em prod ninguém o cria sozinho. O
    `scripts/deploy-prod-a1.sh` chama `scripts/seed-demo-prod.sh`
    (idempotente: tenant + admin no controle via `docker exec` no Postgres +
    `seed-demo-official.py` pela API) desde que `MF_DEMO_ADMIN_PASSWORD` esteja

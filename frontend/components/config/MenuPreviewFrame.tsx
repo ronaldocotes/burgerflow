@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PreviewMessage } from "@/types/personalization";
 import { DEFAULT_PRIMARY, computeContrast } from "@/lib/contrast";
+import { getTenant } from "@/lib/auth";
 
 // Preview vivo do cardápio via IFRAME real do /cardapio?preview=1 (produtos REAIS
 // do tenant, nunca mock). Aplica o estado EDITADO por postMessage — o iframe escuta
@@ -23,6 +24,11 @@ interface Props {
 
 export function MenuPreviewFrame(props: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  // Mesmo fallback de MenuLinksSection.tsx:49 — o iframe precisa carregar o cardápio
+  // do tenant LOGADO. Sem ?tenant=, o /cardapio cairia no PUBLIC_TENANT (demo) e o
+  // admin veria o cardápio errado no preview.
+  const tenant = getTenant() ?? process.env.NEXT_PUBLIC_TENANT_SLUG ?? "demo";
+  const previewSrc = `/cardapio?${new URLSearchParams({ preview: "1", tenant }).toString()}`;
   // Mantém o último estado dos props acessível de dentro do send() estável, sem
   // ler ref durante o render (atualizado por um effect logo abaixo).
   const stateRef = useRef(props);
@@ -88,7 +94,7 @@ export function MenuPreviewFrame(props: Props) {
           <div className="w-[320px] max-w-full overflow-hidden rounded-[2rem] border-8 border-gray-900 bg-gray-900 shadow-xl">
             <iframe
               ref={iframeRef}
-              src="/cardapio?preview=1"
+              src={previewSrc}
               title="Preview do cardápio"
               onLoad={() => send(false)}
               className="h-[560px] w-full bg-white"
