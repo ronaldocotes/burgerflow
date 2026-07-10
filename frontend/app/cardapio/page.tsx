@@ -2,8 +2,8 @@
 
 import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { API_BASE, api, TOKEN_KEY } from "@/lib/api";
-import { Category, Page, Product, formatBRL } from "@/types/menu";
+import { API_BASE } from "@/lib/api";
+import { Category, Product, formatBRL } from "@/types/menu";
 import type { PublicTheme, PublicEntryPopup, PreviewMessage } from "@/types/personalization";
 import { DEFAULT_PRIMARY, computeContrast } from "@/lib/contrast";
 import LoadingSpinner from "@/components/loading-spinner";
@@ -17,8 +17,18 @@ import { EntryPopupModal } from "@/components/cardapio/EntryPopupModal";
 import { RestaurantHero } from "@/components/cardapio/RestaurantHero";
 
 const PUBLIC_TENANT = process.env.NEXT_PUBLIC_TENANT_SLUG ?? "demo";
-const CART_KEY = "mf_cart";
-const POPUP_SEEN_KEY = "mf_popup_seen";
+// Chaves de sessionStorage por tenant: sem o sufixo, o carrinho/pop-up vazariam
+// entre cardápios de tenants diferentes abertos no mesmo navegador.
+const CART_KEY_PREFIX = "mf_cart";
+const POPUP_SEEN_KEY_PREFIX = "mf_popup_seen";
+
+function cartKey(tenant: string): string {
+  return `${CART_KEY_PREFIX}:${tenant}`;
+}
+
+function popupSeenKey(tenant: string): string {
+  return `${POPUP_SEEN_KEY_PREFIX}:${tenant}`;
+}
 
 // Tema/pop-up default quando a API não devolve (ex.: caminho autenticado do admin).
 const DEFAULT_THEME: PublicTheme = {
@@ -30,9 +40,9 @@ const DEFAULT_THEME: PublicTheme = {
 };
 const DEFAULT_ENTRY_POPUP: PublicEntryPopup = { enabled: false, title: null, products: [] };
 
-function loadCart(): CartLine[] {
+function loadCart(key: string): CartLine[] {
   try {
-    const raw = sessionStorage.getItem(CART_KEY);
+    const raw = sessionStorage.getItem(key);
     if (!raw) return [];
     return JSON.parse(raw) as CartLine[];
   } catch {
@@ -40,9 +50,9 @@ function loadCart(): CartLine[] {
   }
 }
 
-function saveCart(cart: CartLine[]): void {
+function saveCart(key: string, cart: CartLine[]): void {
   try {
-    sessionStorage.setItem(CART_KEY, JSON.stringify(cart));
+    sessionStorage.setItem(key, JSON.stringify(cart));
   } catch {
     // sessionStorage pode estar bloqueado em modo privado
   }
@@ -183,35 +193,28 @@ function CardapioContent() {
     setLoading(true);
     setError(null);
     try {
-      const token =
-        typeof window !== "undefined"
-          ? window.localStorage.getItem(TOKEN_KEY)
-          : null;
-
-      if (token) {
-        const [cats, prods] = await Promise.all([
-          api.get<Page<Category>>("/categories?size=100"),
-          api.get<Page<Product>>("/products?size=200"),
-        ]);
-        setCategories(cats.content);
-        setProducts(prods.content);
-        setPixKey(null);
-        // Caminho autenticado (admin/preview): tema/pop-up vêm por postMessage (preview)
-        // ou ficam no default — o cardápio público real usa o caminho abaixo.
-        setTheme(DEFAULT_THEME);
-        setEntryPopup(DEFAULT_ENTRY_POPUP);
-      } else {
-        const res = await fetch(`${API_BASE}/public/${tenant}/menu`);
-        if (!res.ok) throw new Error("Cardápio indisponível no momento.");
-        const data = (await res.json()) as PublicMenuResponse;
-        setCategories(data.categories);
-        setProducts(data.products);
-        setPixKey(data.pixKey ?? null);
-        setRestaurantInfo(data.restaurantInfo ?? EMPTY_RESTAURANT_INFO);
-        setBestsellerIds(data.bestsellerIds ?? []);
-        setTheme(data.theme ?? DEFAULT_THEME);
-        setEntryPopup(data.entryPopup ?? DEFAULT_ENTRY_POPUP);
+      // SEMPRE o endpoint público: mesmo com um token de admin velho no navegador,
+      // a vitrine não pode chamar /categories + /products (protegidos) e quebrar
+      // com 401. O preview do admin passa o tenant logado via ?tenant= (o iframe
+      // em MenuPreviewFrame), então este caminho também serve o preview.
+      const res = await fetch(`${API_BASE}/public/${tenant}/menu`);
+      if (!res.ok) {
+        // 404: slug inexistente ou cardápio desativado (mensagem definitiva).
+        // Demais (5xx/rede): transitório, convida a tentar de novo.
+        throw new Error(
+          res.status === 404
+            ? "Restaurante não encontrado ou cardápio desativado."
+            : "Cardápio indisponível no momento, tente de novo.",
+        );
       }
+      const data = (await res.json()) as PublicMenuResponse;
+      setCategories(data.categories);
+      setProducts(data.products);
+      setPixKey(data.pixKey ?? null);
+      setRestaurantInfo(data.restaurantInfo ?? EMPTY_RESTAURANT_INFO);
+      setBestsellerIds(data.bestsellerIds ?? []);
+      setTheme(data.theme ?? DEFAULT_THEME);
+      setEntryPopup(data.entryPopup ?? DEFAULT_ENTRY_POPUP);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar o cardápio.");
     } finally {
@@ -364,18 +367,18 @@ function CardapioView({
       setCartHydrated(true);
       return;
     }
-    const saved = loadCart();
+    const saved = loadCart(cartKey(tenantSlug));
     saved.forEach((item) => {
       dispatch({ type: "ADD_LINE", product: item.product, quantity: item.quantity, notes: item.notes });
     });
     queueMicrotask(() => {
       setCartHydrated(true);
     });
-  }, [cartHydrated, previewMode]);
+  }, [cartHydrated, previewMode, tenantSlug]);
 
   useEffect(() => {
-    if (cartHydrated && !previewMode) saveCart(cart);
-  }, [cart, cartHydrated, previewMode]);
+    if (cartHydrated && !previewMode) saveCart(cartKey(tenantSlug), cart);
+  }, [cart, cartHydrated, previewMode, tenantSlug]);
 
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
@@ -389,12 +392,12 @@ function CardapioView({
     if (!entryPopup.enabled || entryPopup.products.length === 0) return;
     let seen = false;
     try {
-      seen = sessionStorage.getItem(POPUP_SEEN_KEY) === "1";
+      seen = sessionStorage.getItem(popupSeenKey(tenantSlug)) === "1";
     } catch {
       seen = false;
     }
     if (!seen) setShowEntryPopup(true);
-  }, [previewMode, entryPopup]);
+  }, [previewMode, entryPopup, tenantSlug]);
 
   function dismissEntryPopup() {
     if (previewMode) {
@@ -403,7 +406,7 @@ function CardapioView({
     }
     setShowEntryPopup(false);
     try {
-      sessionStorage.setItem(POPUP_SEEN_KEY, "1");
+      sessionStorage.setItem(popupSeenKey(tenantSlug), "1");
     } catch {
       // ignore
     }
