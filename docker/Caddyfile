@@ -20,6 +20,22 @@
 	# Caddy's reverse_proxy transparently upgrades Connection/Upgrade headers, so
 	# the /api/v1/* proxy below already covers the WebSocket — no extra matcher.
 
+	# D5 (superadmin-plataforma.md, decisao do dono): /plataforma e
+	# /api/v1/admin/* só acessíveis via Tailscale (tailnet sdcotes@gmail.com,
+	# A1 já é 100.95.28.100). Fora da faixa CGNAT 100.64.0.0/10 usada pelo
+	# Tailscale -> 404 (anti-enumeração, mesmo padrão do actuator abaixo).
+	# ATENÇÃO: só funciona se o acesso for pelo hostname/IP Tailscale da A1
+	# (ex. https://100.95.28.100 com o Host correto, ou MagicDNS oracle-a1) —
+	# pelo domínio público o tráfego não passa pela interface Tailscale e o
+	# remote_ip visto pelo Caddy não cai em 100.64.0.0/10. NÃO aplicar na A1
+	# real sem o dono presente (risco de lockout do próprio painel admin —
+	# mesmo cuidado usado no hardening do SSH, ver a1-hardening-seguranca).
+	@admin_not_tailnet {
+		path /plataforma* /api/v1/admin/*
+		not remote_ip 100.64.0.0/10
+	}
+	respond @admin_not_tailnet 404
+
 	# Public smoke needs health only; never expose the rest of actuator.
 	reverse_proxy /api/v1/actuator/health backend:8080
 	respond /api/v1/actuator/* 404
