@@ -84,5 +84,14 @@ enum class AdProvider { META }
 /** Tipo do token guardado. So SYSTEM_USER no MVP (OAuth fica para fase madura). */
 enum class AdTokenType { SYSTEM_USER, OAUTH }
 
-/** Estado da conexao da conta. */
-enum class AdAccountStatus { CONNECTED, ERROR, DISCONNECTED }
+/**
+ * Estado da conexao da conta.
+ *  - CONNECTED: token valido, coletando metricas normalmente.
+ *  - EXPIRED: a Meta recusou o token (code 190) na coleta de metricas (Fase 8.1); o
+ *    restaurante precisa reconectar. O job marca EXPIRED e segue com as demais contas.
+ *  - ERROR/DISCONNECTED: reservados (erro generico / desconexao manual).
+ *
+ * A coluna status e VARCHAR(20) sem CHECK (V58), entao acrescentar EXPIRED nao exige
+ * migration.
+ */
+enum class AdAccountStatus { CONNECTED, EXPIRED, ERROR, DISCONNECTED }
