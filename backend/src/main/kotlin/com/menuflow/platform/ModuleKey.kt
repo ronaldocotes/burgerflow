@@ -20,7 +20,13 @@ enum class ModuleKey(val label: String, val paidPlans: Set<SubscriptionPlan>) {
     WHATSAPP_BOT("Bot WhatsApp", setOf(SubscriptionPlan.PRO, SubscriptionPlan.ENTERPRISE)),
     DELIVERY("Modulo Entrega", setOf(SubscriptionPlan.PRO, SubscriptionPlan.ENTERPRISE)),
     GROWTH("Growth Center", setOf(SubscriptionPlan.PRO, SubscriptionPlan.ENTERPRISE)),
-    LOYALTY("Fidelidade", setOf(SubscriptionPlan.PRO, SubscriptionPlan.ENTERPRISE));
+    LOYALTY("Fidelidade", setOf(SubscriptionPlan.PRO, SubscriptionPlan.ENTERPRISE)),
+
+    // Fase 8.0 — Central de Trafego Pago (Meta Ads). Modulo pago (PRO/ENTERPRISE),
+    // OFF por default no BASIC. O teto de verba por tenant (max_daily_budget_cents)
+    // mora em tenant_module.limits_json quando a Fase 8.2 (criar/pausar campanha)
+    // chegar — sem coluna dedicada agora, pois nada gasta verba na fase read-only.
+    ADS("Trafego Pago", setOf(SubscriptionPlan.PRO, SubscriptionPlan.ENTERPRISE));
 
     /** Default do modulo para um plano: habilitado se o plano paga por ele. */
     fun defaultEnabledFor(plan: SubscriptionPlan): Boolean = plan in paidPlans

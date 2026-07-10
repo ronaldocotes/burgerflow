@@ -1,12 +1,11 @@
 package com.menuflow.platform
 
+import com.menuflow.exception.ForbiddenException
 import com.menuflow.security.SecurityUtils
 import org.aspectj.lang.JoinPoint
 import org.aspectj.lang.annotation.Aspect
 import org.aspectj.lang.annotation.Before
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
-import org.springframework.web.server.ResponseStatusException
 
 /**
  * Aspecto que intercepta métodos anotados com @RequiresModule e verifica, via
@@ -45,8 +44,13 @@ class ModuleGateAspect(
         val principal = SecurityUtils.currentPrincipalOrThrow()
         val enabled = moduleGateService.isEnabled(principal.tenantUuid, requiresModule.value)
         if (!enabled) {
-            throw ResponseStatusException(
-                HttpStatus.FORBIDDEN,
+            // ForbiddenException (nao ResponseStatusException): o catch-all
+            // @ExceptionHandler(Exception) do GlobalExceptionHandler intercepta
+            // ResponseStatusException ANTES do ResponseStatusExceptionResolver e a
+            // transformaria em 500. ForbiddenException tem handler proprio -> 403 com
+            // a mensagem chegando ao cliente. (Bug latente: este aspecto nunca tinha
+            // usuario real ate o modulo ADS; o gate sempre 500aria em vez de 403.)
+            throw ForbiddenException(
                 "Módulo '${requiresModule.value.label}' não está habilitado para este tenant",
             )
         }

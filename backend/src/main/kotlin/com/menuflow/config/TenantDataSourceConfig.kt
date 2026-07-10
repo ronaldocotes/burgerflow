@@ -1,5 +1,6 @@
 package com.menuflow.config
 
+import com.menuflow.model.AdAccount
 import com.menuflow.model.AiConversation
 import com.menuflow.model.AuditLog
 import com.menuflow.model.BotHandoff
@@ -123,6 +124,7 @@ class TenantDataSourceConfig {
                 CancellationReason::class.java,
                 MenuLink::class.java,
                 EntryPopupProduct::class.java,
+                AdAccount::class.java,
             )
             .persistenceUnit("tenant")
             .properties(
