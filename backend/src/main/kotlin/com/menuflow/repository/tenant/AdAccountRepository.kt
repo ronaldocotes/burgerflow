@@ -1,6 +1,7 @@
 package com.menuflow.repository.tenant
 
 import com.menuflow.model.AdAccount
+import com.menuflow.model.AdAccountStatus
 import com.menuflow.model.AdProvider
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
@@ -17,4 +18,7 @@ interface AdAccountRepository : JpaRepository<AdAccount, UUID> {
     fun findAllByOrderByCreatedAtAsc(): List<AdAccount>
 
     fun findByProviderAndExternalAccountId(provider: AdProvider, externalAccountId: String): AdAccount?
+
+    /** Contas num dado estado — usado pelo job de metricas para coletar so as CONNECTED. */
+    fun findAllByStatus(status: AdAccountStatus): List<AdAccount>
 }

@@ -51,6 +51,11 @@ menuflow:
   # nem disparar campanhas contra o Postgres compartilhado da suite).
   campaign-scheduler:
     enabled: false
+  # Coleta de metricas de anuncio (Fase 8.1) desligada nos testes: o @Scheduled nao deve
+  # varrer tenants nem fazer HTTP real para a Meta contra o Postgres compartilhado da suite.
+  ads:
+    metrics:
+      enabled: false
 
 # Cifracao de tokens iFood: chave de TESTE valida (32 bytes / 256 bits em Base64).
 # Decodifica para 'testkeytestkeytestkeytestkey1234' (exatamente 32 bytes).

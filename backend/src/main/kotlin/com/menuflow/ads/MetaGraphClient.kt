@@ -11,7 +11,10 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.charset.StandardCharsets
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.Duration
+import java.time.LocalDate
 
 /**
  * Cliente minimo da Meta Graph API para a Fase 8.0 (read-only). So conhece um
@@ -91,6 +94,109 @@ class MetaGraphClient(
             )
         }
     }
+
+    /**
+     * Insights DIARIOS a nivel de CONTA (Fase 8.1). Chama
+     * GET /act_{id}/insights?level=account&time_increment=1&time_range={since,until}
+     * e devolve UMA linha por dia do intervalo (por causa de time_increment=1). Agrega
+     * TODAS as campanhas da conta — inclusive as que o restaurante ja roda direto no Meta
+     * Ads Manager (o valor desta fase, antes de existir campanha propria).
+     *
+     * Tratamento de erro (mesmo espirito do fetchAdAccounts):
+     *  - code 190 -> [MetaTokenInvalidException] (o service marca a conta EXPIRED);
+     *  - rate-limit (code 613, subcode 80004, ou HTTP 429) -> [MetaRateLimitException]
+     *    (o job so PULA aquela conta neste tick, sem derrubar a varredura);
+     *  - rede/timeout/5xx/erro Graph -> [MetaGraphException].
+     *
+     * Conta sem gasto no periodo devolve data:[] -> lista vazia (zero, nao erro).
+     *
+     * Dinheiro: spend/cpc vem como string decimal na moeda da conta -> convertidos para
+     * centavos com BigDecimal (HALF_UP), NUNCA float. ctr vem como string percentual ->
+     * guardado como ctr_milli (CTR% * 1000, ex.: "1.5" -> 1500).
+     */
+    fun fetchAccountInsights(
+        accessToken: String,
+        externalAccountId: String,
+        since: LocalDate,
+        until: LocalDate,
+    ): List<MetaInsightDto> {
+        val fields = URLEncoder.encode("spend,impressions,reach,clicks,ctr,cpc", StandardCharsets.UTF_8)
+        // externalAccountId e guardado SEM o prefixo (AdAccount.kt / V58); a Graph API
+        // exige "act_" no path do node.
+        val actId = if (externalAccountId.startsWith("act_")) externalAccountId else "act_$externalAccountId"
+        val timeRangeJson = """{"since":"$since","until":"$until"}"""
+        val timeRange = URLEncoder.encode(timeRangeJson, StandardCharsets.UTF_8)
+        val url = "$baseUrl/$apiVersion/$actId/insights" +
+            "?level=account&time_increment=1&fields=$fields&time_range=$timeRange"
+
+        val response = try {
+            val req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", "Bearer $accessToken")
+                .timeout(Duration.ofSeconds(10))
+                .GET()
+                .build()
+            http.send(req, HttpResponse.BodyHandlers.ofString())
+        } catch (e: Exception) {
+            log.warn("[meta-graph] falha de rede ao chamar /insights: {}", e.message)
+            throw MetaGraphException("Nao foi possivel contatar a Meta: ${e.message}")
+        }
+
+        val root: JsonNode = try {
+            objectMapper.readTree(response.body())
+        } catch (e: Exception) {
+            throw MetaGraphException("Resposta invalida da Meta (HTTP ${response.statusCode()})")
+        }
+
+        if (response.statusCode() !in 200..299) {
+            val error = root.get("error")
+            val code = error?.get("code")?.asInt()
+            val subcode = error?.get("error_subcode")?.asInt()
+            val message = error?.get("message")?.asText() ?: "HTTP ${response.statusCode()}"
+            if (code == 190) throw MetaTokenInvalidException(message)
+            // Rate-limit / Business Use Case throttling: nao e erro do usuario, e transitorio.
+            // Pular so esta conta neste tick (o job trata) evita estourar a varredura.
+            if (code == 613 || subcode == 80004 || response.statusCode() == 429) {
+                log.warn("[meta-graph] rate-limit em /insights code={} subcode={}", code, subcode)
+                throw MetaRateLimitException("Meta limitou a taxa de chamadas: $message")
+            }
+            log.warn("[meta-graph] erro Graph /insights code={} status={}", code, response.statusCode())
+            throw MetaGraphException("A Meta recusou a requisicao: $message")
+        }
+
+        val data = root.get("data") ?: return emptyList()
+        return data.mapNotNull { node ->
+            val date = node.get("date_start")?.asText()?.takeIf { it.isNotBlank() }
+                ?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return@mapNotNull null
+            MetaInsightDto(
+                date = date,
+                spendCents = toCents(node.get("spend")?.asText()),
+                impressions = toLong(node.get("impressions")?.asText()),
+                reach = toLong(node.get("reach")?.asText()),
+                clicks = toLong(node.get("clicks")?.asText()),
+                ctrMilli = toMilli(node.get("ctr")?.asText()),
+                cpcCents = toCents(node.get("cpc")?.asText()),
+            )
+        }
+    }
+
+    /** "12.34" -> 1234 centavos (HALF_UP). null/vazio/malformado -> 0. Nunca float. */
+    private fun toCents(raw: String?): Long =
+        raw?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { BigDecimal(it).movePointRight(2).setScale(0, RoundingMode.HALF_UP).toLong() }.getOrNull() }
+            ?: 0L
+
+    /** "1.5" (CTR%) -> 1500 (CTR% * 1000, HALF_UP). null/vazio/malformado -> 0. */
+    private fun toMilli(raw: String?): Int =
+        raw?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { BigDecimal(it).movePointRight(3).setScale(0, RoundingMode.HALF_UP).toInt() }.getOrNull() }
+            ?: 0
+
+    /** Inteiros (impressions/reach/clicks) que a Meta manda como string. Malformado -> 0. */
+    private fun toLong(raw: String?): Long =
+        raw?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { BigDecimal(it).setScale(0, RoundingMode.HALF_UP).toLong() }.getOrNull() }
+            ?: 0L
 }
 
 /** Conta de anuncio como a Meta a devolve (subset dos campos pedidos). */
@@ -99,4 +205,18 @@ data class MetaAdAccountDto(
     val name: String?,
     val currency: String?,
     val timezoneName: String?,
+)
+
+/**
+ * Uma linha diaria de insights (nivel conta) ja normalizada: dinheiro em centavos na
+ * moeda da conta, CTR em milesimos de ponto percentual. Sem float.
+ */
+data class MetaInsightDto(
+    val date: LocalDate,
+    val spendCents: Long,
+    val impressions: Long,
+    val reach: Long,
+    val clicks: Long,
+    val ctrMilli: Int,
+    val cpcCents: Long,
 )
