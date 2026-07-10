@@ -280,3 +280,7 @@ Antes de mexer em backend, adicionar no frontend:
 - Painel de detalhe: pedidos **DELIVERY** ganham seção **Entrega** (status de despacho + motoboy atribuído + destinatário/bairro) via `GET /delivery/orders/active` mapeado por `orderId`; **403** de STAFF/CASHIER tratado como enriquecimento indisponível (sem quebrar a tela).
 - Frontend puro, sem backend novo. **Pendente:** validação visual no browser; atribuição inline de motoboy (fica na /delivery por decisão de escopo — RBAC OPERATOR/ADMIN + auto-assign já vivem lá).
 - Resta a **Fase 5** (histórico/auditoria) para fechar o roadmap de /pedidos.
+
+### Progresso 2026-07-10 — Fase 5 (histórico/auditoria) — ROADMAP /pedidos COMPLETO
+- ✅ **Fase 5 entregue** em `main`. Backend já estava pronto (`GET /audit-log?entity=order&entityId={id}`, ADMIN/MANAGER) — Fase 5 = frontend puro: a **Timeline** do detalhe ganhou a trilha real (quem/o quê/quando: `order.status_change` before→after, `order.cancel` + motivo, `order.discount`). Refaz o fetch ao avançar/cancelar (dep no objeto do pedido). 403 de STAFF/CASHIER gracioso.
+- 🏁 **`/pedidos` fechado: Fases 1→5 todas concluídas** (consulta/detalhe · ações+lote+impressão · Novo Pedido Manual · delivery/roteirização · histórico/auditoria).
