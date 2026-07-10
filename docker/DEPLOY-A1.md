@@ -32,6 +32,11 @@ Os arquivos `docker/docker-compose.prod.yml` e `docker/Caddyfile` ficam como ref
 2. `cp env.prod.template .env.prod` e preencher com `openssl rand`:
    - `MF_JWT_SECRET` = `openssl rand -base64 48`
    - `MF_DB_PASSWORD` / `SPRING_REDIS_PASSWORD` = `openssl rand -base64 24`
+   - `IFOOD_ENCRYPTION_KEY` = `openssl rand -base64 32` — cifra iFood + segredo TOTP
+     do 2FA (reusa o mesmo cifrador, migration V15). Sem prod fallback fail-fast:
+     a app sobe com placeholder se faltar, mas qualquer cifra feita com ele fica
+     ilegível quando a chave real for definida depois. Definir ANTES do primeiro
+     deploy que envolva iFood/2FA e nunca rotacionar com segredos já persistidos.
 3. Confirmar que a rede externa do Caddy existe:
    ```bash
    docker network inspect web
