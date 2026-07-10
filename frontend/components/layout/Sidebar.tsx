@@ -58,7 +58,10 @@ interface NavGroup {
   items: NavItem[]
 }
 
-const NAV_GROUPS: NavGroup[] = [
+// Exportado para reuso fora da Sidebar (ex.: atalhos gated por papel no
+// dashboard, Fase 3 "Operação agora") — fonte única da matriz de papéis por
+// rota; não duplicar esta lista em outro lugar.
+export const NAV_GROUPS: NavGroup[] = [
   {
     group: 'PLATAFORMA',
     items: [
@@ -119,6 +122,15 @@ function getUserRoleFromToken(): string | null {
   }
 }
 
+// Mesma regra de visibilidade usada no filtro de NavContent abaixo — exportada
+// para quem precisa decidir "esse papel vê essa rota?" fora da Sidebar (ex.:
+// atalhos do dashboard) sem duplicar a lógica de SUPER_ADMIN/roles opcionais.
+export function isRouteVisibleForRole(roles: string[] | undefined, userRole: string | null): boolean {
+  return userRole === 'SUPER_ADMIN'
+    ? roles?.includes('SUPER_ADMIN') ?? false
+    : !roles || (userRole !== null && roles.includes(userRole))
+}
+
 const SIDEBAR_KEY = 'mf_sidebar'
 
 // ── Badge de marca (fallback quando não há logo da empresa) ──────────────────
@@ -151,12 +163,8 @@ function NavContent({
   return (
     <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Menu principal">
       {NAV_GROUPS.map(({ group, items }) => {
-        const visibleItems = items.filter(({ roles }) =>
-          // SUPER_ADMIN só vê itens da plataforma (não opera PDV/KDS do tenant)
-          userRole === 'SUPER_ADMIN'
-            ? roles?.includes('SUPER_ADMIN') ?? false
-            : !roles || (userRole !== null && roles.includes(userRole)),
-        )
+        // SUPER_ADMIN só vê itens da plataforma (não opera PDV/KDS do tenant)
+        const visibleItems = items.filter(({ roles }) => isRouteVisibleForRole(roles, userRole))
         if (visibleItems.length === 0) return null
         return (
           <div key={group} className="mb-3">

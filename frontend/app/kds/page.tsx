@@ -6,6 +6,7 @@ import { api, ApiError } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import { useModalA11y } from "@/lib/use-modal-a11y";
 import { useKdsFeed } from "@/lib/use-kds-feed";
+import { agingBarClass, elapsedLabel, isLate } from "@/lib/kds-aging";
 import { ExternalOrigin, FeedStatus, KdsOrder, OrderStatus } from "@/types/kds";
 import LoadingSpinner from "@/components/loading-spinner";
 
@@ -39,29 +40,8 @@ const ORDER_TYPE_LABEL: Record<string, string> = {
 // Aging: verde → âmbar → vermelho baseado em estimatedPrepTimeMinutes.
 // Padrão kohli.design: barra colorida no topo do card (mais legível em cozinha com luz forte)
 // que fundo colorido no card inteiro. Verde→âmbar→vermelho pelo tempo decorrido.
-function agingBarClass(order: KdsOrder, now: number): string {
-  const elapsed =
-    (now - new Date(order.createdAt).getTime()) / 60_000; // minutos
-  const limit = order.estimatedPrepTimeMinutes ?? 15;
-  if (elapsed >= limit) return "bg-error";
-  if (elapsed >= limit * 0.75) return "bg-warning";
-  return "bg-success";
-}
-
-function isOverdue(order: KdsOrder, now: number): boolean {
-  const elapsed = (now - new Date(order.createdAt).getTime()) / 60_000;
-  const limit = order.estimatedPrepTimeMinutes ?? 15;
-  return elapsed >= limit;
-}
-
-function elapsedLabel(order: KdsOrder, now: number): string {
-  const secs = Math.floor(
-    (now - new Date(order.createdAt).getTime()) / 1000,
-  );
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
+// Regra extraída para frontend/lib/kds-aging.ts (reuso pelo dashboard, Fase 3) —
+// agingBarClass/elapsedLabel importados acima; isLate substitui o antigo isOverdue local.
 
 // ── Badge de canal de origem ──────────────────────────────────────────────────
 // OWN não renderiza nada (padrão interno).
@@ -241,7 +221,7 @@ function OrderCard({ order, now, onAdvance, onCancel }: OrderCardProps) {
         <div className="flex flex-col items-end gap-1">
           <span
             className={`font-mono text-sm font-semibold transition-colors ${
-              isOverdue(order, now)
+              isLate(order, now)
                 ? "text-error text-base font-bold"
                 : "text-text-secondary"
             }`}
