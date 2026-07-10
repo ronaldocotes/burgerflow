@@ -29,10 +29,15 @@ abstract class IntegrationTestBase {
                 .withDatabaseName("menuflow_control")
                 .withUsername("menuflow")
                 .withPassword("menuflow123")
-                // A suíte provisiona muitos tenants (1 pool por tenant) no MESMO Postgres;
-                // o default max_connections=100 estoura ("too many clients"). 500 dá folga
-                // permanente conforme a suíte cresce (junto com pool-size-per-tenant=2).
-                .withCommand("postgres", "-c", "max_connections=500")
+                // A suíte provisiona muitos tenants (1 pool por tenant) no MESMO Postgres, e
+                // DynamicTenantRoutingDataSource nunca fecha um pool sozinho (evictPool só é
+                // chamado explicitamente por quem desprovisiona um tenant) — os pools de todas
+                // as ~52 classes de teste acumulam na MESMA JVM/container. 500 já não bastava:
+                // com a suite completa (52 classes, issue #33) o Postgres recusava "FATAL: sorry,
+                // too many clients already" nas classes que rodam por último (ex.: PlatformF3-
+                // SecurityTest), mesmo cada uma passando isolada. 2000 dá folga generosa para o
+                // crescimento da suite; ajuste pool-size-per-tenant antes de subir isto de novo.
+                .withCommand("postgres", "-c", "max_connections=2000")
                 .also { it.start() }
 
         @JvmStatic
