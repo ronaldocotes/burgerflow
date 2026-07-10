@@ -39,6 +39,13 @@ const CAN_CREATE_ORDER_ROLES = new Set(["ADMIN", "MANAGER", "STAFF", "CASHIER"])
 // parte porque os dois gates protegem coisas diferentes e podem divergir.
 const CAN_ACCESS_DELIVERY_ROLES = new Set(["ADMIN", "MANAGER", "STAFF", "CASHIER"]);
 
+// RBAC da trilha de auditoria (Timeline enriquecida): GET /audit-log é
+// ADMIN/MANAGER no backend (ver AuditLogController.kt:24-30) — mais estreito
+// que /pedidos (ADMIN/MANAGER/STAFF/CASHIER). Mesmo padrão de
+// CAN_ACCESS_DELIVERY_ROLES: só chamamos quando o papel permite, e mesmo
+// assim silenciamos qualquer erro (403 ou outro) sem quebrar a tela.
+const CAN_VIEW_AUDIT_ROLES = new Set(["ADMIN", "MANAGER"]);
+
 type OrderStatus = "PENDING" | "PREPARING" | "READY" | "DELIVERED" | "CANCELLED";
 type OrderType = "DINE_IN" | "TAKEAWAY" | "DELIVERY";
 type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "REFUNDED" | "PARTIALLY_REFUNDED";
@@ -126,6 +133,28 @@ interface DeliveryOrderInfo {
   deliveryNeighborhood: string | null;
 }
 
+// Enriquecimento opcional da Timeline com a trilha de auditoria real. Espelha
+// AuditLogResponse do backend — ver
+// backend/src/main/kotlin/com/menuflow/dto/AuditLogDtos.kt:11-21. O DTO NÃO
+// traz nome do usuário (só actorUserId+actorRole) — a UI mostra o papel
+// ("por ADMIN"), nunca inventa um nome.
+interface AuditLogEntry {
+  id: string;
+  actorUserId: string;
+  actorRole: string | null;
+  action: string;
+  entity: string;
+  entityId: string | null;
+  beforeJson: string | null;
+  afterJson: string | null;
+  reason: string | null;
+  createdAt: string;
+}
+
+interface AuditLogPage {
+  content: AuditLogEntry[];
+}
+
 // Rótulos em pt-BR do status de despacho — espelha STATUS_LABEL de
 // app/delivery/page.tsx (as duas telas não compartilham hoje um módulo de
 // tipos de delivery; duplicado deliberadamente para não acoplar as páginas).
@@ -172,6 +201,49 @@ const STATUS_META: Record<OrderStatus, { label: string; dot: string; tone: strin
     tone: "bg-red-50 text-red-700",
   },
 };
+
+// Rótulos pt-BR das ações de auditoria que um pedido gera (order.status_change
+// / order.cancel / order.discount — ver AuditLogController.kt e os pontos de
+// chamada de AuditLogService no OrderService). Ação não mapeada cai no rótulo
+// cru (nunca quebra a lista por causa de uma ação nova no backend).
+const AUDIT_ACTION_LABEL: Record<string, string> = {
+  "order.status_change": "Mudança de status",
+  "order.cancel": "Pedido cancelado",
+  "order.discount": "Desconto aplicado",
+};
+
+/** Extrai o campo `status` de um before/afterJson (string crua, pode ser null
+ * ou não ter `status`) — nunca lança, sempre com try/catch. */
+function parseJsonStatus(raw: string | null): string | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return typeof parsed.status === "string" ? parsed.status : null;
+  } catch {
+    return null;
+  }
+}
+
+function statusLabel(status: string | null): string {
+  if (!status) return "—";
+  return STATUS_META[status as OrderStatus]?.label ?? status;
+}
+
+/** Descrição pt-BR de uma entrada da trilha de auditoria do pedido. */
+function auditEntryText(entry: AuditLogEntry): string {
+  if (entry.action === "order.status_change") {
+    const before = statusLabel(parseJsonStatus(entry.beforeJson));
+    const after = statusLabel(parseJsonStatus(entry.afterJson));
+    return `Status: ${before} → ${after}`;
+  }
+  if (entry.action === "order.cancel") {
+    return entry.reason ? `Cancelado — ${entry.reason}` : "Cancelado";
+  }
+  if (entry.action === "order.discount") {
+    return entry.reason ? `Desconto aplicado — ${entry.reason}` : "Desconto aplicado";
+  }
+  return AUDIT_ACTION_LABEL[entry.action] ?? entry.action;
+}
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "ALL", label: "Todos" },
@@ -541,12 +613,18 @@ function DetailPanel({
   onCancel,
   busy,
   deliveryInfo,
+  canViewAudit,
+  auditTrail,
+  auditLoading,
 }: {
   order: OrderResponse | null;
   onAdvance: (order: OrderResponse) => void;
   onCancel: (order: OrderResponse) => void;
   busy: boolean;
   deliveryInfo?: DeliveryOrderInfo | null;
+  canViewAudit: boolean;
+  auditTrail: AuditLogEntry[];
+  auditLoading: boolean;
 }) {
   if (!order) {
     return (
@@ -713,6 +791,41 @@ function DetailPanel({
               </div>
             )}
           </div>
+
+          {/* Trilha de auditoria (enriquecimento): GET /audit-log é ADMIN/MANAGER
+              no backend, mais estreito que /pedidos — para STAFF/CASHIER a
+              Timeline básica acima nunca some, só ganha um aviso neutro. */}
+          {canViewAudit ? (
+            <div className="mt-4 border-t border-border-light pt-3">
+              <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                <FileClock className="h-3.5 w-3.5" aria-hidden="true" />
+                Histórico de auditoria
+              </h4>
+              {auditLoading ? (
+                <p className="mt-2 text-sm text-text-muted">Carregando histórico...</p>
+              ) : auditTrail.length === 0 ? (
+                <p className="mt-2 text-sm text-text-muted">Nenhum evento de auditoria registrado.</p>
+              ) : (
+                <ul className="mt-2 grid gap-2">
+                  {auditTrail.map((entry) => (
+                    <li key={entry.id} className="flex items-start gap-2 text-sm text-text-secondary">
+                      <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-secondary-500" aria-hidden="true" />
+                      <div>
+                        <p className="font-medium text-text-primary">{auditEntryText(entry)}</p>
+                        <p className="text-xs text-text-muted">
+                          {formatDateTime(entry.createdAt)} · por {entry.actorRole ?? "sistema"}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : (
+            <p className="mt-4 border-t border-border-light pt-3 text-xs text-text-muted">
+              Trilha de auditoria: apenas ADMIN/MANAGER.
+            </p>
+          )}
         </section>
 
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
@@ -884,6 +997,7 @@ export default function PedidosPage() {
   }, []);
   const canCreateOrder = userRole !== null && CAN_CREATE_ORDER_ROLES.has(userRole);
   const canAccessDelivery = userRole !== null && CAN_ACCESS_DELIVERY_ROLES.has(userRole);
+  const canViewAudit = userRole !== null && CAN_VIEW_AUDIT_ROLES.has(userRole);
 
   // Enriquecimento opcional dos pedidos DELIVERY com o status de despacho.
   // GET /delivery/orders/active é RBAC OPERATOR/MANAGER/ADMIN no backend (ver
@@ -1005,6 +1119,38 @@ export default function PedidosPage() {
   }, []);
 
   const selectedOrder = filteredOrders.find((order) => order.id === selectedId) ?? filteredOrders[0] ?? null;
+
+  // Trilha de auditoria do pedido selecionado (Timeline enriquecida, Fase 5).
+  // Busca ao trocar de pedido OU quando o pedido selecionado muda de conteúdo
+  // (ex.: avançar/cancelar status cria um novo AuditLog no servidor —
+  // `selectedOrder` vira uma referência nova nesse caso, refazendo a busca).
+  // Só dispara quando o papel permite (evita 403 desnecessário para
+  // STAFF/CASHIER); mesmo assim, qualquer erro é silenciado — a trilha é
+  // acessória, os marcadores básicos da Timeline nunca dependem dela.
+  const [auditTrail, setAuditTrail] = useState<AuditLogEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  useEffect(() => {
+    if (!selectedOrder || !canViewAudit) {
+      setAuditTrail([]);
+      return;
+    }
+    let active = true;
+    setAuditLoading(true);
+    void api
+      .get<AuditLogPage>(`/audit-log?entity=order&entityId=${selectedOrder.id}&size=50`)
+      .then((page) => {
+        if (active) setAuditTrail(page.content);
+      })
+      .catch(() => {
+        if (active) setAuditTrail([]);
+      })
+      .finally(() => {
+        if (active) setAuditLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedOrder, canViewAudit]);
 
   const counts = useMemo(() => {
     const base: Record<OrderStatus, number> = {
@@ -1270,6 +1416,9 @@ export default function PedidosPage() {
                 onCancel={setCancelTarget}
                 busy={busy || batchBusy}
                 deliveryInfo={selectedOrder ? deliveryInfoById.get(selectedOrder.id) : undefined}
+                canViewAudit={canViewAudit}
+                auditTrail={auditTrail}
+                auditLoading={auditLoading}
               />
             </div>
           </div>
