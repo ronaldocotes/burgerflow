@@ -364,3 +364,9 @@ Tarefas:
 - **Fase 2 (dados reais) JA ESTA ENTREGUE.** As 4 abas (Visao Geral, Pedidos, Clientes, Marketing) renderizam **dados reais**, sem placeholder/TODO/mock. A pagina busca via `Promise.allSettled` de **7 endpoints existentes** — `/dre/summary`, `/cash-sessions/current`, `/tracking/summary`, `/campaigns`, `/cart-sessions`, `/conversions/dispatches`, `/rfv` — com loading/erro/timeout por tile (cada card degrada sozinho).
 - **Decisao de arquitetura divergiu do §6:** NAO foi criado `DashboardController`/`GET /dashboard/overview`. A composicao resiliente no frontend cobriu o caso melhor. O agregador do §6 fica **desnecessario** salvo se performance/N+1 exigir depois.
 - **Genuinamente pendente:** Fase 3 (acoes OPERACIONAIS no dashboard — hoje as abas sao read-only), Fase 6 (IA do dono embutida) e Fase 7 (qualidade/auditoria). O painel de dados em si esta completo.
+
+## 12. Fase 3 (Pedidos e operação) — CONCLUÍDA 2026-07-10
+- ✅ Faixa **"Operação agora"** na aba Visão Geral (merge na main). Plano do **Construtor (Fable 5)**; ~90% frontend, ZERO backend.
+- **Cozinha agora** (fila por status + atrasados + espera do mais antigo, ao vivo via `useKdsFeed`), **Mesas agora** (ocupadas/livres/pedindo conta, via `useTablesFeed`), **atalhos rápidos** (Links gated por papel, matriz exportada da Sidebar) + **cancelados hoje**. Placeholder de `OperationalAlerts` virou alerta real.
+- Regra de atraso extraída p/ `lib/kds-aging.ts` (compartilhada, /kds behavior-preserving). **Sem mutação no dashboard** (agrega e aponta; zero overlap com /pedidos).
+- **Descope honesto:** sem "tempo de preparo" real (`Order` não tem `readyAt`) — rotulado "espera do mais antigo". Endpoint de agregação dispensado (compõe no frontend via hooks ao vivo). **Pendente:** Fases 4/6/7 (clientes/recompra já cobertas em parte pelas abas; IA do dono; qualidade).
