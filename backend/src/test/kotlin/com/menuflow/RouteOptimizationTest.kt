@@ -1,6 +1,7 @@
 package com.menuflow
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.menuflow.dto.AssignDriverRequest
 import com.menuflow.dto.DeliveryAddressRequest
 import com.menuflow.dto.DriverCreateRequest
 import com.menuflow.dto.OrderCreateRequest
@@ -203,6 +204,79 @@ class RouteOptimizationTest @Autowired constructor(
         val forDriver = orderRepository.findActiveOrdersForDriver(driver.id)
             .map { com.menuflow.dto.DeliveryOrderResponse.from(it) }
         assertEquals(setOf(1, 2, 3), forDriver.mapNotNull { it.deliverySequence }.toSet())
+    }
+
+    // --- MEDIO-2(a): re-roteirizar parcial nao deixa sequencia orfa ---
+    @Test
+    fun `re-routing without an order clears its stale sequence and unassigns it`() {
+        val driver = deliveryService.createDriver(DriverCreateRequest("Zé", "5599999990"))
+        val o1 = newDeliveryOrder(0.005)
+        val o2 = newDeliveryOrder(0.01)
+        val o3 = newDeliveryOrder(0.02)
+
+        TenantContext.set(tenant)
+        routeOptimizationService.assignRoute(RouteAssignRequest(driver.id, listOf(o1, o2, o3)))
+
+        // Re-rota SEM o1: [o3, o2].
+        TenantContext.set(tenant)
+        val re = routeOptimizationService.assignRoute(RouteAssignRequest(driver.id, listOf(o3, o2)))
+        assertEquals(listOf(o3, o2), re.map { it.orderId })
+        assertEquals(listOf(1, 2), re.map { it.deliverySequence })
+
+        // o1 saiu da rota: sequencia limpa, desassociado, de volta ao pool (era ASSIGNED).
+        TenantContext.set(tenant)
+        val dropped = orderRepository.findById(o1).get()
+        assertEquals(null, dropped.deliverySequence)
+        assertEquals(null, dropped.driverId)
+        assertEquals(null, dropped.deliveryStatus)
+
+        // O app do motoboy nao ve "parada 1" duplicada: so o2,o3 com sequencias 1,2.
+        TenantContext.set(tenant)
+        val active = orderRepository.findActiveOrdersForDriver(driver.id)
+        assertEquals(2, active.size)
+        assertEquals(setOf(1, 2), active.mapNotNull { it.deliverySequence }.toSet())
+    }
+
+    // --- MEDIO-2(b): assign single limpa sequencia stale ---
+    @Test
+    fun `single assign clears a stale route sequence`() {
+        val driverA = deliveryService.createDriver(DriverCreateRequest("Zé", "5599999991"))
+        val o1 = newDeliveryOrder(0.005)
+        val o2 = newDeliveryOrder(0.01)
+        TenantContext.set(tenant)
+        routeOptimizationService.assignRoute(RouteAssignRequest(driverA.id, listOf(o1, o2)))
+        TenantContext.set(tenant)
+        assertEquals(1, orderRepository.findById(o1).get().deliverySequence)
+
+        // Re-atribui o1 sozinho (assign single legado) a outro motoboy.
+        val driverB = deliveryService.createDriver(DriverCreateRequest("Ana", "5599999992"))
+        TenantContext.set(tenant)
+        val assigned = deliveryService.assign(o1, AssignDriverRequest(driverB.id))
+        assertEquals(null, assigned.deliverySequence, "assign single deve limpar a sequencia stale")
+        TenantContext.set(tenant)
+        assertEquals(null, orderRepository.findById(o1).get().deliverySequence)
+    }
+
+    // --- BAIXO-1: re-despachar um FAILED o revive como ASSIGNED (nao vira fantasma) ---
+    @Test
+    fun `routing a failed delivery revives it as ASSIGNED and visible to the app`() {
+        val driver = deliveryService.createDriver(DriverCreateRequest("Zé", "5599999993"))
+        val o1 = newDeliveryOrder(0.005)
+        // Marca FAILED direto no banco (simula tentativa de entrega que falhou).
+        TenantContext.set(tenant)
+        val ord = orderRepository.findById(o1).get()
+        ord.deliveryStatus = DeliveryStatus.FAILED
+        orderRepository.save(ord)
+
+        TenantContext.set(tenant)
+        val res = routeOptimizationService.assignRoute(RouteAssignRequest(driver.id, listOf(o1)))
+        assertEquals(DeliveryStatus.ASSIGNED, res[0].deliveryStatus, "FAILED re-despachado vira ASSIGNED")
+
+        // Agora aparece para o app (findActiveOrdersForDriver exclui FAILED).
+        TenantContext.set(tenant)
+        val active = orderRepository.findActiveOrdersForDriver(driver.id)
+        assertEquals(1, active.size, "pedido revivido nao pode ser parada fantasma")
+        assertEquals(1, active[0].deliverySequence)
     }
 
     // --- 5. F2 recusa motoboy que nao e da FROTA ---

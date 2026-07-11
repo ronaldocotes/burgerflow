@@ -112,14 +112,38 @@ class RouteOptimizationService(
         // Coords nao sao exigidas aqui (a ordem ja foi decidida no F1); exigimos apenas
         // que sejam pedidos de entrega validos e nao terminais.
         val orders = loadOrdered(req.orderIds, requireCoords = false)
+        val newIds = orders.mapNotNull { it.id }.toSet()
+
+        // MEDIO-2(a): pedidos que estavam na rota ANTERIOR deste motoboy mas nao estao
+        // na nova lista sao desassociados e perdem a sequencia — senao sobraria uma
+        // "parada" orfa (sequencia stale) aparecendo no app. Fecha tambem o pedido que
+        // some da rota sem voltar para o pool de nao-atribuidos.
+        val dropped = orderRepository.findByDriverIdAndDeliverySequenceIsNotNull(driver.id!!)
+            .filter { it.id !in newIds }
+        dropped.forEach { o ->
+            o.deliverySequence = null
+            o.driverId = null
+            // So devolve ao pool quem ainda estava apenas ASSIGNED; um despacho ja em
+            // andamento (OUT_FOR_DELIVERY etc.) nao e regredido por uma re-roteirizacao.
+            if (o.deliveryStatus == DeliveryStatus.ASSIGNED) {
+                o.deliveryStatus = null
+            }
+        }
+
         orders.forEachIndexed { idx, order ->
             order.driverId = driver.id
             order.deliverySequence = idx + 1
-            if (order.deliveryStatus == null) {
+            // BAIXO-1: re-despachar um pedido que FALHOU o revive como ASSIGNED. Sem
+            // isso ele ficaria roteirizado porem invisivel no app (findActiveOrdersFor
+            // Driver exclui FAILED) — parada fantasma. So nao mexemos num despacho que
+            // ja avancou (PICKED_UP/OUT_FOR_DELIVERY etc.).
+            if (order.deliveryStatus == null || order.deliveryStatus == DeliveryStatus.FAILED) {
                 order.deliveryStatus = DeliveryStatus.ASSIGNED
             }
         }
-        val saved = orderRepository.saveAll(orders)
+        val saved = orderRepository.saveAll(dropped + orders)
+            .filter { it.id in newIds }
+            .sortedBy { it.deliverySequence }
 
         val slug = SecurityUtils.currentPrincipalOrThrow().tenantSlug
         val payloads = saved.map { DeliveryOrderResponse.from(it) }

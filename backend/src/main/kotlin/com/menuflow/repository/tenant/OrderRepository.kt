@@ -130,6 +130,13 @@ interface OrderRepository :
     fun findActiveOrdersForDriver(@Param("driverId") driverId: UUID): List<Order>
 
     /**
+     * Pedidos atualmente ROTEIRIZADOS de um motoboy (issue #4): tem driver_id e
+     * delivery_sequence preenchidos. Usado ao (re)confirmar uma rota para limpar a
+     * sequencia dos pedidos que sairam da rota anterior (evita "parada 1" duplicada).
+     */
+    fun findByDriverIdAndDeliverySequenceIsNotNull(driverId: UUID): List<Order>
+
+    /**
      * Soma (centavos) das vendas em dinheiro EFETIVADAS de um turno de caixa:
      * pedidos carimbados com o turno, pagos em dinheiro (CASH) e com pagamento
      * confirmado (PAID). COALESCE garante 0 quando não há nenhuma venda. Entra no

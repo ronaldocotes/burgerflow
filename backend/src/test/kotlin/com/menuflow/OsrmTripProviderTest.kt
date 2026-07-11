@@ -6,6 +6,13 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.springframework.http.HttpMethod
+import org.springframework.test.web.client.MockRestServiceServer
+import org.springframework.test.web.client.match.MockRestRequestMatchers.method
+import org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo
+import org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess
+import org.springframework.http.MediaType
+import org.springframework.web.client.RestClient
 import java.util.UUID
 
 /**
@@ -18,11 +25,11 @@ import java.util.UUID
  */
 class OsrmTripProviderTest {
 
-    // --- 1. LON,LAT e origem fixa ---
+    // --- 1. LON,LAT e origem fixa (path de coordenadas, SEM query) ---
     @Test
-    fun `buildTripPath coloca a origem primeiro em LON,LAT com source=first e roundtrip=false`() {
+    fun `tripCoordsPath coloca a origem primeiro em LON,LAT sem query string`() {
         // Restaurante em (lat=-1.0, lng=-48.0); duas entregas.
-        val path = OsrmTripProvider.buildTripPath(
+        val path = OsrmTripProvider.tripCoordsPath(
             originLat = -1.0,
             originLng = -48.0,
             points = listOf(
@@ -30,13 +37,46 @@ class OsrmTripProviderTest {
                 -1.2 to -48.2, // entrega B
             ),
         )
-        // Coords em LON,LAT separadas por ';', origem primeiro.
-        assertTrue(
-            path.startsWith("/trip/v1/driving/-48.0,-1.0;-48.1,-1.1;-48.2,-1.2"),
-            "esperava LON,LAT com a origem primeiro; veio: $path",
+        // Coords em LON,LAT separadas por ';', origem primeiro; SEM `?` (o source/
+        // roundtrip vao como queryParam no optimize, nunca concatenados no path).
+        assertEquals("/trip/v1/driving/-48.0,-1.0;-48.1,-1.1;-48.2,-1.2", path)
+        assertTrue(!path.contains("?"), "o path de coordenadas nao pode conter query: $path")
+    }
+
+    // --- 1b. URI EFETIVA emitida (regressao do bug do `?` percent-encodado) ---
+    @Test
+    fun `optimize emite a URI com source e roundtrip literais (nao percent-encodados)`() {
+        val builder = RestClient.builder()
+        val server = MockRestServiceServer.bindTo(builder).build()
+        val provider = OsrmTripProvider("http://osrm.test", builder)
+
+        // A URL ESPERADA tem `?source=first&roundtrip=false` LITERAIS. Se o codigo
+        // concatenasse a query no .path(), o `?` viraria %3F e este requestTo NAO
+        // casaria (o teste falharia) — e a prova de que o /trip real e chamado certo.
+        server.expect(requestTo("http://osrm.test/trip/v1/driving/-48.0,-1.0;-48.1,-1.1;-48.2,-1.2?source=first&roundtrip=false"))
+            .andExpect(method(HttpMethod.GET))
+            .andRespond(
+                withSuccess(
+                    // waypoints[0]=origem; entradas A(idx0)->wp2, B(idx1)->wp1 => ordem B,A.
+                    """
+                    {"code":"Ok",
+                     "waypoints":[{"waypoint_index":0},{"waypoint_index":2},{"waypoint_index":1}],
+                     "trips":[{"distance":900.0,"duration":300.0}]}
+                    """.trimIndent(),
+                    MediaType.APPLICATION_JSON,
+                ),
+            )
+
+        val result = provider.optimize(
+            originLat = -1.0,
+            originLng = -48.0,
+            points = listOf(-1.1 to -48.1, -1.2 to -48.2),
         )
-        assertTrue(path.contains("source=first"), "source=first ausente: $path")
-        assertTrue(path.contains("roundtrip=false"), "roundtrip=false ausente: $path")
+        server.verify()
+        // Ordem otima das ENTRADAS: B(idx1) antes de A(idx0).
+        assertEquals(listOf(1, 0), result.orderedInputIndices)
+        assertEquals(900, result.totalDistanceMeters)
+        assertEquals(300, result.totalDurationSeconds)
     }
 
     // --- 2. parse da ordem otima + totais ---
