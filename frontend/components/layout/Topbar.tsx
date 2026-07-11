@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { LogOut, ChevronDown, Menu } from 'lucide-react'
+import { LogOut, ChevronDown, Menu, Bell, BellOff } from 'lucide-react'
 import { logout, getToken } from '@/lib/auth'
 import { useRestaurantInfo } from '@/lib/use-restaurant-info'
+import { useSoundAlert } from './SoundAlertProvider'
 
 const ROUTE_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/dashboard',        title: 'Dashboard'     },
@@ -88,6 +89,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { restaurantName } = useRestaurantInfo()
+  const { enabled: soundEnabled, toggle: toggleSound } = useSoundAlert()
   const [menuOpen, setMenuOpen] = useState(false)
   const [payload, setPayload] = useState<JwtPayload | null>(null)
 
@@ -141,6 +143,25 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           </span>
         )}
       </div>
+
+      <button
+        type="button"
+        onClick={toggleSound}
+        aria-pressed={soundEnabled}
+        aria-label={soundEnabled ? 'Desativar som de pedido novo' : 'Ativar som de pedido novo'}
+        title={soundEnabled ? 'Som de pedido novo ativado — clique para desativar' : 'Ativar som de pedido novo'}
+        className={`mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${
+          soundEnabled
+            ? 'text-primary-700 hover:bg-bg-tertiary'
+            : 'text-text-muted hover:bg-bg-tertiary hover:text-text-secondary'
+        }`}
+      >
+        {soundEnabled ? (
+          <Bell className="h-5 w-5" aria-hidden="true" />
+        ) : (
+          <BellOff className="h-5 w-5" aria-hidden="true" />
+        )}
+      </button>
 
       <div className="relative shrink-0">
         <button
