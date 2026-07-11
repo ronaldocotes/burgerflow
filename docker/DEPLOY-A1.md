@@ -66,12 +66,22 @@ Os arquivos `docker/docker-compose.prod.yml` e `docker/Caddyfile` ficam como ref
    no `.env.prod`. Sem essa variável o seed é pulado com aviso e, num banco
    novo, `/cardapio` fica fora do ar (404 em `/api/v1/public/demo/menu`).
 8. **Migrations:** o Flyway do banco de **controle** roda no boot do app; cada
-   **tenant** migra no 1º acesso. Para migrar bancos já existentes fora de banda:
+   **tenant** migra no 1º acesso. Para migrar bancos já existentes fora de banda
+   (recomendado ANTES de subir código que dependa de uma migration nova —
+   expand-first): `scripts/apply-migrations.sh` roda o Flyway anexado à MESMA
+   rede Docker do container Postgres (auto-detectada a partir de
+   `menuflow-postgres`, sem publicar porta no host — `--network host` não
+   funciona aqui porque `compose.prod.yml` não expõe a porta do Postgres).
+   Use o hostname interno do compose (`postgres:5432`, o mesmo que
+   `MF_DB_HOST` usa) nas URLs, nunca `localhost`:
    ```
    scripts/apply-migrations.sh \
-     "jdbc:postgresql://localhost:5432/menuflow_control?user=U&password=P" \
-     "jdbc:postgresql://localhost:5432/tenant_<slug>?user=U&password=P"
+     "jdbc:postgresql://postgres:5432/menuflow_control?user=U&password=P" \
+     "jdbc:postgresql://postgres:5432/tenant_<slug>?user=U&password=P"
    ```
+   `scripts/check-tenant-migrations.sh --apply-command` já gera esse comando
+   pronto (URLs com o host interno correto) a partir dos tenants ativos no
+   banco de controle — revisar antes de rodar.
 9. Validar:
    ```bash
    curl -fsS https://menuflow.duckdns.org/

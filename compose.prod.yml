@@ -80,6 +80,11 @@ services:
       # OSRM self-hosted na A1 para distância rodoviária (despacho de motoboys).
       # Container osrm-norte na rede menuflow-net; vazio = OSRM desabilitado (fallback Haversine).
       OSRM_BASE_URL: ${OSRM_BASE_URL:-http://osrm-norte:5000}
+      # Google Routes/Geocoding (DistanceService/GeocodingService leem google.routes.api-key
+      # via relaxed binding do Spring). Usada para distância rodoviária de moto e para
+      # geocodificar o endereço do cardápio público. Vazio = geocode sempre null (fail-safe);
+      # tenant com zonas ativas (issue #2) fica fail-closed (422) no delivery público sem isto.
+      GOOGLE_ROUTES_API_KEY: ${GOOGLE_ROUTES_API_KEY:-}
     networks:
       - menuflow-net
       - web
