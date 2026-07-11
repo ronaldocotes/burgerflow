@@ -110,7 +110,12 @@ class DriverSettlementTest @Autowired constructor(
     ).id!!
 
     /** Oferta ACEITA por [driverId] para [orderId], com [payout] (null = sem valor). */
-    private fun seedAcceptedOffer(driverId: UUID, orderId: UUID, payout: Long?) {
+    private fun seedAcceptedOffer(
+        driverId: UUID,
+        orderId: UUID,
+        payout: Long?,
+        acceptedAt: Instant = Instant.now(),
+    ) {
         offerRepository.save(
             DeliveryOffer(
                 orderId = orderId,
@@ -120,7 +125,7 @@ class DriverSettlementTest @Autowired constructor(
                 expiresAt = Instant.now().plus(1, ChronoUnit.HOURS),
                 payoutCents = payout,
                 acceptedByDriverId = driverId,
-                acceptedAt = Instant.now(),
+                acceptedAt = acceptedAt,
             ),
         )
     }
@@ -275,6 +280,40 @@ class DriverSettlementTest @Autowired constructor(
         assertEquals(0, closed.kmTotalCents)
         assertEquals(0, closed.workingDays)
         assertEquals(2_000, closed.grossTotalCents, "bruto = payout no freelancer")
+    }
+
+    @Test
+    fun `FREELANCER - pays once per order even with two accepted offers (reassignment)`() {
+        val tenant = "drv_${UUID.randomUUID().toString().take(8)}"
+        val actor = UUID.randomUUID()
+        TenantContext.set(tenant)
+
+        val driverId = newDriver("Free3", driverType = "FREELANCER")
+        val now = Instant.now()
+
+        // Pedido A com DUAS ofertas ACCEPTED (defesa em profundidade: reatribuicao manual
+        // futura poderia gerar isso). A oferta MAIS RECENTE (payout R$30,00, aceita agora)
+        // e a vigente e deve vencer a antiga (payout R$10,00, aceita 1h atras). O acerto
+        // paga o pedido UMA vez, com o payout vencedor — nao a soma das duas.
+        val orderA = seedDelivered(driverId, OrderStatus.DELIVERED, now)
+        seedAcceptedOffer(driverId, orderA, 1_000, acceptedAt = now.minus(1, ChronoUnit.HOURS))
+        seedAcceptedOffer(driverId, orderA, 3_000, acceptedAt = now)
+        // Pedido B com uma unica oferta (payout R$5,00) para provar que a soma por pedido
+        // ainda agrega multiplos pedidos.
+        val orderB = seedDelivered(driverId, OrderStatus.DELIVERED, now)
+        seedAcceptedOffer(driverId, orderB, 500, acceptedAt = now)
+
+        val today = LocalDate.now(zone)
+        val opened = driverService.openSettlement(actor, OpenSettlementRequest(driverId, today, today))
+        val closed = driverService.closeSettlement(opened.id, actor, CloseSettlementRequest(workingDays = 0))
+
+        // 2 PEDIDOS distintos (nao 3 ofertas): a query atual (sem DISTINCT ON) daria 3.
+        assertEquals(2, closed.deliveriesCount, "conta por PEDIDO distinto, nao por oferta")
+        // R$30,00 (vencedora do pedido A) + R$5,00 (pedido B) = R$35,00. A query ingenua
+        // somaria R$10 + R$30 + R$5 = R$45,00 (paga o freelancer em dobro no pedido A).
+        assertEquals(3_500, closed.payoutTotalCents, "payout vencedor por pedido, sem dobrar")
+        assertEquals(3_500, closed.grossTotalCents)
+        assertEquals(0, closed.offersWithoutPayout)
     }
 
     @Test
