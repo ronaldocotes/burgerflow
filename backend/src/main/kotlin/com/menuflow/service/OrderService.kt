@@ -229,11 +229,11 @@ class OrderService(
             } else {
                 resolveDeliveryGeo(req)
             }
-        val resolvedDeliveryFee = resolveDeliveryFee(req, config, deliveryLat, deliveryLng, subtotal)
+        val resolvedFee = resolveDeliveryFee(req, config, deliveryLat, deliveryLng, subtotal)
 
         // 3. Compute totals (centavos) and persist the order. MESMO cálculo do quote.
         // Usa o desconto efetivo (cupom quando houver, senão o manual).
-        val (deliveryFee, total) = computeTotals(subtotal, req.orderType, effectiveDiscount, resolvedDeliveryFee)
+        val (deliveryFee, total) = computeTotals(subtotal, req.orderType, effectiveDiscount, resolvedFee.feeCents)
 
         // Aceite automático: com o flag ligado o pedido nasce em PREPARING e vai
         // direto para a cozinha, sem ação manual no PENDING.
@@ -337,6 +337,9 @@ class OrderService(
             order.deliveryLat = deliveryLat
             order.deliveryLng = deliveryLng
             order.deliveryGeocodeSource = geocodeSource
+            // G3: distancia rodoviaria da entrega (so no modo FLAT; null nas zonas/legado),
+            // para alimentar o eixo km do acerto da FROTA.
+            order.deliveryDistanceMeters = resolvedFee.distanceMeters
         }
         val saved = orderRepository.save(order)
         items.forEach { it.orderId = saved.id!! }
@@ -583,12 +586,19 @@ class OrderService(
      * (quoteDelivery) traduz em UnprocessableEntityException (422, fail-closed).
      */
     sealed interface DeliveryFeeOutcome {
-        /** Frete resolvido. [etaMinMinutes]/[etaMaxMinutes]/[free] so vem preenchidos no modo ZONAS. */
+        /**
+         * Frete resolvido. [etaMinMinutes]/[etaMaxMinutes]/[free] so vem preenchidos no
+         * modo ZONAS. [distanceMeters] (issue #3, G3) so vem preenchido no modo FLAT
+         * rodoviario — e a distancia real da entrega, persistida em
+         * orders.delivery_distance_meters para alimentar o eixo km do acerto da FROTA.
+         * NULL nos modos ZONAS/linha reta e legado.
+         */
         data class Priced(
             val feeCents: Long,
             val etaMinMinutes: Int?,
             val etaMaxMinutes: Int?,
             val free: Boolean,
+            val distanceMeters: Long? = null,
         ) : DeliveryFeeOutcome
 
         /** Zonas ativas mas restaurante sem coordenadas (misconfig): fail-closed. */
@@ -656,12 +666,20 @@ class OrderService(
         val meters = distanceService.getRoadDistanceMeters(
             originLat, originLng, destLat, destLng, config.distanceProvider,
         )
-        return DeliveryFeeOutcome.Priced(ridePricingService.feeCents(config, meters), null, null, false)
+        // G3: propaga a distancia rodoviaria (metros) para persistir no pedido — antes
+        // era calculada aqui so para a tarifa e descartada.
+        return DeliveryFeeOutcome.Priced(
+            ridePricingService.feeCents(config, meters), null, null, false, distanceMeters = meters,
+        )
     }
+
+    /** Frete resolvido do fluxo autenticado: taxa + distancia (G3, null exceto FLAT). */
+    private data class ResolvedFee(val feeCents: Long, val distanceMeters: Long?)
 
     /**
      * Fluxo AUTENTICADO (create): mantem o contrato historico — falha vira
-     * BusinessException (400). Delega em [resolveDeliveryFeeInternal].
+     * BusinessException (400). Delega em [resolveDeliveryFeeInternal]. Alem da taxa,
+     * devolve a distancia rodoviaria (G3) para persistir no pedido.
      */
     private fun resolveDeliveryFee(
         req: OrderCreateRequest,
@@ -669,8 +687,8 @@ class OrderService(
         destLat: Double?,
         destLng: Double?,
         subtotalCents: Long,
-    ): Long = when (val o = resolveDeliveryFeeInternal(req, config, destLat, destLng, subtotalCents)) {
-        is DeliveryFeeOutcome.Priced -> o.feeCents
+    ): ResolvedFee = when (val o = resolveDeliveryFeeInternal(req, config, destLat, destLng, subtotalCents)) {
+        is DeliveryFeeOutcome.Priced -> ResolvedFee(o.feeCents, o.distanceMeters)
         DeliveryFeeOutcome.RestaurantNotLocated ->
             throw BusinessException("Zonas de entrega configuradas, mas o restaurante não tem localização definida")
         DeliveryFeeOutcome.DestinationNotLocated ->

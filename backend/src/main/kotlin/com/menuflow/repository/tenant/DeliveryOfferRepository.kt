@@ -85,4 +85,38 @@ interface DeliveryOfferRepository : JpaRepository<DeliveryOffer, UUID> {
         @Param("driverId") driverId: UUID,
         @Param("now") now: Instant,
     ): Int
+
+    /**
+     * Repasse do FREELANCER no acerto por periodo (issue #3). Soma os payout_cents das
+     * ofertas ACEITAS pelo entregador cujo PEDIDO ficou DELIVERED no periodo. Retorna
+     * UMA linha com tres colunas, nesta ordem:
+     *   [0] payoutTotal   = COALESCE(SUM(payout_cents), 0)  — SUM ignora NULL (D-C: NULL=0);
+     *   [1] offersCount   = COUNT das corridas contadas (pedido DELIVERED — D-A);
+     *   [2] withoutPayout = quantas dessas corridas estao sem payout definido (aviso ao front).
+     *
+     * Casa o motoboy por COALESCE(accepted_by_driver_id, driver_id): ofertas de GRUPO
+     * (B1/B2) tem o vencedor em accepted_by_driver_id; ofertas legadas (auto-assign)
+     * tem driver_id preenchido. Casa o pedido por off.orderId = o.id e status DELIVERED
+     * (pedido cancelado NAO conta, mesmo com a oferta aceita — D-A). Limites [from, to)
+     * vem do servico (dia em America/Sao_Paulo).
+     */
+    @Query(
+        """
+        SELECT COALESCE(SUM(off.payoutCents), 0),
+               COUNT(off),
+               COALESCE(SUM(CASE WHEN off.payoutCents IS NULL THEN 1 ELSE 0 END), 0)
+        FROM DeliveryOffer off, Order o
+        WHERE o.id = off.orderId
+          AND COALESCE(off.acceptedByDriverId, off.driverId) = :driverId
+          AND off.status = com.menuflow.model.DeliveryOfferStatus.ACCEPTED
+          AND o.status = com.menuflow.model.OrderStatus.DELIVERED
+          AND o.completedAt >= :from
+          AND o.completedAt < :to
+        """,
+    )
+    fun sumFreelancerPayoutByDriverAndPeriod(
+        @Param("driverId") driverId: UUID,
+        @Param("from") from: Instant,
+        @Param("to") to: Instant,
+    ): List<Array<Any>>
 }

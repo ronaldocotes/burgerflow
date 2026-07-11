@@ -45,7 +45,10 @@ class DriverController(private val service: DriverService) {
     fun getConfig(@PathVariable driverId: UUID): DriverConfigResponse =
         service.getConfig(driverId)
 
+    // D-B: configurar os valores/tarifas de remuneracao e so ADMIN (mais restrito que
+    // a classe ADMIN/MANAGER). MANAGER abre/fecha acertos, mas nao mexe nas tarifas.
     @PutMapping("/{driverId}/config")
+    @PreAuthorize("hasRole('ADMIN')")
     fun upsertConfig(
         @PathVariable driverId: UUID,
         @Valid @RequestBody req: DriverConfigRequest,

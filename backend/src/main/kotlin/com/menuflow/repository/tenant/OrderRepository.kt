@@ -189,6 +189,28 @@ interface OrderRepository :
         @Param("to") to: Instant,
     ): Long
 
+    /**
+     * Soma a distancia rodoviaria (metros) das entregas DELIVERED de um entregador no
+     * periodo (issue #3, eixo por-km da FROTA). Ignora pedidos sem distancia registrada
+     * (frete por zona/linha reta => delivery_distance_meters NULL). COALESCE garante 0
+     * em periodo vazio. Os limites [from, to) vem do servico (dia em America/Sao_Paulo).
+     */
+    @Query(
+        """
+        SELECT COALESCE(SUM(o.deliveryDistanceMeters), 0) FROM Order o
+        WHERE o.driverId = :driverId
+          AND o.status = com.menuflow.model.OrderStatus.DELIVERED
+          AND o.completedAt >= :from
+          AND o.completedAt < :to
+          AND o.deliveryDistanceMeters IS NOT NULL
+        """,
+    )
+    fun sumDeliveryDistanceByDriverAndPeriod(
+        @Param("driverId") driverId: UUID,
+        @Param("from") from: Instant,
+        @Param("to") to: Instant,
+    ): Long
+
     // --- DRE Automático (Fase 3.1) ---
 
     /**
