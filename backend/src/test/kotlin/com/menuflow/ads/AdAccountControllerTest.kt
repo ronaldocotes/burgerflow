@@ -26,6 +26,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import java.util.UUID
@@ -223,5 +224,116 @@ class AdAccountControllerTest @Autowired constructor(
         mockMvc.perform(get("/ads/accounts").header("Authorization", "Bearer $token"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.length()").value(0))
+    }
+
+    // --- Paginas do Facebook (GET .../pages, PUT .../page) -----------------------------
+
+    /** Conecta uma conta via API e devolve o id da conta recem-criada (pattern dos testes acima). */
+    private fun connectAndGetId(token: String, externalId: String = "5551234321"): String {
+        Mockito.`when`(metaGraphClient.fetchAdAccounts(Mockito.anyString())).thenReturn(
+            listOf(MetaAdAccountDto(externalId, "Conta Pages", "BRL", "America/Sao_Paulo")),
+        )
+        val created = mockMvc.perform(
+            post("/ads/accounts").header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON).content(connectBody()),
+        ).andExpect(status().isCreated).andReturn()
+        return objectMapper.readTree(created.response.contentAsString)[0].get("id").asText()
+    }
+
+    @Test
+    fun `listar Paginas devolve as Paginas que o token administra (Meta mockada)`() {
+        val slug = seedTenant()
+        val token = login(slug)
+        val id = connectAndGetId(token)
+        Mockito.`when`(metaGraphClient.fetchPages(Mockito.anyString())).thenReturn(
+            listOf(MetaPageDto("111", "Hamburgueria do Ze"), MetaPageDto("222", "Burger Prime")),
+        )
+
+        mockMvc.perform(get("/ads/accounts/$id/pages").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.length()").value(2))
+            .andExpect(jsonPath("$[0].id").value("111"))
+            .andExpect(jsonPath("$[0].name").value("Hamburgueria do Ze"))
+            .andExpect(jsonPath("$[1].id").value("222"))
+            .andExpect(jsonPath("$[1].name").value("Burger Prime"))
+    }
+
+    @Test
+    fun `STAFF nao pode listar Paginas (403)`() {
+        val slug = seedTenant(role = UserRole.STAFF)
+        val token = login(slug)
+        // O gate de papel (classe @PreAuthorize) barra antes do service; id qualquer serve.
+        mockMvc.perform(
+            get("/ads/accounts/${UUID.randomUUID()}/pages").header("Authorization", "Bearer $token"),
+        ).andExpect(status().isForbidden)
+    }
+
+    @Test
+    fun `listar Paginas de conta de outro tenant retorna 404 (isolamento db-per-tenant)`() {
+        val slugA = seedTenant()
+        val tokenA = login(slugA)
+        val idA = connectAndGetId(tokenA, externalId = "7000000001")
+
+        // Outro tenant (db isolado) nao enxerga a conta do tenant A -> 404, nao 200/403.
+        val slugB = seedTenant()
+        val tokenB = login(slugB)
+        mockMvc.perform(get("/ads/accounts/$idA/pages").header("Authorization", "Bearer $tokenB"))
+            .andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `gravar Pagina persiste e o GET de contas reflete pageId e pageName`() {
+        val slug = seedTenant()
+        val token = login(slug)
+        val id = connectAndGetId(token, externalId = "8000000002")
+
+        val putBody = objectMapper.writeValueAsString(
+            mapOf("pageId" to "999888", "pageName" to "Minha Pagina"),
+        )
+        mockMvc.perform(
+            put("/ads/accounts/$id/page").header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON).content(putBody),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.pageId").value("999888"))
+            .andExpect(jsonPath("$.pageName").value("Minha Pagina"))
+            // O token JAMAIS aparece, nem apos gravar a Pagina.
+            .andExpect(jsonPath("$.token").doesNotExist())
+
+        // Persistiu no banco do tenant.
+        TenantContext.set(slug)
+        val row = adAccountRepository.findAllByOrderByCreatedAtAsc().first()
+        assertEquals("999888", row.pageId)
+        assertEquals("Minha Pagina", row.pageName)
+
+        // E a listagem (via novo campo do DTO da Tarefa 1) reflete a Pagina ja escolhida.
+        mockMvc.perform(get("/ads/accounts").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].pageId").value("999888"))
+            .andExpect(jsonPath("$[0].pageName").value("Minha Pagina"))
+    }
+
+    @Test
+    fun `STAFF nao pode gravar Pagina (403)`() {
+        val slug = seedTenant(role = UserRole.STAFF)
+        val token = login(slug)
+        val putBody = objectMapper.writeValueAsString(mapOf("pageId" to "999", "pageName" to "X"))
+        mockMvc.perform(
+            put("/ads/accounts/${UUID.randomUUID()}/page").header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON).content(putBody),
+        ).andExpect(status().isForbidden)
+    }
+
+    @Test
+    fun `gravar Pagina com pageId vazio retorna 400 (bean validation)`() {
+        val slug = seedTenant()
+        val token = login(slug)
+        val id = connectAndGetId(token, externalId = "8000000003")
+        // pageId em branco viola @NotBlank -> 400 antes de tocar o service.
+        val putBody = objectMapper.writeValueAsString(mapOf("pageId" to "", "pageName" to "X"))
+        mockMvc.perform(
+            put("/ads/accounts/$id/page").header("Authorization", "Bearer $token")
+                .contentType(MediaType.APPLICATION_JSON).content(putBody),
+        ).andExpect(status().isBadRequest)
     }
 }
