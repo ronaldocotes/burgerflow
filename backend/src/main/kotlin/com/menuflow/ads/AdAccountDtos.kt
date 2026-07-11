@@ -21,6 +21,11 @@ data class ConnectAdAccountRequest(
 /**
  * Conta de anuncio devolvida ao cliente. NUNCA carrega o token (nem cifrado). O
  * campo [accountIdLast4] e so um fingerprint para o usuario reconhecer qual conta e.
+ *
+ * [pageId]/[pageName] espelham a Pagina do Facebook ja vinculada a conta (colunas da
+ * V58). Nao sao segredo: page_id e um identificador PUBLICO do Facebook e o token
+ * continua nunca saindo. Expor aqui permite o wizard do frontend pular o passo de
+ * escolher a Pagina quando ela ja esta configurada (null = ainda nao escolhida).
  */
 data class AdAccountResponse(
     val id: UUID,
@@ -29,6 +34,8 @@ data class AdAccountResponse(
     val accountIdLast4: String,
     val currency: String?,
     val status: AdAccountStatus,
+    val pageId: String?,
+    val pageName: String?,
     val connectedAt: Instant,
 ) {
     companion object {
@@ -39,6 +46,8 @@ data class AdAccountResponse(
             accountIdLast4 = a.externalAccountId.takeLast(4),
             currency = a.currency,
             status = a.status,
+            pageId = a.pageId,
+            pageName = a.pageName,
             connectedAt = a.createdAt,
         )
     }
