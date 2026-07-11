@@ -14,6 +14,7 @@ import com.menuflow.model.DriverConfig
 import com.menuflow.model.DriverSettlement
 import com.menuflow.model.DriverSettlementStatus
 import com.menuflow.repository.tenant.DeliveryDriverRepository
+import com.menuflow.repository.tenant.DeliveryOfferRepository
 import com.menuflow.repository.tenant.DriverConfigRepository
 import com.menuflow.repository.tenant.DriverSettlementRepository
 import com.menuflow.repository.tenant.OrderRepository
@@ -22,6 +23,8 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -45,11 +48,16 @@ class DriverService(
     private val settlementRepository: DriverSettlementRepository,
     private val driverRepository: DeliveryDriverRepository,
     private val orderRepository: OrderRepository,
+    private val deliveryOfferRepository: DeliveryOfferRepository,
     private val auditLogService: AuditLogService,
 ) {
     // Fuso do negocio para converter o periodo (DATE) em limites instantaneos
     // de dia, consistente com o resto do sistema (KDS, caixa).
     private val zone = ZoneId.of("America/Sao_Paulo")
+
+    // Tipo de entregador (espelha DeliveryDriver.driverType, string). FROTA = 3 eixos;
+    // FREELANCER = soma dos repasses das corridas do grupo (issue #3).
+    private val FREELANCER = "FREELANCER"
 
     // --- Entregadores ---
 
@@ -165,9 +173,16 @@ class DriverService(
     }
 
     /**
-     * Fecha o acerto: conta entregas do periodo, aplica a config e congela.
-     * Exige config de remuneracao do entregador (senao 400 — fechar com tudo zero
-     * por config esquecida seria erro silencioso).
+     * Fecha o acerto: congela o periodo aplicando a regra do tipo do entregador
+     * (issue #3). Ramifica por driverType e SNAPSHOTA o tipo usado (settlementType)
+     * para o acerto nao mudar se o tipo do motoboy mudar depois.
+     *
+     *  - FROTA: 3 eixos server-side (diaria x dias + valor x entregas + km x tarifa),
+     *    exige config de remuneracao (senao 400 — fechar tudo zero por config esquecida
+     *    seria erro silencioso). Corrige G2: km = round(metros/1000 x perKmCents), a
+     *    partir de uma DISTANCIA (do sistema ou override), nunca centavos do cliente.
+     *  - FREELANCER: soma dos payout_cents das corridas aceitas com pedido DELIVERED no
+     *    periodo (nao aplica os 3 eixos). NAO exige config.
      */
     @Transactional("tenantTransactionManager")
     fun closeSettlement(id: UUID, actorId: UUID, req: CloseSettlementRequest): DriverSettlementResponse {
@@ -176,20 +191,48 @@ class DriverService(
         if (settlement.status != DriverSettlementStatus.OPEN) {
             throw ConflictException("Acerto ja fechado")
         }
-        val config = driverConfigRepository.findByDriverId(settlement.driverId)
-            ?: throw BusinessException("Configure a remuneracao do entregador antes de fechar o acerto")
+        val driver = loadDriver(settlement.driverId)
 
         // Periodo (DATE) -> limites instantaneos de dia em America/Sao_Paulo:
         // [inicio do dia de periodStart, inicio do dia seguinte a periodEnd).
         val from: Instant = settlement.periodStart.atStartOfDay(zone).toInstant()
         val to: Instant = settlement.periodEnd.plusDays(1).atStartOfDay(zone).toInstant()
-        val deliveries = orderRepository.countDeliveriesByDriverAndPeriod(settlement.driverId, from, to)
 
-        settlement.deliveriesCount = deliveries.toInt()
-        settlement.workingDays = req.workingDays
-        settlement.deliveryTotalCents = deliveries * config.perDeliveryCents
-        settlement.dailyTotalCents = req.workingDays.toLong() * config.dailyRateCents
-        settlement.kmTotalCents = req.kmTotalCents
+        // Snapshot do tipo usado no fechamento (congela a regra).
+        settlement.settlementType = driver.driverType
+        var offersWithoutPayout = 0
+
+        if (driver.driverType == FREELANCER) {
+            val (payoutTotal, offersCount, withoutPayout) =
+                freelancerPayout(settlement.driverId, from, to)
+            offersWithoutPayout = withoutPayout
+            // FREELANCER nao usa os 3 eixos: apenas o repasse das corridas.
+            settlement.deliveriesCount = offersCount
+            settlement.workingDays = 0
+            settlement.dailyTotalCents = 0
+            settlement.deliveryTotalCents = 0
+            settlement.kmTotalCents = 0
+            settlement.kmTotalMeters = null
+            settlement.payoutTotalCents = payoutTotal
+        } else {
+            // FROTA: exige config (senao 400).
+            val config = driverConfigRepository.findByDriverId(settlement.driverId)
+                ?: throw BusinessException("Configure a remuneracao do entregador antes de fechar o acerto")
+            val deliveries = orderRepository.countDeliveriesByDriverAndPeriod(settlement.driverId, from, to)
+            // km: override manual (metros) quando presente; senao a distancia somada do
+            // sistema (orders.delivery_distance_meters); senao 0. Server-side multiplica
+            // pela tarifa perKmCents (corrige G2 — nunca recebe centavos prontos).
+            val kmMeters = req.kmOverrideMeters
+                ?: orderRepository.sumDeliveryDistanceByDriverAndPeriod(settlement.driverId, from, to)
+            settlement.deliveriesCount = deliveries.toInt()
+            settlement.workingDays = req.workingDays
+            settlement.deliveryTotalCents = deliveries * config.perDeliveryCents
+            settlement.dailyTotalCents = req.workingDays.toLong() * config.dailyRateCents
+            settlement.kmTotalCents = kmCents(kmMeters, config.perKmCents)
+            settlement.kmTotalMeters = kmMeters
+            settlement.payoutTotalCents = 0
+        }
+
         settlement.status = DriverSettlementStatus.CLOSED
         settlement.closedAt = Instant.now()
         settlement.closedByUserId = actorId
@@ -201,31 +244,58 @@ class DriverService(
             entity = "driver_settlement",
             entityId = saved.id,
             after = mapOf(
+                "settlementType" to saved.settlementType,
                 "deliveriesCount" to saved.deliveriesCount,
                 "workingDays" to saved.workingDays,
                 "dailyTotalCents" to saved.dailyTotalCents,
                 "deliveryTotalCents" to saved.deliveryTotalCents,
                 "kmTotalCents" to saved.kmTotalCents,
+                "kmTotalMeters" to saved.kmTotalMeters,
+                "payoutTotalCents" to saved.payoutTotalCents,
+                "offersWithoutPayout" to offersWithoutPayout,
                 "grossTotalCents" to grossOf(saved),
             ),
             actorUserId = actorId,
         )
-        return toResponse(saved)
+        return toResponse(saved, offersWithoutPayout)
     }
+
+    /**
+     * Repasse do FREELANCER (payoutTotal, offersCount, offersWithoutPayout) do periodo.
+     * A query soma payout_cents (NULL = 0, D-C), conta as corridas DELIVERED (D-A) e as
+     * que estao sem payout definido. Le a unica linha agregada e converte com defesa de
+     * tipo (SUM/COUNT do Hibernate podem vir como Long/BigInteger).
+     */
+    private data class FreelancerPayout(val payoutTotal: Long, val offersCount: Int, val offersWithoutPayout: Int)
+
+    private fun freelancerPayout(driverId: UUID, from: Instant, to: Instant): FreelancerPayout {
+        val row = deliveryOfferRepository.sumFreelancerPayoutByDriverAndPeriod(driverId, from, to).first()
+        return FreelancerPayout(
+            payoutTotal = (row[0] as Number).toLong(),
+            offersCount = (row[1] as Number).toInt(),
+            offersWithoutPayout = (row[2] as Number).toInt(),
+        )
+    }
+
+    // Eixo por-km da FROTA (G2): centavos = round(metros/1000 x tarifa_por_km).
+    // BigDecimal + HALF_UP para nunca perder centavo por float.
+    private fun kmCents(meters: Long, perKmCents: Long): Long =
+        BigDecimal.valueOf(meters)
+            .multiply(BigDecimal.valueOf(perKmCents))
+            .divide(BigDecimal.valueOf(1000), 0, RoundingMode.HALF_UP)
+            .toLong()
 
     // --- helpers ---
 
-    /** Garante que o entregador existe neste tenant (senao 404). */
-    private fun loadDriver(driverId: UUID) {
-        if (!driverRepository.existsById(driverId)) {
-            throw ResourceNotFoundException("Entregador nao encontrado")
-        }
-    }
+    /** Carrega o entregador deste tenant (senao 404). */
+    private fun loadDriver(driverId: UUID): DeliveryDriver =
+        driverRepository.findById(driverId)
+            .orElseThrow { ResourceNotFoundException("Entregador nao encontrado") }
 
-    // Bruto calculado em memoria (daily+delivery+km): evita reler a coluna gerada
-    // do banco, que ficaria stale na mesma transacao apos o save.
+    // Bruto calculado em memoria (daily+delivery+km+payout): evita reler a coluna
+    // gerada do banco, que ficaria stale na mesma transacao apos o save.
     private fun grossOf(s: DriverSettlement): Long =
-        s.dailyTotalCents + s.deliveryTotalCents + s.kmTotalCents
+        s.dailyTotalCents + s.deliveryTotalCents + s.kmTotalCents + s.payoutTotalCents
 
     private fun toDriverResponse(d: DeliveryDriver) = DeliveryDriverResponse(
         id = d.id!!,
@@ -243,7 +313,9 @@ class DriverService(
         notes = c.notes,
     )
 
-    private fun toResponse(s: DriverSettlement) = DriverSettlementResponse(
+    // offersWithoutPayout so tem valor no fechamento FREELANCER (advisory ao front); nas
+    // leituras (list/get) fica 0 — nao e persistido (o acerto ja esta congelado).
+    private fun toResponse(s: DriverSettlement, offersWithoutPayout: Int = 0) = DriverSettlementResponse(
         id = s.id!!,
         driverId = s.driverId,
         periodStart = s.periodStart,
@@ -253,7 +325,11 @@ class DriverService(
         dailyTotalCents = s.dailyTotalCents,
         deliveryTotalCents = s.deliveryTotalCents,
         kmTotalCents = s.kmTotalCents,
+        kmTotalMeters = s.kmTotalMeters,
+        payoutTotalCents = s.payoutTotalCents,
         grossTotalCents = grossOf(s),
+        settlementType = s.settlementType,
+        offersWithoutPayout = offersWithoutPayout,
         status = s.status.name,
         closedAt = s.closedAt,
         notes = s.notes,

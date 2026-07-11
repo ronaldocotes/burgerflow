@@ -226,6 +226,15 @@ data class Order(
     /** Origem da coordenada (VIACEP/GOOGLE/MANUAL) para auditoria. */
     @Column(name = "delivery_geocode_source", length = 30)
     var deliveryGeocodeSource: String? = null,
+
+    /**
+     * Distancia rodoviaria (metros) calculada na precificacao do frete (issue #3, G3).
+     * Persistida para alimentar o eixo por-km do acerto da FROTA. NULL quando o frete
+     * veio por zona/linha reta ou nao houve geocode — nesse caso o acerto usa o
+     * override manual do request ou 0.
+     */
+    @Column(name = "delivery_distance_meters")
+    var deliveryDistanceMeters: Long? = null,
 ) {
     @PreUpdate
     fun preUpdate() {

@@ -85,4 +85,53 @@ interface DeliveryOfferRepository : JpaRepository<DeliveryOffer, UUID> {
         @Param("driverId") driverId: UUID,
         @Param("now") now: Instant,
     ): Int
+
+    /**
+     * Repasse do FREELANCER no acerto por periodo (issue #3). Soma os payout_cents das
+     * ofertas ACEITAS pelo entregador cujo PEDIDO ficou DELIVERED no periodo. Retorna
+     * UMA linha com tres colunas, nesta ordem:
+     *   [0] payoutTotal   = SUM do payout VENCEDOR por pedido (NULL=0, D-C);
+     *   [1] ordersCount   = numero de PEDIDOS distintos contados (D-A);
+     *   [2] withoutPayout = quantos desses pedidos tem payout vencedor NULL (aviso ao front).
+     *
+     * Casa o motoboy por COALESCE(accepted_by_driver_id, driver_id): ofertas de GRUPO
+     * (B1/B2) tem o vencedor em accepted_by_driver_id; ofertas legadas (auto-assign) tem
+     * driver_id preenchido. Casa o pedido por off.order_id = o.id e status DELIVERED
+     * (pedido cancelado NAO conta, mesmo com a oferta aceita — D-A).
+     *
+     * DEFESA EM PROFUNDIDADE (achado Centuriao, PR #48): paga UMA vez por PEDIDO. Hoje
+     * o indice EXCLUDE garante <=1 oferta ACCEPTED viva por pedido, mas uma REATRIBUICAO
+     * manual futura poderia gerar 2 ofertas ACCEPTED para o mesmo pedido e DOBRAR o
+     * repasse. O DISTINCT ON (off.order_id) colapsa para uma linha por pedido; o
+     * ORDER BY accepted_at DESC (NULLS LAST), id DESC ELEGE o payout da oferta aceita
+     * MAIS RECENTE (a reatribuicao vigente vence a anterior) — nao um DISTINCT ingenuo
+     * que poderia somar payouts diferentes do mesmo pedido. Depois soma/conta por pedido.
+     *
+     * Nativo (Postgres) por causa do DISTINCT ON — sem window/JPQL. Roda no banco do
+     * tenant ja roteado. Limites [from, to) vem do servico (dia em America/Sao_Paulo).
+     */
+    @Query(
+        value = """
+        SELECT COALESCE(SUM(w.payout_cents), 0),
+               COUNT(*),
+               COALESCE(SUM(CASE WHEN w.payout_cents IS NULL THEN 1 ELSE 0 END), 0)
+        FROM (
+            SELECT DISTINCT ON (off.order_id) off.order_id, off.payout_cents
+            FROM delivery_offers off
+            JOIN orders o ON o.id = off.order_id
+            WHERE COALESCE(off.accepted_by_driver_id, off.driver_id) = :driverId
+              AND off.status = 'ACCEPTED'
+              AND o.status = 'DELIVERED'
+              AND o.completed_at >= :from
+              AND o.completed_at < :to
+            ORDER BY off.order_id, off.accepted_at DESC NULLS LAST, off.id DESC
+        ) w
+        """,
+        nativeQuery = true,
+    )
+    fun sumFreelancerPayoutByDriverAndPeriod(
+        @Param("driverId") driverId: UUID,
+        @Param("from") from: Instant,
+        @Param("to") to: Instant,
+    ): List<Array<Any>>
 }

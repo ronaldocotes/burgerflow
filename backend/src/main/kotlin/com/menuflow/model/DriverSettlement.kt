@@ -47,7 +47,30 @@ data class DriverSettlement(
     @Column(name = "km_total_cents", nullable = false)
     var kmTotalCents: Long = 0,
 
-    // Coluna gerada pelo banco (daily+delivery+km). Read-only para o ORM. O
+    /**
+     * Repasse total do FREELANCER (issue #3): soma dos payout_cents das ofertas
+     * ACEITAS cujo pedido ficou DELIVERED no periodo. Fica 0 no acerto de FROTA.
+     */
+    @Column(name = "payout_total_cents", nullable = false)
+    var payoutTotalCents: Long = 0,
+
+    /**
+     * Snapshot do tipo de remuneracao usada NO FECHAMENTO (issue #3): congela a regra
+     * (FROTA = 3 eixos; FREELANCER = soma dos repasses) mesmo que o driverType do
+     * entregador mude depois. Default 'FROTA'.
+     */
+    @Column(name = "settlement_type", nullable = false, length = 12)
+    var settlementType: String = "FROTA",
+
+    /**
+     * Distancia (metros) que originou o eixo por-km da FROTA: do sistema
+     * (orders.delivery_distance_meters somado no periodo) ou o override manual do
+     * request. NULL no acerto FREELANCER (nao usa eixo km).
+     */
+    @Column(name = "km_total_meters")
+    var kmTotalMeters: Long? = null,
+
+    // Coluna gerada pelo banco (daily+delivery+km+payout). Read-only para o ORM. O
     // servico calcula o bruto em memoria para a resposta (evita reler a coluna
     // gerada, que ficaria stale na mesma transacao apos o save).
     @Column(name = "gross_total_cents", insertable = false, updatable = false)
