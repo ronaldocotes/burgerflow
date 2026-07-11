@@ -20,6 +20,8 @@ type DeliveryDriverResponse = {
   name: string
   phone: string | null
   isActive: boolean
+  /** Fonte de verdade do tipo de remuneracao (backend DeliveryDriver.driverType). */
+  driverType: SettlementType
 }
 
 type Page<T> = {
@@ -242,11 +244,13 @@ function ModalAbrirAcerto({
 function ModalFecharAcerto({
   settlement,
   config,
+  driverType,
   onClose,
   onClosed,
 }: {
   settlement: DriverSettlementResponse
   config: DriverConfigResponse | null
+  driverType: SettlementType
   onClose: () => void
   onClosed: () => void
 }) {
@@ -255,11 +259,12 @@ function ModalFecharAcerto({
 
   const titleId = useId()
 
-  // A config de tarifas so existe para entregadores FROTA (o back nao expoe o
-  // driverType diretamente aqui). Sem config, o acerto so pode ser FREELANCER
-  // (repasse das corridas, calculado 100% no servidor) ou uma FROTA mal configurada
-  // — nos dois casos os 3 eixos manuais nao fazem sentido na tela.
-  const hasConfig = config !== null
+  // Fonte de verdade: DeliveryDriver.driverType vindo do backend (nao a mera
+  // presenca de DriverConfig). FROTA => acerto por dias+entregas+km (3 eixos
+  // manuais). FREELANCER => repasse das corridas somado 100% no servidor, sem
+  // os 3 eixos. A config de tarifas (que pode faltar mesmo numa FROTA, 404 -> null)
+  // apenas alimenta o preview/calculo do eixo FROTA.
+  const isFrota = driverType === 'FROTA'
 
   const [workingDays, setWorkingDays] = useState('')
   const [kmOverride,  setKmOverride]  = useState('')
@@ -285,7 +290,7 @@ function ModalFecharAcerto({
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    if (hasConfig && (!workingDays || days <= 0)) {
+    if (isFrota && (!workingDays || days <= 0)) {
       setError('Informe os dias trabalhados.')
       return
     }
@@ -293,8 +298,8 @@ function ModalFecharAcerto({
     setError(null)
     try {
       const res = await api.post<DriverSettlementResponse>(`/drivers/settlements/${settlement.id}/close`, {
-        workingDays: hasConfig ? days : 0,
-        kmOverrideMeters: hasConfig ? kmOverrideMeters : null,
+        workingDays: isFrota ? days : 0,
+        kmOverrideMeters: isFrota ? kmOverrideMeters : null,
         notes: notes.trim() || null,
       })
       onClosed()
@@ -370,7 +375,7 @@ function ModalFecharAcerto({
             <span className="font-semibold text-text-primary">{settlement.deliveriesCount}</span>
           </div>
 
-          {hasConfig ? (
+          {isFrota ? (
             <>
               <div>
                 <label htmlFor="close-days" className="form-label">Dias trabalhados</label>
@@ -412,9 +417,17 @@ function ModalFecharAcerto({
             </>
           ) : (
             <div className="rounded-lg bg-bg-secondary px-4 py-3 text-sm text-text-secondary">
-              Este entregador nao tem tarifas de frota configuradas. Se for freelancer, o
-              repasse das corridas entregues no periodo sera somado automaticamente ao
-              fechar. Se for frota, configure a remuneracao antes de fechar.
+              <p>
+                Entregador <span className="font-semibold text-text-primary">freelancer</span>:
+                o repasse e a soma dos payouts das corridas entregues no periodo, calculada
+                automaticamente no servidor ao fechar (sem diarias/km).
+              </p>
+              <div className="mt-2 flex justify-between border-t border-border-light pt-2">
+                <span className="text-text-muted">Repasse parcial ate agora</span>
+                <span className="font-semibold text-primary-700">
+                  {centsToDisplay(settlement.payoutTotalCents)}
+                </span>
+              </div>
             </div>
           )}
 
@@ -432,7 +445,7 @@ function ModalFecharAcerto({
           </div>
 
           {/* Preview ao vivo (so o eixo FROTA; repasse do freelancer so sai no fechamento) */}
-          {hasConfig && (
+          {isFrota && (
             <div className="rounded-lg border border-border-light bg-bg-secondary p-4 text-sm">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
                 Preview do calculo (frota)
@@ -635,7 +648,10 @@ export default function AcertosPage() {
             ) : driver ? (
               <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h1 className="text-2xl font-bold text-text-primary">{driver.name}</h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-text-primary">{driver.name}</h1>
+                    <BadgeSettlementType type={driver.driverType} />
+                  </div>
                   <p className="mt-0.5 text-sm text-text-secondary">{driver.phone ?? '—'}</p>
                   {config && (
                     <p className="mt-2 text-sm text-text-muted">
@@ -798,10 +814,11 @@ export default function AcertosPage() {
         />
       )}
 
-      {showClose && openSettl && (
+      {showClose && openSettl && driver && (
         <ModalFecharAcerto
           settlement={openSettl}
           config={config}
+          driverType={driver.driverType}
           onClose={() => setShowClose(false)}
           onClosed={handleClosed}
         />

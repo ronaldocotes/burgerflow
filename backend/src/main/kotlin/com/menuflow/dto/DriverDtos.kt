@@ -36,6 +36,13 @@ data class DeliveryDriverResponse(
     val isActive: Boolean,
     /** User (banco de controle, papel DRIVER) vinculado ao entregador; null = sem acesso ao app. */
     val userId: UUID?,
+    /**
+     * Tipo de remuneracao do entregador: FROTA (contratado, acerto por dias+entregas+km)
+     * ou FREELANCER (entrou pelo grupo, repasse por soma de corridas). Fonte de verdade
+     * de DeliveryDriver.driverType — a tela de acerto ramifica por este campo, nao mais
+     * pela mera presenca de DriverConfig.
+     */
+    val driverType: String,
 )
 
 // --- Configuracao de remuneracao ---
