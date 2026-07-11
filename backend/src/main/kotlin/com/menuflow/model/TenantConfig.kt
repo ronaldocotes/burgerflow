@@ -390,6 +390,16 @@ data class TenantConfig(
     @Column(name = "theme_show_photos", nullable = false)
     var themeShowPhotos: Boolean = true,
 
+    // --- Zonas de entrega por raio (issue #2) ---
+    /**
+     * Frete gratis quando o SUBTOTAL do pedido >= este valor (centavos). Null =
+     * desabilitado. Limiar GLOBAL (nao por anel); avaliado no resolver de zona junto
+     * das delivery_zone. Preenchido/limpo pelo PUT /delivery/zones (a tela de area de
+     * cobertura e dona deste ajuste), nao pelo /config generico.
+     */
+    @Column(name = "free_delivery_min_order_cents")
+    var freeDeliveryMinOrderCents: Long? = null,
+
     // --- Pop-up de entrada (Fase CONFIG-B, issue #13) ---
     /** Liga/desliga o pop-up de destaque exibido ao abrir o cardapio. */
     @Column(name = "entry_popup_enabled", nullable = false)
