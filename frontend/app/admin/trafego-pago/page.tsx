@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { api, ApiError } from '@/lib/api'
 import { useModalA11y } from '@/lib/use-modal-a11y'
+import { CampaignsSection } from '@/components/ads/CampaignsSection'
 import type { AdAccountResponse, AdMetricsResponse } from '@/types/ads'
 
 // ── Helpers de formatacao ─────────────────────────────────────────────────────
@@ -731,6 +732,9 @@ export default function TrafegoPagoPage() {
                 </p>
               </div>
             )}
+
+            {/* Campanhas de anuncio (Fase 8.2) */}
+            <CampaignsSection accounts={accounts} />
           </>
         )}
       </main>
