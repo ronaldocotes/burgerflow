@@ -20,6 +20,8 @@ type DeliveryDriverResponse = {
   name: string
   phone: string | null
   isActive: boolean
+  /** Fonte de verdade do tipo de remuneracao (backend DeliveryDriver.driverType). */
+  driverType: SettlementType
 }
 
 type Page<T> = {
@@ -28,16 +30,18 @@ type Page<T> = {
 }
 
 type DriverConfigResponse = {
-  userId: string
+  driverId: string
   dailyRateCents: number
   perDeliveryCents: number
   perKmCents: number
   notes: string | null
 }
 
+type SettlementType = 'FROTA' | 'FREELANCER'
+
 type DriverSettlementResponse = {
   id: string
-  userId: string
+  driverId: string
   periodStart: string
   periodEnd: string
   deliveriesCount: number
@@ -45,7 +49,15 @@ type DriverSettlementResponse = {
   dailyTotalCents: number
   deliveryTotalCents: number
   kmTotalCents: number
+  /** Metros que originaram o eixo km da FROTA (sistema ou override); null no FREELANCER. */
+  kmTotalMeters: number | null
+  /** Repasse total do FREELANCER (soma dos payouts das corridas DELIVERED); 0 na FROTA. */
+  payoutTotalCents: number
   grossTotalCents: number
+  /** Tipo de remuneracao congelado no fechamento: FROTA | FREELANCER. */
+  settlementType: SettlementType
+  /** Corridas aceitas do periodo sem payout_cents definido (contam como R$0). */
+  offersWithoutPayout: number
   status: 'OPEN' | 'CLOSED'
   closedAt: string | null
   notes: string | null
@@ -57,17 +69,34 @@ function centsToDisplay(cents: number): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-function displayToCents(masked: string): number {
-  const clean = masked.replace(/\./g, '').replace(',', '.').replace(/[^0-9.]/g, '')
-  const value = parseFloat(clean)
-  return isNaN(value) ? 0 : Math.round(value * 100)
+// G2: km agora e um override OPCIONAL de distancia (metros) no fechamento — nunca
+// mais um valor em R$. O gestor digita em km; convertemos para metros no submit.
+function kmDisplayToMeters(raw: string): number | null {
+  const clean = raw.replace(/\./g, '').replace(',', '.').replace(/[^0-9.]/g, '')
+  if (clean === '') return null
+  const km = parseFloat(clean)
+  return isNaN(km) ? null : Math.round(km * 1000)
 }
 
-function maskCurrency(raw: string): string {
-  const digits = raw.replace(/\D/g, '')
-  if (digits === '') return ''
-  const num = parseInt(digits, 10) / 100
-  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+function metersToKmDisplay(meters: number | null): string {
+  if (meters === null) return '—'
+  return (meters / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' km'
+}
+
+function settlementTypeLabel(type: SettlementType): string {
+  return type === 'FREELANCER' ? 'Freelancer' : 'Frota'
+}
+
+function BadgeSettlementType({ type }: { type: SettlementType }) {
+  const cls =
+    type === 'FREELANCER'
+      ? 'bg-blue-100 text-blue-700'
+      : 'bg-primary-700/10 text-primary-700'
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>
+      {settlementTypeLabel(type)}
+    </span>
+  )
 }
 
 // ── Helpers de data ───────────────────────────────────────────────────────────
@@ -215,11 +244,13 @@ function ModalAbrirAcerto({
 function ModalFecharAcerto({
   settlement,
   config,
+  driverType,
   onClose,
   onClosed,
 }: {
   settlement: DriverSettlementResponse
   config: DriverConfigResponse | null
+  driverType: SettlementType
   onClose: () => void
   onClosed: () => void
 }) {
@@ -228,45 +259,97 @@ function ModalFecharAcerto({
 
   const titleId = useId()
 
+  // Fonte de verdade: DeliveryDriver.driverType vindo do backend (nao a mera
+  // presenca de DriverConfig). FROTA => acerto por dias+entregas+km (3 eixos
+  // manuais). FREELANCER => repasse das corridas somado 100% no servidor, sem
+  // os 3 eixos. A config de tarifas (que pode faltar mesmo numa FROTA, 404 -> null)
+  // apenas alimenta o preview/calculo do eixo FROTA.
+  const isFrota = driverType === 'FROTA'
+
   const [workingDays, setWorkingDays] = useState('')
-  const [kmTotal,     setKmTotal]     = useState('')
+  const [kmOverride,  setKmOverride]  = useState('')
   const [notes,       setNotes]       = useState(settlement.notes ?? '')
   const [saving,      setSaving]      = useState(false)
   const [error,       setError]       = useState<string | null>(null)
+  const [result,      setResult]      = useState<DriverSettlementResponse | null>(null)
 
-  // Preview ao vivo
-  const days       = parseInt(workingDays, 10) || 0
-  const kmCents    = displayToCents(kmTotal)
-  const dailyRate  = config?.dailyRateCents  ?? 0
-  const perDeliv   = config?.perDeliveryCents ?? 0
-  const perKm      = config?.perKmCents       ?? 0
+  // Preview ao vivo (so se aplica ao eixo FROTA; km so e recalculado aqui quando ha
+  // override manual — sem override, o total real vem do fechamento no servidor).
+  const days           = parseInt(workingDays, 10) || 0
+  const kmOverrideMeters = kmDisplayToMeters(kmOverride)
+  const dailyRate       = config?.dailyRateCents  ?? 0
+  const perDeliv        = config?.perDeliveryCents ?? 0
+  const perKm           = config?.perKmCents       ?? 0
 
   const dailyTotal    = days * dailyRate
   const deliveryTotal = settlement.deliveriesCount * perDeliv
-  const kmTotalCalc   = perKm > 0 ? Math.round((kmCents / 100) * (perKm / 100) * 100) : kmCents
-  const grossTotal    = dailyTotal + deliveryTotal + kmTotalCalc
+  const kmTotalCalc    = kmOverrideMeters !== null
+    ? Math.round((kmOverrideMeters / 1000) * perKm)
+    : null
+  const grossTotalKnown = dailyTotal + deliveryTotal + (kmTotalCalc ?? 0)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    if (!workingDays || days <= 0) {
+    if (isFrota && (!workingDays || days <= 0)) {
       setError('Informe os dias trabalhados.')
       return
     }
     setSaving(true)
     setError(null)
     try {
-      await api.post<DriverSettlementResponse>(`/drivers/settlements/${settlement.id}/close`, {
-        workingDays: days,
-        kmTotalCents: kmCents,
+      const res = await api.post<DriverSettlementResponse>(`/drivers/settlements/${settlement.id}/close`, {
+        workingDays: isFrota ? days : 0,
+        kmOverrideMeters: isFrota ? kmOverrideMeters : null,
         notes: notes.trim() || null,
       })
       onClosed()
-      onClose()
+      if (res.offersWithoutPayout > 0) {
+        // D-C: nao bloqueia, mas o gestor precisa ver isso antes de sair da tela.
+        setResult(res)
+      } else {
+        onClose()
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Erro ao fechar acerto.')
     } finally {
       setSaving(false)
     }
+  }
+
+  if (result) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div
+          ref={ref}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          className="w-full max-w-lg rounded-2xl bg-bg-primary p-6 shadow-xl"
+        >
+          <h2 id={titleId} className="mb-1 text-lg font-bold text-text-primary">
+            Acerto fechado
+          </h2>
+          <div className="mb-4 flex items-center gap-2">
+            <BadgeSettlementType type={result.settlementType} />
+            <span className="text-sm text-text-secondary">
+              Total: {centsToDisplay(result.grossTotalCents)}
+            </span>
+          </div>
+          <div
+            role="alert"
+            className="rounded-lg bg-warning/10 px-4 py-3 text-sm font-medium text-warning"
+          >
+            ⚠️ {result.offersWithoutPayout} corrida(s) sem valor de repasse definido —
+            contam como R$0 neste acerto.
+          </div>
+          <div className="mt-5 flex justify-end">
+            <button type="button" className="btn-primary" onClick={onClose}>
+              Entendi
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -292,42 +375,61 @@ function ModalFecharAcerto({
             <span className="font-semibold text-text-primary">{settlement.deliveriesCount}</span>
           </div>
 
-          <div>
-            <label htmlFor="close-days" className="form-label">Dias trabalhados</label>
-            <input
-              id="close-days"
-              type="number"
-              min="0"
-              step="1"
-              className="input-field w-full"
-              value={workingDays}
-              onChange={(e) => setWorkingDays(e.target.value)}
-              placeholder="Ex: 22"
-              required
-              disabled={saving}
-              aria-required="true"
-            />
-          </div>
+          {isFrota ? (
+            <>
+              <div>
+                <label htmlFor="close-days" className="form-label">Dias trabalhados</label>
+                <input
+                  id="close-days"
+                  type="number"
+                  min="0"
+                  step="1"
+                  className="input-field w-full"
+                  value={workingDays}
+                  onChange={(e) => setWorkingDays(e.target.value)}
+                  placeholder="Ex: 22"
+                  required
+                  disabled={saving}
+                  aria-required="true"
+                />
+              </div>
 
-          <div>
-            <label htmlFor="close-km" className="form-label">Total de km rodados (opcional)</label>
-            <div className="relative">
-              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-text-muted">km</span>
-              <input
-                id="close-km"
-                type="text"
-                inputMode="numeric"
-                className="input-field w-full pl-10"
-                value={kmTotal}
-                onChange={(e) => setKmTotal(maskCurrency(e.target.value))}
-                placeholder="0,00"
-                disabled={saving}
-              />
+              <div>
+                <label htmlFor="close-km" className="form-label">Override de distancia (opcional)</label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-text-muted">km</span>
+                  <input
+                    id="close-km"
+                    type="text"
+                    inputMode="decimal"
+                    className="input-field w-full pl-10"
+                    value={kmOverride}
+                    onChange={(e) => setKmOverride(e.target.value)}
+                    placeholder="0,0"
+                    disabled={saving}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-text-muted">
+                  Deixe em branco para usar a distancia registrada dos pedidos do periodo.
+                  Preencha so para um ajuste manual excepcional (fica auditado).
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="rounded-lg bg-bg-secondary px-4 py-3 text-sm text-text-secondary">
+              <p>
+                Entregador <span className="font-semibold text-text-primary">freelancer</span>:
+                o repasse e a soma dos payouts das corridas entregues no periodo, calculada
+                automaticamente no servidor ao fechar (sem diarias/km).
+              </p>
+              <div className="mt-2 flex justify-between border-t border-border-light pt-2">
+                <span className="text-text-muted">Repasse parcial ate agora</span>
+                <span className="font-semibold text-primary-700">
+                  {centsToDisplay(settlement.payoutTotalCents)}
+                </span>
+              </div>
             </div>
-            <p className="mt-1 text-xs text-text-muted">
-              Se a remuneracao por km estiver configurada, o valor sera calculado automaticamente.
-            </p>
-          </div>
+          )}
 
           <div>
             <label htmlFor="close-notes" className="form-label">Observacoes</label>
@@ -342,32 +444,34 @@ function ModalFecharAcerto({
             />
           </div>
 
-          {/* Preview ao vivo */}
-          <div className="rounded-lg border border-border-light bg-bg-secondary p-4 text-sm">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
-              Preview do calculo
-            </p>
-            <div className="space-y-1">
-              <div className="flex justify-between text-text-secondary">
-                <span>Diarias: {days} dias × {centsToDisplay(dailyRate)}</span>
-                <span>{centsToDisplay(dailyTotal)}</span>
-              </div>
-              <div className="flex justify-between text-text-secondary">
-                <span>Entregas: {settlement.deliveriesCount} × {centsToDisplay(perDeliv)}</span>
-                <span>{centsToDisplay(deliveryTotal)}</span>
-              </div>
-              {(perKm > 0 || kmCents > 0) && (
+          {/* Preview ao vivo (so o eixo FROTA; repasse do freelancer so sai no fechamento) */}
+          {isFrota && (
+            <div className="rounded-lg border border-border-light bg-bg-secondary p-4 text-sm">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
+                Preview do calculo (frota)
+              </p>
+              <div className="space-y-1">
                 <div className="flex justify-between text-text-secondary">
-                  <span>Km</span>
-                  <span>{centsToDisplay(kmTotalCalc)}</span>
+                  <span>Diarias: {days} dias × {centsToDisplay(dailyRate)}</span>
+                  <span>{centsToDisplay(dailyTotal)}</span>
                 </div>
-              )}
-              <div className="mt-2 flex justify-between border-t border-border-light pt-2 font-bold">
-                <span className="text-text-primary">Total bruto</span>
-                <span className="text-primary-700">{centsToDisplay(grossTotal)}</span>
+                <div className="flex justify-between text-text-secondary">
+                  <span>Entregas: {settlement.deliveriesCount} × {centsToDisplay(perDeliv)}</span>
+                  <span>{centsToDisplay(deliveryTotal)}</span>
+                </div>
+                <div className="flex justify-between text-text-secondary">
+                  <span>Km ({perKm > 0 ? centsToDisplay(perKm) + '/km' : 'sem tarifa'})</span>
+                  <span>{kmTotalCalc !== null ? centsToDisplay(kmTotalCalc) : 'calculado no fechamento'}</span>
+                </div>
+                <div className="mt-2 flex justify-between border-t border-border-light pt-2 font-bold">
+                  <span className="text-text-primary">Total bruto</span>
+                  <span className="text-primary-700">
+                    {kmTotalCalc !== null ? centsToDisplay(grossTotalKnown) : 'inclui km calculado no fechamento'}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {error && (
             <p role="alert" className="form-error">{error}</p>
@@ -395,8 +499,10 @@ function SkeletonHistorico() {
       {Array.from({ length: 3 }).map((_, i) => (
         <tr key={i} className="animate-pulse">
           <td className="px-4 py-3"><div className="h-4 w-28 rounded bg-bg-tertiary" /></td>
+          <td className="px-4 py-3"><div className="h-4 w-16 rounded bg-bg-tertiary" /></td>
           <td className="px-4 py-3"><div className="h-4 w-10 rounded bg-bg-tertiary" /></td>
           <td className="px-4 py-3"><div className="h-4 w-10 rounded bg-bg-tertiary" /></td>
+          <td className="px-4 py-3"><div className="h-4 w-20 rounded bg-bg-tertiary" /></td>
           <td className="px-4 py-3"><div className="h-4 w-20 rounded bg-bg-tertiary" /></td>
           <td className="px-4 py-3"><div className="h-4 w-20 rounded bg-bg-tertiary" /></td>
           <td className="px-4 py-3"><div className="h-4 w-20 rounded bg-bg-tertiary" /></td>
@@ -433,9 +539,18 @@ export default function AcertosPage() {
     setLoadingPage(true)
     setPageError(null)
     try {
+      // Config de tarifas (dias/entrega/km) so existe para entregadores FROTA — um
+      // FREELANCER (sem tarifas cadastradas) responde 404 aqui, o que e esperado e
+      // NAO deve derrubar a pagina inteira.
+      const configPromise = api
+        .get<DriverConfigResponse>(`/drivers/${driverId}/config`)
+        .catch((err) => {
+          if (err instanceof ApiError && err.status === 404) return null
+          throw err
+        })
       const [driversRes, cfgRes, openRes] = await Promise.all([
         api.get<DeliveryDriverResponse[]>('/drivers'),
-        api.get<DriverConfigResponse>(`/drivers/${driverId}/config`),
+        configPromise,
         api.get<Page<DriverSettlementResponse>>(
           `/drivers/settlements?driverId=${driverId}&status=OPEN`,
         ),
@@ -533,7 +648,10 @@ export default function AcertosPage() {
             ) : driver ? (
               <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h1 className="text-2xl font-bold text-text-primary">{driver.name}</h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-text-primary">{driver.name}</h1>
+                    <BadgeSettlementType type={driver.driverType} />
+                  </div>
                   <p className="mt-0.5 text-sm text-text-secondary">{driver.phone ?? '—'}</p>
                   {config && (
                     <p className="mt-2 text-sm text-text-muted">
@@ -632,11 +750,13 @@ export default function AcertosPage() {
                 <thead className="bg-bg-secondary text-left text-xs uppercase text-text-muted">
                   <tr>
                     <th scope="col" className="px-4 py-3">Periodo</th>
+                    <th scope="col" className="px-4 py-3">Tipo</th>
                     <th scope="col" className="px-4 py-3">Entregas</th>
                     <th scope="col" className="px-4 py-3">Dias</th>
                     <th scope="col" className="px-4 py-3">Diarias</th>
                     <th scope="col" className="px-4 py-3">Por entrega</th>
                     <th scope="col" className="px-4 py-3">Km</th>
+                    <th scope="col" className="px-4 py-3">Repasse</th>
                     <th scope="col" className="px-4 py-3 font-bold">Total bruto</th>
                     <th scope="col" className="px-4 py-3">Fechado em</th>
                   </tr>
@@ -647,31 +767,36 @@ export default function AcertosPage() {
                 ) : history.length === 0 ? (
                   <tbody>
                     <tr>
-                      <td colSpan={8} className="px-4 py-10 text-center text-sm text-text-muted">
+                      <td colSpan={10} className="px-4 py-10 text-center text-sm text-text-muted">
                         Nenhum acerto fechado.
                       </td>
                     </tr>
                   </tbody>
                 ) : (
                   <tbody className="divide-y divide-border-light">
-                    {history.map((s) => (
-                      <tr key={s.id} className="hover:bg-bg-secondary/70">
-                        <td className="whitespace-nowrap px-4 py-3 text-text-secondary">
-                          {formatDate(s.periodStart)} → {formatDate(s.periodEnd)}
-                        </td>
-                        <td className="px-4 py-3 text-text-secondary">{s.deliveriesCount}</td>
-                        <td className="px-4 py-3 text-text-secondary">{s.workingDays}</td>
-                        <td className="px-4 py-3 text-text-secondary">{centsToDisplay(s.dailyTotalCents)}</td>
-                        <td className="px-4 py-3 text-text-secondary">{centsToDisplay(s.deliveryTotalCents)}</td>
-                        <td className="px-4 py-3 text-text-secondary">{centsToDisplay(s.kmTotalCents)}</td>
-                        <td className="px-4 py-3 font-bold text-primary-700">
-                          {centsToDisplay(s.grossTotalCents)}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-text-muted">
-                          {formatDateTime(s.closedAt)}
-                        </td>
-                      </tr>
-                    ))}
+                    {history.map((s) => {
+                      const isFreelancer = s.settlementType === 'FREELANCER'
+                      return (
+                        <tr key={s.id} className="hover:bg-bg-secondary/70">
+                          <td className="whitespace-nowrap px-4 py-3 text-text-secondary">
+                            {formatDate(s.periodStart)} → {formatDate(s.periodEnd)}
+                          </td>
+                          <td className="px-4 py-3"><BadgeSettlementType type={s.settlementType} /></td>
+                          <td className="px-4 py-3 text-text-secondary">{s.deliveriesCount}</td>
+                          <td className="px-4 py-3 text-text-secondary">{isFreelancer ? '—' : s.workingDays}</td>
+                          <td className="px-4 py-3 text-text-secondary">{isFreelancer ? '—' : centsToDisplay(s.dailyTotalCents)}</td>
+                          <td className="px-4 py-3 text-text-secondary">{isFreelancer ? '—' : centsToDisplay(s.deliveryTotalCents)}</td>
+                          <td className="px-4 py-3 text-text-secondary">{isFreelancer ? '—' : metersToKmDisplay(s.kmTotalMeters)}</td>
+                          <td className="px-4 py-3 text-text-secondary">{isFreelancer ? centsToDisplay(s.payoutTotalCents) : '—'}</td>
+                          <td className="px-4 py-3 font-bold text-primary-700">
+                            {centsToDisplay(s.grossTotalCents)}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-text-muted">
+                            {formatDateTime(s.closedAt)}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 )}
               </table>
@@ -689,10 +814,11 @@ export default function AcertosPage() {
         />
       )}
 
-      {showClose && openSettl && (
+      {showClose && openSettl && driver && (
         <ModalFecharAcerto
           settlement={openSettl}
           config={config}
+          driverType={driver.driverType}
           onClose={() => setShowClose(false)}
           onClosed={handleClosed}
         />

@@ -303,6 +303,7 @@ class DriverService(
         phone = d.phone,
         isActive = d.active,
         userId = d.userId,
+        driverType = d.driverType,
     )
 
     private fun toConfigResponse(c: DriverConfig) = DriverConfigResponse(

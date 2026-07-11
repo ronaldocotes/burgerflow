@@ -17,6 +17,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.http.MediaType
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -110,6 +111,37 @@ class DriverSettlementHttpTest @Autowired constructor(
             .andExpect(status().isCreated)
             .andExpect(jsonPath("$.driverId").value(driverId.toString()))
             .andExpect(jsonPath("$.status").value("OPEN"))
+    }
+
+    @Test
+    fun `GET drivers exposes driverType so the settlement screen branches by source of truth`() {
+        val adminToken = login("admin@$slug.com")
+
+        // Alem do FROTA semeado no setup, semeia um FREELANCER para provar que o
+        // driverType vem do DeliveryDriver.driverType real (nao inferido de config).
+        val freelancerName = "Moto Free ${UUID.randomUUID().toString().take(6)}"
+        TenantContext.set(slug)
+        try {
+            driverRepository.save(
+                DeliveryDriver(
+                    name = freelancerName,
+                    phone = "55" + UUID.randomUUID().toString().filter { it.isDigit() }.take(11).padEnd(11, '7'),
+                    tenantId = tenantRepository.findBySlug(slug)!!.id!!,
+                    driverType = "FREELANCER",
+                ),
+            )
+        } finally {
+            TenantContext.clear()
+        }
+
+        val res = mockMvc.perform(
+            get("/drivers").header("Authorization", "Bearer $adminToken"),
+        ).andExpect(status().isOk).andReturn()
+
+        val body = objectMapper.readTree(res.response.contentAsString)
+        val byName = body.associate { it.get("name").asText() to it.get("driverType").asText() }
+        assert(byName["Moto Setl"] == "FROTA") { "FROTA driver deve expor driverType=FROTA, veio ${byName["Moto Setl"]}" }
+        assert(byName[freelancerName] == "FREELANCER") { "FREELANCER driver deve expor driverType=FREELANCER, veio ${byName[freelancerName]}" }
     }
 
     @Test
