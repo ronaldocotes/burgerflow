@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { CopilotChat } from '@/components/ai/CopilotChat'
+import { SoundAlertProvider } from './SoundAlertProvider'
 
 // Rotas publicas OU com layout proprio (/plataforma): renderiza children direto
 const PUBLIC_PREFIXES = ['/', '/login', '/cardapio', '/aceitar-convite', '/acompanhar', '/motoboy', '/plataforma', '/l']
@@ -25,15 +26,17 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-bg-secondary">
-      <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Topbar onMenuClick={() => setMobileOpen(true)} />
-        <div className="flex-1 overflow-auto">
-          {children}
+    <SoundAlertProvider>
+      <div className="flex h-screen overflow-hidden bg-bg-secondary">
+        <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <Topbar onMenuClick={() => setMobileOpen(true)} />
+          <div className="flex-1 overflow-auto">
+            {children}
+          </div>
         </div>
+        <CopilotChat />
       </div>
-      <CopilotChat />
-    </div>
+    </SoundAlertProvider>
   )
 }
