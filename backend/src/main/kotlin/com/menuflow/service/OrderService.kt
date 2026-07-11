@@ -1,5 +1,6 @@
 package com.menuflow.service
 
+import com.menuflow.dto.DeliveryAddressRequest
 import com.menuflow.dto.OrderCreateRequest
 import com.menuflow.dto.OrderItemRequest
 import com.menuflow.dto.OrderResponse
@@ -53,6 +54,31 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import kotlin.random.Random
+
+/**
+ * Cotacao de frete resolvida server-side para o cardapio publico: taxa (centavos),
+ * janela de ETA (minutos) e se o frete saiu gratis. As coords sao as geocodadas no
+ * servidor (o publico nao envia pin de mapa no MVP) e sao repassadas ao create para
+ * evitar um segundo geocode.
+ */
+data class DeliveryQuoteView(
+    val lat: Double,
+    val lng: Double,
+    val feeCents: Long,
+    val etaMinMinutes: Int,
+    val etaMaxMinutes: Int,
+    val free: Boolean,
+)
+
+/**
+ * Coordenada de entrega JA resolvida server-side, repassada ao [OrderService.create]
+ * pelo fluxo PUBLICO (que geocodou na cotacao) para: (a) evitar um SEGUNDO geocode; e
+ * (b) gravar a ORIGEM REAL do geocode (ex.: "GOOGLE") em delivery_geocode_source, em
+ * vez de "MANUAL" — que significaria "coords informadas pelo cliente" e enganaria uma
+ * disputa de entrega (achado A4). Construida apenas no servidor, nunca a partir do JSON
+ * anonimo, entao o cliente publico nao consegue forjar o rotulo de origem.
+ */
+data class ResolvedDeliveryGeo(val lat: Double, val lng: Double, val source: String)
 
 @Service
 class OrderService(
@@ -116,7 +142,14 @@ class OrderService(
      * with 422 (nothing is written). Money is in centavos throughout.
      */
     @Transactional("tenantTransactionManager")
-    fun create(req: OrderCreateRequest, userId: UUID?): OrderResponse {
+    fun create(
+        req: OrderCreateRequest,
+        userId: UUID?,
+        // A4: coords JA geocodadas server-side (fluxo publico). Quando presente num
+        // pedido DELIVERY, usa estas coords + a origem REAL (ex.: "GOOGLE"), sem
+        // regeocode e sem gravar "MANUAL". Default null = comportamento legado.
+        deliveryGeoOverride: ResolvedDeliveryGeo? = null,
+    ): OrderResponse {
         // 1. Resolve products, build line items (price snapshot), validar complementos
         // e os valores monetários. MESMA lógica que o quote usa -> os totais batem.
         // Cupom (Fase 3.2) SOBRESCREVE o desconto manual: com um código informado, o
@@ -189,7 +222,13 @@ class OrderService(
         // Para DELIVERY geocodificado com restaurante geolocalizado, a taxa vem do
         // cálculo por distância (RidePricing), IGNORANDO deliveryFeeCents do cliente
         // (anti-fraude). Sem geocode, mantém o valor do request (fluxo legado).
-        val (deliveryLat, deliveryLng, geocodeSource) = resolveDeliveryGeo(req)
+        val (deliveryLat, deliveryLng, geocodeSource) =
+            if (req.orderType == OrderType.DELIVERY && deliveryGeoOverride != null) {
+                // Fluxo publico: coords geocodadas na cotacao. Grava a origem REAL (A4).
+                Triple(deliveryGeoOverride.lat, deliveryGeoOverride.lng, deliveryGeoOverride.source)
+            } else {
+                resolveDeliveryGeo(req)
+            }
         val resolvedDeliveryFee = resolveDeliveryFee(req, config, deliveryLat, deliveryLng, subtotal)
 
         // 3. Compute totals (centavos) and persist the order. MESMO cálculo do quote.
@@ -537,48 +576,155 @@ class OrderService(
      *  3. LEGADO: sem zonas e sem geocode/coords, mantém req.deliveryFeeCents (operador
      *     define a taxa manualmente) — sem regressão dos fluxos antigos.
      */
-    private fun resolveDeliveryFee(
+    /**
+     * Resultado da resolucao de frete server-side. Modela os desfechos possiveis para
+     * que cada chamador decida o status HTTP: o fluxo AUTENTICADO (create) traduz falha
+     * em BusinessException (400, comportamento legado); o fluxo PUBLICO/ANONIMO
+     * (quoteDelivery) traduz em UnprocessableEntityException (422, fail-closed).
+     */
+    sealed interface DeliveryFeeOutcome {
+        /** Frete resolvido. [etaMinMinutes]/[etaMaxMinutes]/[free] so vem preenchidos no modo ZONAS. */
+        data class Priced(
+            val feeCents: Long,
+            val etaMinMinutes: Int?,
+            val etaMaxMinutes: Int?,
+            val free: Boolean,
+        ) : DeliveryFeeOutcome
+
+        /** Zonas ativas mas restaurante sem coordenadas (misconfig): fail-closed. */
+        object RestaurantNotLocated : DeliveryFeeOutcome
+
+        /** Zonas ativas mas destino sem coordenadas (geocode falhou): fail-closed. */
+        object DestinationNotLocated : DeliveryFeeOutcome
+
+        /** Destino fora de todas as zonas ativas. */
+        object OutOfArea : DeliveryFeeOutcome
+
+        /**
+         * Fluxo PUBLICO (requireZones): o tenant NAO tem nenhuma zona de entrega ativa
+         * configurada. Entrega indisponivel — o publico nao pode cair no frete legado
+         * (req.deliveryFeeCents == 0 no anonimo) e receber entrega gratis silenciosa
+         * (achado A2). No fluxo autenticado este desfecho nunca ocorre (requireZones=false).
+         */
+        object ZonesNotConfigured : DeliveryFeeOutcome
+    }
+
+    /**
+     * Nucleo da resolucao de frete SERVER-SIDE (ver [resolveDeliveryFee] / [quoteDelivery]).
+     * NAO lanca: devolve um [DeliveryFeeOutcome] e o chamador escolhe o status.
+     * Ordem de precedencia: ZONAS (issue #2, Haversine) -> FLAT rodoviaria -> legado.
+     * Nunca cai no fee arbitrario do cliente quando ha zonas ativas.
+     */
+    private fun resolveDeliveryFeeInternal(
         req: OrderCreateRequest,
         config: TenantConfig?,
         destLat: Double?,
         destLng: Double?,
         subtotalCents: Long,
-    ): Long {
-        if (req.orderType != OrderType.DELIVERY) return req.deliveryFeeCents
+        // A2: fluxo PUBLICO/ANONIMO passa true — exige zonas ativas (fail-closed). Sem
+        // zonas nao ha frete server-side possivel; o legado (fee do cliente) NAO vale no
+        // publico. O autenticado passa false (default) e mantem legado/FLAT intactos.
+        requireZones: Boolean = false,
+    ): DeliveryFeeOutcome {
+        if (req.orderType != OrderType.DELIVERY) {
+            return DeliveryFeeOutcome.Priced(req.deliveryFeeCents, null, null, false)
+        }
 
         val originLat = config?.restaurantLat
         val originLng = config?.restaurantLng
 
         // --- Modo ZONAS: server-side autoritativo, ignora o fee do cliente. ---
         val zones = deliveryZoneResolver.activeZones()
+        // Publico sem zonas ativas => entrega indisponivel (nunca frete gratis silencioso).
+        if (zones.isEmpty() && requireZones) return DeliveryFeeOutcome.ZonesNotConfigured
         if (zones.isNotEmpty()) {
-            if (originLat == null || originLng == null) {
-                // Zonas configuradas mas restaurante sem coordenadas: não há origem do
-                // raio. Fail-closed (misconfiguração bloqueia, não vira frete grátis).
-                throw BusinessException(
-                    "Zonas de entrega configuradas, mas o restaurante não tem localização definida",
-                )
-            }
-            if (destLat == null || destLng == null) {
-                throw BusinessException(
-                    "Não foi possível localizar o endereço de entrega para calcular o frete",
-                )
-            }
+            // Fail-closed: misconfig (sem origem) ou destino sem coords bloqueiam,
+            // nunca viram frete gratis nem caem no valor arbitrario do cliente.
+            if (originLat == null || originLng == null) return DeliveryFeeOutcome.RestaurantNotLocated
+            if (destLat == null || destLng == null) return DeliveryFeeOutcome.DestinationNotLocated
             val res = deliveryZoneResolver.resolve(
                 originLat, originLng, destLat, destLng,
                 subtotalCents, config.freeDeliveryMinOrderCents, zones,
-            ) ?: throw BusinessException("Endereço fora da área de entrega")
-            return res.feeCents
+            ) ?: return DeliveryFeeOutcome.OutOfArea
+            return DeliveryFeeOutcome.Priced(res.feeCents, res.etaMinMinutes, res.etaMaxMinutes, res.isFree)
         }
 
         // --- Modo FLAT por distância rodoviária (sem zonas). ---
         if (originLat == null || originLng == null || destLat == null || destLng == null) {
-            return req.deliveryFeeCents
+            return DeliveryFeeOutcome.Priced(req.deliveryFeeCents, null, null, false)
         }
         val meters = distanceService.getRoadDistanceMeters(
             originLat, originLng, destLat, destLng, config.distanceProvider,
         )
-        return ridePricingService.feeCents(config, meters)
+        return DeliveryFeeOutcome.Priced(ridePricingService.feeCents(config, meters), null, null, false)
+    }
+
+    /**
+     * Fluxo AUTENTICADO (create): mantem o contrato historico — falha vira
+     * BusinessException (400). Delega em [resolveDeliveryFeeInternal].
+     */
+    private fun resolveDeliveryFee(
+        req: OrderCreateRequest,
+        config: TenantConfig?,
+        destLat: Double?,
+        destLng: Double?,
+        subtotalCents: Long,
+    ): Long = when (val o = resolveDeliveryFeeInternal(req, config, destLat, destLng, subtotalCents)) {
+        is DeliveryFeeOutcome.Priced -> o.feeCents
+        DeliveryFeeOutcome.RestaurantNotLocated ->
+            throw BusinessException("Zonas de entrega configuradas, mas o restaurante não tem localização definida")
+        DeliveryFeeOutcome.DestinationNotLocated ->
+            throw BusinessException("Não foi possível localizar o endereço de entrega para calcular o frete")
+        DeliveryFeeOutcome.OutOfArea ->
+            throw BusinessException("Endereço fora da área de entrega")
+        // Defensivo: o fluxo autenticado passa requireZones=false, entao este desfecho
+        // nunca ocorre aqui (sem zonas => legado/FLAT). Mantido para o when ser exaustivo.
+        DeliveryFeeOutcome.ZonesNotConfigured ->
+            throw BusinessException("Nenhuma zona de entrega configurada")
+    }
+
+    /**
+     * Cotacao PUBLICA de frete (cardapio anonimo): geocoda o endereco server-side e
+     * resolve a zona. NAO persiste nada. Fail-closed — sem geocode, restaurante sem
+     * localizacao ou fora de area vira UnprocessableEntityException (422). O
+     * [subtotalCents] permite refletir o frete gratis por valor minimo do pedido;
+     * a cotacao avulsa passa 0 (o valor definitivo e recalculado no create).
+     */
+    fun quoteDelivery(address: DeliveryAddressRequest, subtotalCents: Long): DeliveryQuoteView {
+        val config = tenantConfigRepository.findFirstByOrderByCreatedAtAsc()
+        // A2 (fail-closed): o publico exige zonas ativas. Sem zonas, entrega indisponivel
+        // -> 422 ANTES de geocodar (poupa a chamada externa do Google — custo A1).
+        if (deliveryZoneResolver.activeZones().isEmpty()) {
+            throw UnprocessableEntityException(
+                "Entrega indisponível: o restaurante ainda não configurou as áreas de entrega",
+            )
+        }
+        val geo = geocodingService.geocode(address.street, address.neighborhood, address.city, address.cep)
+            ?: throw UnprocessableEntityException("Não foi possível localizar o endereço de entrega")
+        val req = OrderCreateRequest(orderType = OrderType.DELIVERY, items = emptyList(), delivery = address)
+        return when (val o = resolveDeliveryFeeInternal(req, config, geo.lat, geo.lng, subtotalCents, requireZones = true)) {
+            is DeliveryFeeOutcome.Priced -> DeliveryQuoteView(
+                lat = geo.lat,
+                lng = geo.lng,
+                feeCents = o.feeCents,
+                // Sem zona (modo flat/legado) nao ha ETA por zona -> promessa global do tenant.
+                etaMinMinutes = o.etaMinMinutes ?: config?.deliveryTimeMinMinutes ?: 30,
+                etaMaxMinutes = o.etaMaxMinutes ?: config?.deliveryTimeMaxMinutes ?: 60,
+                free = o.free,
+            )
+            DeliveryFeeOutcome.RestaurantNotLocated ->
+                throw UnprocessableEntityException("Entrega indisponível no momento (restaurante sem localização definida)")
+            DeliveryFeeOutcome.DestinationNotLocated ->
+                throw UnprocessableEntityException("Não foi possível localizar o endereço de entrega")
+            DeliveryFeeOutcome.OutOfArea ->
+                throw UnprocessableEntityException("Endereço fora da área de entrega")
+            // Redundante com a guarda acima (activeZones vazio ja lancou 422), mantido para
+            // o when ser exaustivo e como defesa se a guarda mudar.
+            DeliveryFeeOutcome.ZonesNotConfigured ->
+                throw UnprocessableEntityException(
+                    "Entrega indisponível: o restaurante ainda não configurou as áreas de entrega",
+                )
+        }
     }
 
     private data class PricedCart(

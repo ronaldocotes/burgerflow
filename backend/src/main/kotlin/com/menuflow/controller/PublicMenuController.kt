@@ -3,10 +3,12 @@ package com.menuflow.controller
 import com.menuflow.dto.ApplyCouponRequest
 import com.menuflow.dto.ApplyCouponResponse
 import com.menuflow.dto.CategoryResponse
+import com.menuflow.dto.DeliveryAddressRequest
 import com.menuflow.dto.OrderCreateRequest
 import com.menuflow.dto.OrderItemRequest
 import com.menuflow.dto.PublicProductResponse
 import com.menuflow.dto.TrackingRedirectResponse
+import com.menuflow.exception.BusinessException
 import com.menuflow.model.OrderType
 import com.menuflow.model.PaymentMethod
 import com.menuflow.repository.control.TenantRepository
@@ -96,6 +98,22 @@ data class PublicOrderItemRequest(
     val optionIds: List<UUID> = emptyList(),
 )
 
+/**
+ * Endereco de entrega enviado pelo cardapio publico (DELIVERY). SEM lat/lng: no MVP
+ * nao ha pin de mapa — o servidor geocoda (GeocodingService) a partir do texto do
+ * endereco e resolve o frete por zona. Campos com tamanhos sanos; validado/geocodado
+ * em OrderService.quoteDelivery.
+ */
+data class PublicDeliveryRequest(
+    @field:Size(max = 200) val street: String? = null,
+    @field:Size(max = 20) val number: String? = null,
+    @field:Size(max = 100) val complement: String? = null,
+    @field:Size(max = 100) val neighborhood: String? = null,
+    @field:Size(max = 100) val city: String? = null,
+    @field:Size(max = 9) val cep: String? = null,
+    @field:Size(max = 200) val reference: String? = null,
+)
+
 data class PublicOrderRequest(
     @field:NotBlank val customerName: String,
     @field:NotBlank val paymentMethod: String,
@@ -106,12 +124,46 @@ data class PublicOrderRequest(
     @field:Size(max = 20) val customerPhone: String? = null,
     /** Cupom de desconto opcional (Fase 3.2); validado/redimido em OrderService.create. */
     @field:Size(max = 50) val couponCode: String? = null,
+    /**
+     * Modalidade do pedido: "DELIVERY" / "PICKUP" (=TAKEAWAY) / "DINE_IN". null ou vazio
+     * => DINE_IN (compat com o front antigo, que so fazia pedido de mesa). Valor invalido
+     * => 400. O publico NUNCA envia taxa de entrega: o frete e sempre server-side.
+     */
+    @field:Size(max = 20) val orderType: String? = null,
+    /** Endereco de entrega; obrigatorio quando orderType=DELIVERY (senao 400). */
+    @field:Valid val delivery: PublicDeliveryRequest? = null,
 )
 
 data class PublicOrderCreatedResponse(
     val orderId: UUID,
     val orderNumber: String,
     val totalCents: Long,
+    /** Frete resolvido server-side (0 quando nao e DELIVERY ou saiu gratis). */
+    val deliveryFeeCents: Long,
+    /** Janela de prazo (minutos); preenchida em DELIVERY, null nas demais modalidades. */
+    val etaMinMinutes: Int? = null,
+    val etaMaxMinutes: Int? = null,
+)
+
+/** Corpo da cotacao publica de frete (POST /public/{slug}/delivery-quote). */
+data class PublicDeliveryQuoteRequest(
+    @field:Size(max = 200) val street: String? = null,
+    @field:Size(max = 100) val neighborhood: String? = null,
+    @field:Size(max = 100) val city: String? = null,
+    @field:Size(max = 9) val cep: String? = null,
+    /**
+     * Subtotal atual do carrinho (centavos), opcional: quando informado reflete o
+     * frete gratis por valor minimo do pedido. Ausente => 0 (frete cheio na previa).
+     */
+    val subtotalCents: Long? = null,
+)
+
+/** Resposta da cotacao publica de frete: taxa, janela de ETA e se saiu gratis. */
+data class PublicDeliveryQuoteResponse(
+    val feeCents: Long,
+    val etaMinMinutes: Int,
+    val etaMaxMinutes: Int,
+    val free: Boolean,
 )
 
 /**
@@ -200,32 +252,137 @@ class PublicMenuController(
         if (!tenantRepository.existsBySlug(tenantSlug)) return ResponseEntity.notFound().build()
         TenantContext.set(tenantSlug)
         return try {
+            // Modalidade: null/vazio -> DINE_IN (compat com o front antigo de mesa).
+            // Valor invalido -> 400 (BusinessException). "PICKUP" e sinonimo publico de
+            // TAKEAWAY (o enum de dominio nao tem PICKUP).
+            val orderType = resolvePublicOrderType(req.orderType)
             val paymentMethod = runCatching { PaymentMethod.valueOf(req.paymentMethod) }.getOrNull()
             val notes = buildString {
                 append("Cliente: ${req.customerName}")
                 req.tableLabel?.let { append(" | Mesa: $it") }
                 req.observations?.takeIf { it.isNotBlank() }?.let { append(" | Obs: $it") }
             }
+            val items = req.items.map {
+                OrderItemRequest(
+                    productId = it.productId,
+                    quantity = it.quantity,
+                    notes = it.notes,
+                    optionIds = it.optionIds,
+                )
+            }
+
+            // DELIVERY: geocoda o endereco e resolve a zona ANTES de criar (obtem ETA +
+            // coords). Falha (sem endereco -> 400; sem geocode / fora de area -> 422) nao
+            // cria pedido. As coords resolvidas sao repassadas ao create (delivery.lat/lng)
+            // para evitar um SEGUNDO geocode; o create reresolve o frete server-side com o
+            // subtotal real (frete gratis por valor minimo). O publico nunca envia fee.
+            var quote: com.menuflow.service.DeliveryQuoteView? = null
+            var deliveryAddr: DeliveryAddressRequest? = null
+            if (orderType == OrderType.DELIVERY) {
+                val d = req.delivery ?: throw BusinessException("Endereço de entrega obrigatório")
+                quote = orderService.quoteDelivery(
+                    DeliveryAddressRequest(
+                        cep = d.cep, street = d.street, number = d.number,
+                        complement = d.complement, neighborhood = d.neighborhood,
+                        city = d.city, reference = d.reference,
+                    ),
+                    subtotalCents = 0,
+                )
+                deliveryAddr = DeliveryAddressRequest(
+                    recipientName = req.customerName,
+                    phone = req.customerPhone,
+                    cep = d.cep, street = d.street, number = d.number,
+                    complement = d.complement, neighborhood = d.neighborhood,
+                    city = d.city, reference = d.reference,
+                    // As coords NAO vao no endereco (senao o create as trataria como
+                    // origem "MANUAL" = informadas pelo cliente). Vao no override abaixo,
+                    // com a origem REAL do geocode server-side (A4).
+                )
+            }
+            // A4/A1: coords ja geocodadas na cotacao -> repassa ao create como override
+            // (evita 2o geocode e grava delivery_geocode_source="GOOGLE", nao "MANUAL").
+            val geoOverride = quote?.let {
+                com.menuflow.service.ResolvedDeliveryGeo(it.lat, it.lng, "GOOGLE")
+            }
+
             val orderReq = OrderCreateRequest(
-                orderType = OrderType.DINE_IN,
-                tableNumber = req.tableLabel,
+                orderType = orderType,
+                tableNumber = if (orderType == OrderType.DINE_IN) req.tableLabel else null,
                 customerPhone = req.customerPhone,
                 notes = notes,
                 paymentMethod = paymentMethod,
                 couponCode = req.couponCode,
-                items = req.items.map {
-                    OrderItemRequest(
-                        productId = it.productId,
-                        quantity = it.quantity,
-                        notes = it.notes,
-                        optionIds = it.optionIds,
-                    )
-                },
+                delivery = deliveryAddr,
+                items = items,
             )
-            val created = orderService.create(orderReq, null)
-            ResponseEntity.ok(PublicOrderCreatedResponse(created.id, created.orderNumber, created.totalCents))
+            val created = orderService.create(orderReq, null, geoOverride)
+            ResponseEntity.ok(
+                PublicOrderCreatedResponse(
+                    orderId = created.id,
+                    orderNumber = created.orderNumber,
+                    totalCents = created.totalCents,
+                    // Frete autoritativo do pedido criado (inclui frete gratis por valor);
+                    // ETA vem da zona resolvida na cotacao.
+                    deliveryFeeCents = created.deliveryFeeCents,
+                    etaMinMinutes = quote?.etaMinMinutes,
+                    etaMaxMinutes = quote?.etaMaxMinutes,
+                ),
+            )
         } finally {
             TenantContext.clear()
+        }
+    }
+
+    /**
+     * Cotacao publica de frete (Fase 1 delivery): o cliente digita o endereco e ve o
+     * frete + prazo ANTES de fechar o pedido. Molde do apply-coupon: nao persiste nada.
+     * Geocoda server-side e resolve a zona (mesma origem/regra do create). Fora de area /
+     * sem geocode / restaurante sem localizacao -> 422. Rate-limited por IP (geocode tem
+     * custo externo — ver PublicOrderRateLimitFilter).
+     */
+    @PostMapping("/{tenantSlug}/delivery-quote")
+    fun deliveryQuote(
+        @PathVariable tenantSlug: String,
+        @Valid @RequestBody req: PublicDeliveryQuoteRequest,
+    ): ResponseEntity<PublicDeliveryQuoteResponse> {
+        if (!tenantRepository.existsBySlug(tenantSlug)) return ResponseEntity.notFound().build()
+        // Sem nenhum campo de endereco nao ha o que geocodar -> 400 (antes de tocar o banco).
+        if (listOf(req.street, req.neighborhood, req.city, req.cep).all { it.isNullOrBlank() }) {
+            throw BusinessException("Endereço de entrega obrigatório")
+        }
+        TenantContext.set(tenantSlug)
+        return try {
+            val q = orderService.quoteDelivery(
+                DeliveryAddressRequest(
+                    street = req.street, neighborhood = req.neighborhood,
+                    city = req.city, cep = req.cep,
+                ),
+                subtotalCents = (req.subtotalCents ?: 0L).coerceAtLeast(0L),
+            )
+            ResponseEntity.ok(
+                PublicDeliveryQuoteResponse(
+                    feeCents = q.feeCents,
+                    etaMinMinutes = q.etaMinMinutes,
+                    etaMaxMinutes = q.etaMaxMinutes,
+                    free = q.free,
+                ),
+            )
+        } finally {
+            TenantContext.clear()
+        }
+    }
+
+    /**
+     * Traduz a modalidade textual do publico para o enum de dominio. null/vazio ->
+     * DINE_IN (compat). "PICKUP" -> TAKEAWAY (sinonimo). Valor desconhecido -> 400.
+     */
+    private fun resolvePublicOrderType(raw: String?): OrderType {
+        val v = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return OrderType.DINE_IN
+        return when (v.uppercase()) {
+            "DINE_IN" -> OrderType.DINE_IN
+            "DELIVERY" -> OrderType.DELIVERY
+            "PICKUP", "TAKEAWAY" -> OrderType.TAKEAWAY
+            else -> throw BusinessException("Tipo de pedido inválido: $raw")
         }
     }
 

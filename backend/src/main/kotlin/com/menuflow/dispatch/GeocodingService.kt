@@ -1,11 +1,17 @@
 package com.menuflow.dispatch
 
+import com.github.benmanes.caffeine.cache.Cache
+import com.github.benmanes.caffeine.cache.Caffeine
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatusCode
+import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClient
-import org.springframework.web.util.UriComponentsBuilder
+import org.springframework.web.util.UriUtils
+import java.net.URI
+import java.nio.charset.StandardCharsets
+import java.util.concurrent.TimeUnit
 
 /** Coordenada geografica (graus decimais). */
 data class LatLng(val lat: Double, val lng: Double)
@@ -22,51 +28,75 @@ data class LatLng(val lat: Double, val lng: Double)
  *
  * Timeout curto (3s), fail-safe: qualquer erro vira null (nunca derruba o pedido).
  * A origem resolvida deve ser gravada em orders.delivery_geocode_source ("GOOGLE").
+ *
+ * A URI e montada com os parametros ENCODADOS (achado A3): o endereco agora e entrada
+ * ANONIMA do cardapio publico, entao um endereco legitimo com '&', '=', '{', '}',
+ * espacos ou acentos nao pode injetar parametros na chamada Google nem quebrar a URI.
+ *
+ * CACHE (achado A1 — custo externo): o cardapio publico ANONIMO chama isto a cada hit
+ * (~US$0,005/geocode). Um cache por endereco NORMALIZADO corta chamadas repetidas do
+ * mesmo endereco (quote->quote e quote->create). Apenas resultados RESOLVIDOS entram no
+ * cache; null (sem chave / falha transitoria / sem match) NAO e cacheado, para nao
+ * envenenar um endereco que passe a resolver depois.
  */
 @Service
 class GeocodingService(
     @Value("\${google.routes.api-key:}") private val apiKey: String,
-    @Value("\${google.geocoding.base-url:https://maps.googleapis.com}") baseUrl: String,
+    @Value("\${google.geocoding.base-url:https://maps.googleapis.com}") private val baseUrl: String,
     builder: RestClient.Builder,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
+    // Sem baseUrl no client: a URI absoluta e montada em buildGeocodeUri (ja encodada),
+    // o que permite passar um java.net.URI e evitar a expansao de template do endereco.
     private val client: RestClient = builder
-        .baseUrl(baseUrl)
         .requestFactory(
-            org.springframework.http.client.SimpleClientHttpRequestFactory().apply {
+            SimpleClientHttpRequestFactory().apply {
                 setConnectTimeout(3000)
                 setReadTimeout(3000)
             },
         )
         .build()
 
+    // A1: cache em memoria (Caffeine, mesmo motor do CacheConfig) por endereco
+    // normalizado. TTL 24h e tamanho limitado — so entradas resolvidas.
+    private val geocodeCache: Cache<String, LatLng> = Caffeine.newBuilder()
+        .expireAfterWrite(24, TimeUnit.HOURS)
+        .maximumSize(10_000)
+        .build()
+
     /**
      * Resolve o endereco em coordenada. Retorna null se sem chave, sem match, ou erro.
-     * A [source] resultante (para delivery_geocode_source) e "GOOGLE" quando resolve.
+     * A origem resultante (para delivery_geocode_source) e "GOOGLE" quando resolve.
+     * Consulta o cache antes de chamar o Google (A1) e so guarda resultados nao-nulos.
      */
     fun geocode(street: String?, neighborhood: String?, city: String?, zip: String?): LatLng? {
         if (apiKey.isBlank()) {
             log.debug("Geocoding sem GOOGLE_ROUTES_API_KEY -- retornando null (fallback)")
             return null
         }
-        val addressText = listOfNotNull(
-            street?.takeIf { it.isNotBlank() },
-            neighborhood?.takeIf { it.isNotBlank() },
-            city?.takeIf { it.isNotBlank() },
-            zip?.takeIf { it.isNotBlank() },
-        ).joinToString(", ")
+        val parts = listOf(street, neighborhood, city, zip).map { it?.trim().orEmpty() }
+        val addressText = parts.filter { it.isNotBlank() }.joinToString(", ")
         if (addressText.isBlank()) return null
 
-        return try {
-            val uri = UriComponentsBuilder.fromPath("/maps/api/geocode/json")
-                .queryParam("address", addressText)
-                .queryParam("key", apiKey)
-                .build().toUriString()
+        // Chave NORMALIZADA (lowercase + trim de cada campo): "Rua A"/" rua a " colidem.
+        val cacheKey = parts.joinToString("|") { it.lowercase() }
+        geocodeCache.getIfPresent(cacheKey)?.let { return it }
 
+        val resolved = fetchLatLng(addressText) ?: return null
+        geocodeCache.put(cacheKey, resolved)
+        return resolved
+    }
+
+    /**
+     * Chamada remota ao Google (seam isolado — nao consulta cache). Publico apenas para
+     * permitir o teste do cache (spy/verify times(1)); em producao so [geocode] o chama.
+     */
+    fun fetchLatLng(addressText: String): LatLng? {
+        return try {
             @Suppress("UNCHECKED_CAST")
             val body = client.get()
-                .uri(uri)
+                .uri(buildGeocodeUri(addressText, apiKey))
                 .retrieve()
                 .onStatus(HttpStatusCode::isError) { _, res ->
                     throw IllegalStateException("Geocoding HTTP ${res.statusCode}")
@@ -84,5 +114,17 @@ class GeocodingService(
             log.warn("Geocoding falhou para '{}': {}", addressText, e.message)
             null
         }
+    }
+
+    /**
+     * Monta a URI absoluta do Geocoding com os valores percent-encodados (A3). Usa
+     * [UriUtils.encodeQueryParam] (tipo QUERY_PARAM), que encoda '&', '=', '+', '{',
+     * '}', espacos e acentos — garantindo que o valor NUNCA vira separador/parametro.
+     * URI absoluta -> o RestClient a usa como esta, sem expandir template do endereco.
+     */
+    internal fun buildGeocodeUri(addressText: String, key: String): URI {
+        val encodedAddress = UriUtils.encodeQueryParam(addressText, StandardCharsets.UTF_8)
+        val encodedKey = UriUtils.encodeQueryParam(key, StandardCharsets.UTF_8)
+        return URI.create("$baseUrl/maps/api/geocode/json?address=$encodedAddress&key=$encodedKey")
     }
 }
