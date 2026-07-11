@@ -25,7 +25,17 @@ export function DeliveryCard({ order, onPress }: DeliveryCardProps) {
     >
       <View style={styles.body}>
         <View style={styles.topRow}>
-          <Text style={styles.orderNumber}>#{order.orderNumber}</Text>
+          <View style={styles.orderLeft}>
+            {order.deliverySequence != null && (
+              <View
+                style={styles.seqBadge}
+                accessibilityLabel={`Parada ${order.deliverySequence} da rota`}
+              >
+                <Text style={styles.seqBadgeText}>{order.deliverySequence}</Text>
+              </View>
+            )}
+            <Text style={styles.orderNumber}>#{order.orderNumber}</Text>
+          </View>
           <Text style={styles.total}>{formatBRL(order.totalCents)}</Text>
         </View>
         <View style={styles.addressRow}>
@@ -56,6 +66,22 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.85 },
   body: { flex: 1, gap: 8 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  orderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
+  seqBadge: {
+    minWidth: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: theme.brand,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  seqBadgeText: {
+    color: theme.text.onBrand,
+    fontSize: 15,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
   orderNumber: { fontSize: 18, fontWeight: '800', color: theme.text.primary },
   total: {
     fontSize: 18,

@@ -71,7 +71,7 @@ export interface DeliveryOrder {
   /**
    * Posicao (1-based) do pedido na rota otimizada do motoboy (issue #4). null quando
    * o pedido nao faz parte de uma rota confirmada. Ordena as paradas na tela de
-   * entregas do app.
+   * entregas do app e vira badge no card.
    */
   deliverySequence: number | null;
 }
