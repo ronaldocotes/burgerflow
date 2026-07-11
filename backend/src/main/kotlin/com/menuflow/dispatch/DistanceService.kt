@@ -255,3 +255,138 @@ class OsrmDistanceProvider(
             ?: throw IllegalStateException("OSRM: campo distance ausente")
     }
 }
+
+/**
+ * Ordem otima de UMA rota com N paradas (issue #4). O primeiro ponto e SEMPRE a
+ * origem fixa (o restaurante); os demais sao os pontos de entrega. Resolve o
+ * "problema do caixeiro viajante" aproximado via servico OSRM /trip — o MESMO
+ * `osrm-routed` que ja serve /route (nenhuma flag/binario especial).
+ *
+ * GET /trip/v1/driving/{lon,lat;lon,lat;...}?source=first&roundtrip=false
+ *   - source=first  : fixa a origem (restaurante) como inicio da rota;
+ *   - roundtrip=false: o motoboy NAO volta ao restaurante ao fim.
+ *
+ * ATENCAO: como todo o OSRM, a ordem e LONGITUDE,LATITUDE (nao lat,lng).
+ *
+ * A resposta traz `waypoints[i].waypoint_index` = posicao do i-esimo ponto de
+ * ENTRADA na rota otimizada; `trips[0].distance/duration` sao os totais. Qualquer
+ * falha (timeout, 5xx, code != Ok, corpo inesperado) propaga como
+ * IllegalStateException — o [RouteOptimizationService] captura e cai no fallback
+ * deterministico (FAIL-OPEN: a roteirizacao nunca trava a operacao).
+ */
+@Service
+class OsrmTripProvider(
+    @Value("\${osrm.base-url:}") baseUrl: String,
+    builder: RestClient.Builder,
+) {
+    private val client: RestClient = builder
+        .baseUrl(baseUrl.ifBlank { "http://localhost:5000" })
+        .requestFactory(
+            org.springframework.http.client.SimpleClientHttpRequestFactory().apply {
+                setConnectTimeout(3000)
+                setReadTimeout(5000)
+            },
+        )
+        .build()
+
+    /**
+     * Otimiza a ordem de visita. [points] sao os pontos APOS a origem (as entregas),
+     * na ordem em que foram passados; a origem [originLat]/[originLng] entra como
+     * primeiro waypoint fixo. Devolve os indices de [points] (0-based) na ordem otima
+     * de visita, mais os totais da rota.
+     *
+     * @return [TripResult] com a permutacao dos indices de entrada e os totais.
+     * @throws IllegalStateException em qualquer resposta invalida (capturado pelo servico).
+     */
+    fun optimize(originLat: Double, originLng: Double, points: List<Pair<Double, Double>>): TripResult {
+        require(points.isNotEmpty()) { "OSRM trip: sem pontos de entrega" }
+        val path = buildTripPath(originLat, originLng, points)
+
+        val response = client.get()
+            .uri { b -> b.path(path).build() }
+            .retrieve()
+            .onStatus(HttpStatusCode::isError) { _, res ->
+                throw IllegalStateException("OSRM trip HTTP ${res.statusCode}")
+            }
+            .body(object : ParameterizedTypeReference<Map<String, Any?>>() {})
+            ?: throw IllegalStateException("OSRM trip: corpo vazio")
+
+        return parseTrip(response, points.size)
+    }
+
+    companion object {
+        /**
+         * Monta o path do /trip: origem (restaurante) como primeiro waypoint fixo,
+         * seguido das entregas, TODOS em LONGITUDE,LATITUDE (padrao OSRM). source=first
+         * ancora a origem; roundtrip=false porque o motoboy nao volta ao restaurante.
+         * Puro (sem I/O) para permitir provar a ordem LON,LAT em teste isolado.
+         */
+        fun buildTripPath(originLat: Double, originLng: Double, points: List<Pair<Double, Double>>): String {
+            val all = buildList {
+                add(originLng to originLat)
+                points.forEach { (lat, lng) -> add(lng to lat) }
+            }
+            val coords = all.joinToString(";") { (lng, lat) -> "$lng,$lat" }
+            return "/trip/v1/driving/$coords?source=first&roundtrip=false"
+        }
+
+        /**
+         * Interpreta a resposta do /trip. [pointCount] e o numero de ENTREGAS (sem a
+         * origem). Devolve a permutacao dos indices de entrada (0-based) na ordem otima
+         * + os totais. Puro para teste isolado com corpo canonico do OSRM.
+         *
+         * @throws IllegalStateException em qualquer corpo invalido (code != Ok, tamanhos
+         *   inconsistentes, campos ausentes) — o servico captura e cai no fallback.
+         */
+        fun parseTrip(response: Map<String, Any?>, pointCount: Int): TripResult {
+            val code = response["code"] as? String
+            if (code != "Ok") {
+                throw IllegalStateException("OSRM trip: code=$code (rota nao encontrada)")
+            }
+
+            @Suppress("UNCHECKED_CAST")
+            val waypoints = response["waypoints"] as? List<Map<String, Any?>>
+                ?: throw IllegalStateException("OSRM trip: waypoints ausente ou tipo inesperado")
+            if (waypoints.size != pointCount + 1) {
+                throw IllegalStateException("OSRM trip: waypoints (${waypoints.size}) != pontos (${pointCount + 1})")
+            }
+
+            @Suppress("UNCHECKED_CAST")
+            val trips = response["trips"] as? List<Map<String, Any?>>
+                ?: throw IllegalStateException("OSRM trip: trips ausente ou tipo inesperado")
+            val trip = trips.firstOrNull()
+                ?: throw IllegalStateException("OSRM trip: trips vazio")
+            val totalMeters = (trip["distance"] as? Number)?.let { Math.round(it.toDouble()) }
+                ?: throw IllegalStateException("OSRM trip: distance ausente")
+            val totalSeconds = (trip["duration"] as? Number)?.let { Math.round(it.toDouble()) }
+                ?: throw IllegalStateException("OSRM trip: duration ausente")
+
+            // waypoints[0] e a origem (waypoint_index 0 por source=first). As entregas
+            // sao waypoints[1..N]; o waypoint_index de cada uma da a posicao na rota
+            // otimizada. Ordena os indices de ENTRADA das entregas por waypoint_index.
+            val deliveryWaypoints = waypoints.drop(1).mapIndexed { inputIdx, wp ->
+                val wpIndex = (wp["waypoint_index"] as? Number)?.toInt()
+                    ?: throw IllegalStateException("OSRM trip: waypoint_index ausente")
+                inputIdx to wpIndex
+            }
+            val orderedInputIndices = deliveryWaypoints.sortedBy { it.second }.map { it.first }
+
+            return TripResult(
+                orderedInputIndices = orderedInputIndices,
+                totalDistanceMeters = totalMeters,
+                totalDurationSeconds = totalSeconds,
+            )
+        }
+    }
+}
+
+/**
+ * Resultado da otimizacao pelo OSRM /trip. [orderedInputIndices] e a permutacao dos
+ * indices de ENTRADA (0-based, referente a lista `points` passada ao provider) na
+ * ordem otima de visita. Totais rodoviarios em metros/segundos.
+ */
+data class TripResult(
+    val orderedInputIndices: List<Int>,
+    val totalDistanceMeters: Long,
+    val totalDurationSeconds: Long,
+)
