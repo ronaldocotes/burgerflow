@@ -2,7 +2,9 @@ package com.menuflow.controller
 
 import com.menuflow.ads.AdAccountResponse
 import com.menuflow.ads.AdAccountService
+import com.menuflow.ads.AdPageResponse
 import com.menuflow.ads.ConnectAdAccountRequest
+import com.menuflow.ads.SetAdPageRequest
 import com.menuflow.platform.ModuleKey
 import com.menuflow.platform.RequiresModule
 import com.menuflow.security.SecurityUtils
@@ -41,6 +43,17 @@ class AdAccountController(private val service: AdAccountService) {
     @GetMapping("/accounts")
     @RequiresModule(ModuleKey.ADS)
     fun list(): List<AdAccountResponse> = service.list()
+
+    /** Lista as Paginas do Facebook que o token da conta administra (para escolher o page_id). */
+    @GetMapping("/accounts/{id}/pages")
+    @RequiresModule(ModuleKey.ADS)
+    fun pages(@PathVariable id: UUID): List<AdPageResponse> = service.listPages(id)
+
+    /** Grava a Pagina escolhida na conta (pre-requisito para criar campanha). */
+    @PutMapping("/accounts/{id}/page")
+    @RequiresModule(ModuleKey.ADS)
+    fun setPage(@PathVariable id: UUID, @Valid @RequestBody req: SetAdPageRequest): AdAccountResponse =
+        service.setPage(id, req.pageId, req.pageName)
 
     /** Desconecta (remove) uma conta. */
     @DeleteMapping("/accounts/{id}")
