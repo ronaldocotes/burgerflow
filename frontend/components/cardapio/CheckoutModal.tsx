@@ -15,6 +15,15 @@ import type { DeliveryAddress, DeliveryFieldErrors } from "./DeliveryAddressForm
 type PaymentMethod = "CASH" | "PIX" | "CREDIT_CARD" | "DEBIT_CARD";
 type OrderType = "TAKEAWAY" | "DELIVERY";
 
+interface DeliveryQuote {
+  feeCents: number;
+  etaMinMinutes: number;
+  etaMaxMinutes: number;
+  free: boolean;
+}
+
+type QuoteStatus = "idle" | "loading" | "ok" | "blocked" | "network_error";
+
 interface Props {
   cart: CartLine[];
   pixKey: string | null;
@@ -53,7 +62,17 @@ export function CheckoutModal({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
+  const [successDelivery, setSuccessDelivery] = useState<{
+    feeCents: number;
+    etaMin?: number;
+    etaMax?: number;
+  } | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+
+  const [quote, setQuote] = useState<DeliveryQuote | null>(null);
+  const [quoteStatus, setQuoteStatus] = useState<QuoteStatus>("idle");
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [quoteRetry, setQuoteRetry] = useState(0);
 
   const [couponCode, setCouponCode] = useState("");
   const [applyingCoupon, setApplyingCoupon] = useState(false);
@@ -87,7 +106,89 @@ export function CheckoutModal({
   );
 
   const discountCents = appliedCoupon?.valid ? appliedCoupon.discountCents : 0;
-  const total = Math.max(0, subtotal - discountCents);
+  const deliveryFeeCents =
+    orderType === "DELIVERY" && quoteStatus === "ok" && quote && !quote.free
+      ? quote.feeCents
+      : 0;
+  const total = Math.max(0, subtotal - discountCents) + deliveryFeeCents;
+
+  // Cotacao pronta para disparar: minimo CEP (8 digitos) + rua + cidade.
+  const quoteReady =
+    orderType === "DELIVERY" &&
+    deliveryAddr.zip.length === 8 &&
+    deliveryAddr.street.trim().length > 0 &&
+    deliveryAddr.city.trim().length > 0;
+
+  useEffect(() => {
+    if (!quoteReady) {
+      setQuote(null);
+      setQuoteStatus("idle");
+      setQuoteError(null);
+      return;
+    }
+    const ctrl = new AbortController();
+    // Debounce: recalcula quando endereco ou subtotal mudam (frete gratis depende do subtotal).
+    const timer = setTimeout(() => {
+      setQuoteStatus("loading");
+      setQuoteError(null);
+      void (async () => {
+        try {
+          const res = await fetch(
+            API_BASE + "/public/" + tenantSlug + "/delivery-quote",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                street: deliveryAddr.street.trim(),
+                neighborhood: deliveryAddr.neighborhood.trim() || undefined,
+                city: deliveryAddr.city.trim(),
+                cep: deliveryAddr.zip,
+                subtotalCents: subtotal,
+              }),
+              signal: ctrl.signal,
+            },
+          );
+          if (res.status === 422) {
+            const data = (await res.json().catch(() => ({}))) as {
+              message?: string;
+            };
+            setQuote(null);
+            setQuoteStatus("blocked");
+            setQuoteError(
+              typeof data.message === "string"
+                ? data.message
+                : "Endereco fora da area de entrega.",
+            );
+            return;
+          }
+          if (!res.ok) throw new Error("Erro " + String(res.status));
+          const data = (await res.json()) as DeliveryQuote;
+          setQuote(data);
+          setQuoteStatus("ok");
+        } catch (err) {
+          if ((err as Error).name === "AbortError") return;
+          setQuote(null);
+          setQuoteStatus("network_error");
+          setQuoteError(
+            "Nao foi possivel calcular o frete. Verifique sua conexao.",
+          );
+        }
+      })();
+    }, 500);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [
+    quoteReady,
+    deliveryAddr.zip,
+    deliveryAddr.street,
+    deliveryAddr.neighborhood,
+    deliveryAddr.city,
+    subtotal,
+    tenantSlug,
+    quoteRetry,
+  ]);
 
   function validateDelivery(): DeliveryFieldErrors {
     if (orderType !== "DELIVERY") return {};
@@ -146,7 +247,11 @@ export function CheckoutModal({
   }
 
   const canSubmit =
-    nome.trim().length > 0 && payment !== null && !sending && deliveryValid;
+    nome.trim().length > 0 &&
+    payment !== null &&
+    !sending &&
+    deliveryValid &&
+    (orderType !== "DELIVERY" || quoteStatus === "ok");
 
   async function handleSubmit() {
     if (!canSubmit || !payment) return;
@@ -160,13 +265,15 @@ export function CheckoutModal({
       const deliveryPayload =
         orderType === "DELIVERY"
           ? {
-              deliveryZip: deliveryAddr.zip,
-              deliveryStreet: deliveryAddr.street,
-              deliveryNumber: deliveryAddr.number,
-              deliveryComplement: deliveryAddr.complement || undefined,
-              deliveryNeighborhood: deliveryAddr.neighborhood,
-              deliveryCity: deliveryAddr.city || undefined,
-              deliveryReference: deliveryAddr.reference || undefined,
+              delivery: {
+                street: deliveryAddr.street,
+                number: deliveryAddr.number,
+                complement: deliveryAddr.complement,
+                neighborhood: deliveryAddr.neighborhood,
+                city: deliveryAddr.city,
+                cep: deliveryAddr.zip,
+                reference: deliveryAddr.reference,
+              },
             }
           : {};
 
@@ -204,8 +311,20 @@ export function CheckoutModal({
         );
       }
 
-      const data = (await res.json()) as { id?: string };
-      setSuccessOrderId(data.id ?? "");
+      const data = (await res.json()) as {
+        orderNumber?: string;
+        deliveryFeeCents?: number;
+        etaMinMinutes?: number;
+        etaMaxMinutes?: number;
+      };
+      setSuccessOrderId(data.orderNumber ?? "");
+      if (orderType === "DELIVERY") {
+        setSuccessDelivery({
+          feeCents: data.deliveryFeeCents ?? deliveryFeeCents,
+          etaMin: data.etaMinMinutes,
+          etaMax: data.etaMaxMinutes,
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao enviar pedido.");
     } finally {
@@ -232,6 +351,21 @@ export function CheckoutModal({
             <h2 className="text-xl font-bold text-text-primary mb-2">Pedido enviado!</h2>
             {successOrderId && (
               <p className="text-sm text-text-muted mb-2">Pedido #{successOrderId}</p>
+            )}
+            {orderType === "DELIVERY" && successDelivery && (
+              <p className="text-sm text-text-secondary mb-2">
+                Frete:{" "}
+                {successDelivery.feeCents > 0
+                  ? formatBRL(successDelivery.feeCents)
+                  : "Gratis"}
+                {successDelivery.etaMin != null &&
+                  successDelivery.etaMax != null &&
+                  " · Chega em " +
+                    String(successDelivery.etaMin) +
+                    "–" +
+                    String(successDelivery.etaMax) +
+                    " min"}
+              </p>
             )}
             <p className="text-text-secondary mb-6">
               {orderType === "DELIVERY"
@@ -293,6 +427,78 @@ export function CheckoutModal({
                   onChange={handleDeliveryChange}
                   errors={deliveryErrors}
                 />
+
+                {/* Cotacao de frete */}
+                {quoteStatus === "loading" && (
+                  <div
+                    className="flex items-center gap-2 mt-3 text-sm text-text-secondary"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <svg
+                      className="animate-spin h-4 w-4 flex-shrink-0"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8H4z"
+                      />
+                    </svg>
+                    Calculando frete...
+                  </div>
+                )}
+                {quoteStatus === "ok" && quote && (
+                  <div
+                    className="flex items-center justify-between mt-3 text-sm"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <span className="text-text-secondary">
+                      Entrega em {quote.etaMinMinutes}&ndash;{quote.etaMaxMinutes} min
+                    </span>
+                    {quote.free ? (
+                      <span className="font-semibold text-success">
+                        FRETE GRATIS
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-text-primary">
+                        Frete: {formatBRL(quote.feeCents)}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {(quoteStatus === "blocked" || quoteStatus === "network_error") &&
+                  quoteError && (
+                    <div className="mt-3" role="alert">
+                      <p className="text-error text-sm flex items-center gap-1">
+                        <XCircle
+                          className="h-4 w-4 flex-shrink-0"
+                          aria-hidden="true"
+                        />
+                        {quoteError}
+                      </p>
+                      {quoteStatus === "network_error" && (
+                        <button
+                          type="button"
+                          onClick={() => setQuoteRetry((n) => n + 1)}
+                          className="btn-outline mt-2 px-3 py-1.5 text-sm min-h-[44px]"
+                        >
+                          Tentar novamente
+                        </button>
+                      )}
+                    </div>
+                  )}
               </div>
             )}
 
@@ -310,6 +516,20 @@ export function CheckoutModal({
                   <span className="text-success font-medium">
                     - {formatBRL(discountCents)}
                   </span>
+                </div>
+              )}
+              {orderType === "DELIVERY" && quoteStatus === "ok" && quote && (
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-text-secondary text-sm">Frete</span>
+                  {quote.free ? (
+                    <span className="text-success font-medium text-sm">
+                      Gratis
+                    </span>
+                  ) : (
+                    <span className="font-medium text-text-primary">
+                      {formatBRL(quote.feeCents)}
+                    </span>
+                  )}
                 </div>
               )}
               <div className="flex justify-between items-center mt-2 pt-2 border-t border-border-light">
