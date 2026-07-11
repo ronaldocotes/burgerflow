@@ -80,6 +80,9 @@ class OrderService(
     private val distanceService: com.menuflow.dispatch.DistanceService,
     private val ridePricingService: com.menuflow.dispatch.RidePricingService,
     private val geocodingService: com.menuflow.dispatch.GeocodingService,
+    // Issue #2: zonas de entrega por raio (Haversine). Quando o tenant tem zonas
+    // ativas, a taxa vem da zona (server-side) e ponto fora de area bloqueia o pedido.
+    private val deliveryZoneResolver: com.menuflow.delivery.DeliveryZoneResolver,
 ) {
 
     private val log = org.slf4j.LoggerFactory.getLogger(javaClass)
@@ -187,7 +190,7 @@ class OrderService(
         // cálculo por distância (RidePricing), IGNORANDO deliveryFeeCents do cliente
         // (anti-fraude). Sem geocode, mantém o valor do request (fluxo legado).
         val (deliveryLat, deliveryLng, geocodeSource) = resolveDeliveryGeo(req)
-        val resolvedDeliveryFee = resolveDeliveryFee(req, config, deliveryLat, deliveryLng)
+        val resolvedDeliveryFee = resolveDeliveryFee(req, config, deliveryLat, deliveryLng, subtotal)
 
         // 3. Compute totals (centavos) and persist the order. MESMO cálculo do quote.
         // Usa o desconto efetivo (cupom quando houver, senão o manual).
@@ -518,21 +521,57 @@ class OrderService(
     }
 
     /**
-     * Fase A2 (anti-fraude) — taxa de entrega SERVER-SIDE. Para DELIVERY com geocode
-     * do destino E restaurante geolocalizado, IGNORA req.deliveryFeeCents e calcula a
-     * tarifa pela distância rodoviária (RidePricing). Sem geocode (endereço não
-     * resolvido ou restaurante sem coordenadas), mantém o valor do request para não
-     * regredir o fluxo legado em que o operador define a taxa manualmente.
+     * Taxa de entrega SERVER-SIDE. Três modos, em ordem de precedência:
+     *
+     *  1. ZONAS (issue #2, decisão D-1): se o tenant tem zonas ativas configuradas, a
+     *     taxa vem SEMPRE da zona pela distância em LINHA RETA (Haversine) do
+     *     restaurante ao ponto de entrega — IGNORANDO req.deliveryFeeCents. Isto FECHA
+     *     o fail-open: sem coordenadas válidas (restaurante ou destino) ou ponto FORA
+     *     de todas as zonas => lança BusinessException (endereço fora da área /
+     *     inválido). NUNCA cai no valor arbitrário do cliente quando há zonas.
+     *
+     *  2. FLAT por distância rodoviária (Fase A2, anti-fraude): sem zonas, mas com
+     *     geocode do destino E restaurante geolocalizado, calcula pela distância
+     *     rodoviária (RidePricing), ignorando o fee do cliente.
+     *
+     *  3. LEGADO: sem zonas e sem geocode/coords, mantém req.deliveryFeeCents (operador
+     *     define a taxa manualmente) — sem regressão dos fluxos antigos.
      */
     private fun resolveDeliveryFee(
         req: OrderCreateRequest,
         config: TenantConfig?,
         destLat: Double?,
         destLng: Double?,
+        subtotalCents: Long,
     ): Long {
         if (req.orderType != OrderType.DELIVERY) return req.deliveryFeeCents
+
         val originLat = config?.restaurantLat
         val originLng = config?.restaurantLng
+
+        // --- Modo ZONAS: server-side autoritativo, ignora o fee do cliente. ---
+        val zones = deliveryZoneResolver.activeZones()
+        if (zones.isNotEmpty()) {
+            if (originLat == null || originLng == null) {
+                // Zonas configuradas mas restaurante sem coordenadas: não há origem do
+                // raio. Fail-closed (misconfiguração bloqueia, não vira frete grátis).
+                throw BusinessException(
+                    "Zonas de entrega configuradas, mas o restaurante não tem localização definida",
+                )
+            }
+            if (destLat == null || destLng == null) {
+                throw BusinessException(
+                    "Não foi possível localizar o endereço de entrega para calcular o frete",
+                )
+            }
+            val res = deliveryZoneResolver.resolve(
+                originLat, originLng, destLat, destLng,
+                subtotalCents, config.freeDeliveryMinOrderCents, zones,
+            ) ?: throw BusinessException("Endereço fora da área de entrega")
+            return res.feeCents
+        }
+
+        // --- Modo FLAT por distância rodoviária (sem zonas). ---
         if (originLat == null || originLng == null || destLat == null || destLng == null) {
             return req.deliveryFeeCents
         }
