@@ -61,6 +61,42 @@ interface DeliveryOrder {
   salesChannel?: string;
   paymentStatus?: string;
   createdAt?: string;
+  /** Posição (1-based) na rota otimizada do motoboy (issue #4); null se fora de rota. */
+  deliverySequence?: number | null;
+}
+
+// ── Roteirização (issue #4) — contrato de /delivery/route/* ──────────────────────
+interface RouteStop {
+  orderId: string;
+  position: number;
+  orderNumber: string;
+  deliveryLat: number;
+  deliveryLng: number;
+  deliveryRecipientName: string | null;
+  deliveryNeighborhood: string | null;
+  deliveryStreet: string | null;
+  deliveryNumber: string | null;
+}
+
+interface RouteOptimizeResponse {
+  stops: RouteStop[];
+  totalDistanceMeters: number;
+  totalDurationSeconds: number | null;
+  /** false = ordem aproximada (OSRM indisponível); true = rota otimizada real. */
+  optimized: boolean;
+}
+
+/** Pedido DELIVERY aguardando despacho — fonte do Passo 1 do planejador (issue #4). */
+interface PendingDeliveryOrder {
+  orderId: string;
+  orderNumber: string;
+  deliveryRecipientName: string | null;
+  deliveryStreet: string | null;
+  deliveryNumber: string | null;
+  deliveryNeighborhood: string | null;
+  deliveryLat: number;
+  deliveryLng: number;
+  totalCents: number;
 }
 
 interface Driver {
@@ -810,6 +846,316 @@ function TabBar({
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+// ── Route planner (issue #4) ─────────────────────────────────────────────────
+const MAX_ROUTE_STOPS = 25;
+
+function fmtKm(meters: number): string {
+  return `${(meters / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km`;
+}
+function fmtMin(seconds: number | null): string | null {
+  if (seconds == null) return null;
+  return `${Math.round(seconds / 60)} min`;
+}
+function stopLine(s: RouteStop): string {
+  const rua = [s.deliveryStreet, s.deliveryNumber].filter(Boolean).join(", ");
+  return [rua, s.deliveryNeighborhood].filter(Boolean).join(" — ") || "Endereço não informado";
+}
+
+/**
+ * Planeja uma rota de múltiplas entregas para 1 motoboy da FROTA (issue #4):
+ * seleciona N pedidos DELIVERY com coordenadas → /optimize mostra a sequência
+ * ordenada + distância/tempo → /assign grava a ordem e associa ao motoboy.
+ * Opera sobre os pedidos já carregados na Central (que têm coords).
+ */
+function RoutePlannerModal({
+  drivers,
+  onClose,
+  onAssigned,
+}: {
+  drivers: Driver[];
+  onClose: () => void;
+  onAssigned: () => void;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y(dialogRef as React.RefObject<HTMLElement>, onClose);
+
+  // Fonte do Passo 1: pedidos DELIVERY aguardando despacho (sem motoboy, com coords).
+  const [eligible, setEligible] = useState<PendingDeliveryOrder[]>([]);
+  const [loadingList, setLoadingList] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [route, setRoute] = useState<RouteOptimizeResponse | null>(null);
+  const [driverId, setDriverId] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const activeDrivers = drivers.filter((d) => d.active);
+
+  useEffect(() => {
+    let alive = true;
+    setLoadingList(true);
+    api
+      .get<PendingDeliveryOrder[]>("/delivery/orders/pending-unassigned")
+      .then((list) => {
+        if (alive) setEligible(list);
+      })
+      .catch((err) => {
+        if (alive)
+          setError(
+            err instanceof Error ? err.message : "Erro ao carregar pedidos pendentes",
+          );
+      })
+      .finally(() => {
+        if (alive) setLoadingList(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  function toggle(orderId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+  }
+
+  const overBound = selected.size > MAX_ROUTE_STOPS;
+
+  async function optimize() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api.post<RouteOptimizeResponse>("/delivery/route/optimize", {
+        orderIds: Array.from(selected),
+      });
+      setRoute(res);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Erro ao otimizar a rota",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function assign() {
+    if (!route || !driverId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post<DeliveryOrder[]>("/delivery/route/assign", {
+        driverId,
+        // Envia os pedidos NA ORDEM da rota otimizada.
+        orderIds: route.stops.map((s) => s.orderId),
+      });
+      onAssigned();
+      onClose();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Erro ao atribuir a rota ao motoboy",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="route-modal-title"
+    >
+      <div className="absolute inset-0 bg-black/50" aria-hidden="true" onClick={onClose} />
+      <div
+        ref={dialogRef}
+        className="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-2xl border border-border-light bg-bg-primary shadow-xl sm:rounded-2xl"
+      >
+        <div className="flex items-center justify-between border-b border-border-light p-4">
+          <h2 id="route-modal-title" className="text-base font-semibold text-text-primary">
+            {route ? "Sequência da rota" : "Planejar rota de entregas"}
+          </h2>
+          <button
+            onClick={onClose}
+            aria-label="Fechar"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-text-muted hover:bg-bg-tertiary"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+
+        {error && (
+          <div
+            role="alert"
+            className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400"
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Passo 1 — seleção */}
+        {!route && (
+          <>
+            <div className="flex-1 overflow-y-auto p-4">
+              <p className="mb-3 text-xs text-text-muted">
+                Pedidos de entrega aguardando despacho (sem motoboy).
+              </p>
+              {loadingList ? (
+                <p className="py-8 text-center text-sm text-text-muted">Carregando pedidos…</p>
+              ) : eligible.length === 0 ? (
+                <p className="py-8 text-center text-sm text-text-muted">
+                  Nenhum pedido aguardando despacho.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {eligible.map((o) => {
+                    const checked = selected.has(o.orderId);
+                    return (
+                      <li key={o.orderId}>
+                        <label
+                          className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${
+                            checked
+                              ? "border-primary-500 bg-primary-50 dark:bg-primary-950/20"
+                              : "border-border-light hover:bg-bg-tertiary"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggle(o.orderId)}
+                            className="mt-1 h-4 w-4 accent-primary-600"
+                          />
+                          <span className="flex-1">
+                            <span className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-text-primary">
+                                #{o.orderNumber}
+                              </span>
+                              <span className="text-xs text-text-muted">
+                                {fmtMoney(o.totalCents)}
+                              </span>
+                            </span>
+                            <span className="mt-0.5 block text-xs text-text-muted">
+                              {o.deliveryRecipientName ? `${o.deliveryRecipientName} · ` : ""}
+                              {[o.deliveryStreet, o.deliveryNumber].filter(Boolean).join(", ") ||
+                                o.deliveryNeighborhood ||
+                                "Endereço"}
+                            </span>
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+            <div className="border-t border-border-light p-4">
+              {overBound && (
+                <p className="mb-2 text-xs text-red-600">
+                  Máximo de {MAX_ROUTE_STOPS} paradas por rota.
+                </p>
+              )}
+              <button
+                onClick={() => void optimize()}
+                disabled={selected.size < 1 || overBound || busy}
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+              >
+                <Truck className="h-4 w-4" aria-hidden="true" />
+                {busy ? "Otimizando..." : `Otimizar rota (${selected.size})`}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Passo 2 — revisão da sequência + atribuição */}
+        {route && (
+          <>
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-text-secondary">
+                <span className="font-medium text-text-primary">
+                  {route.stops.length} paradas
+                </span>
+                <span>{fmtKm(route.totalDistanceMeters)}</span>
+                {fmtMin(route.totalDurationSeconds) && (
+                  <span>≈ {fmtMin(route.totalDurationSeconds)}</span>
+                )}
+              </div>
+              {!route.optimized && (
+                <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400">
+                  Ordem aproximada — roteirização indisponível no momento.
+                </p>
+              )}
+              <ol className="flex flex-col gap-2">
+                {route.stops.map((s) => (
+                  <li
+                    key={s.orderId}
+                    className="flex items-start gap-3 rounded-xl border border-border-light p-3"
+                  >
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-600 text-xs font-bold text-white">
+                      {s.position}
+                    </span>
+                    <span className="flex-1">
+                      <span className="block text-sm font-medium text-text-primary">
+                        #{s.orderNumber}
+                        {s.deliveryRecipientName ? ` · ${s.deliveryRecipientName}` : ""}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-text-muted">{stopLine(s)}</span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <div className="flex flex-col gap-2 border-t border-border-light p-4">
+              <label htmlFor="route-driver" className="text-xs text-text-muted">
+                Motoboy da frota
+              </label>
+              <select
+                id="route-driver"
+                value={driverId}
+                onChange={(e) => setDriverId(e.target.value)}
+                className="min-h-11 rounded-lg border border-border-light bg-bg-primary px-3 text-sm text-text-primary"
+              >
+                <option value="">Selecione um motoboy…</option>
+                {activeDrivers.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                    {d.activeShift ? " (em turno)" : ""}
+                  </option>
+                ))}
+              </select>
+              <div className="mt-1 flex gap-2">
+                <button
+                  onClick={() => {
+                    setRoute(null);
+                    setError(null);
+                  }}
+                  disabled={busy}
+                  className="min-h-11 flex-1 rounded-lg border border-border-light px-4 py-2 text-sm text-text-secondary hover:bg-bg-tertiary disabled:opacity-50"
+                >
+                  Voltar
+                </button>
+                <button
+                  onClick={() => void assign()}
+                  disabled={!driverId || busy}
+                  className="min-h-11 flex-1 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {busy ? "Atribuindo..." : "Atribuir a motoboy"}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function DeliveryPage() {
   const router = useRouter();
 
@@ -825,6 +1171,7 @@ export default function DeliveryPage() {
     "entregas",
   );
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [routePlannerOpen, setRoutePlannerOpen] = useState(false);
 
   const selectedOrder =
     orders.find((o) => o.orderId === selectedOrderId) ?? null;
@@ -986,17 +1333,27 @@ export default function DeliveryPage() {
             Despacho operacional em tempo real
           </p>
         </div>
-        <button
-          onClick={() => void load()}
-          disabled={loading}
-          className="flex min-h-11 items-center gap-2 rounded-lg border border-border-light px-4 py-2 text-sm text-text-secondary hover:bg-bg-tertiary disabled:opacity-50"
-        >
-          <RefreshCcw
-            className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-            aria-hidden="true"
-          />
-          Atualizar
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setRoutePlannerOpen(true)}
+            disabled={loading}
+            className="flex min-h-11 items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          >
+            <Truck className="h-4 w-4" aria-hidden="true" />
+            Roteirizar
+          </button>
+          <button
+            onClick={() => void load()}
+            disabled={loading}
+            className="flex min-h-11 items-center gap-2 rounded-lg border border-border-light px-4 py-2 text-sm text-text-secondary hover:bg-bg-tertiary disabled:opacity-50"
+          >
+            <RefreshCcw
+              className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              aria-hidden="true"
+            />
+            Atualizar
+          </button>
+        </div>
       </div>
 
       {/* ── Error banner ─────────────────────────────────────────────────── */}
@@ -1160,6 +1517,15 @@ export default function DeliveryPage() {
           onClose={() => setAssigningOrderId(null)}
           onAssign={handleAssign}
           assigning={assigningSubmit}
+        />
+      )}
+
+      {/* ── Route planner (issue #4) ──────────────────────────────────────── */}
+      {routePlannerOpen && (
+        <RoutePlannerModal
+          drivers={drivers}
+          onClose={() => setRoutePlannerOpen(false)}
+          onAssigned={() => void load()}
         />
       )}
     </div>

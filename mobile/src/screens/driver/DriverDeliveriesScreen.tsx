@@ -1,6 +1,6 @@
 // Minhas entregas (Fase 6.2): lista das entregas ativas do motoboy.
 // 4 estados obrigatorios: loading / vazio / erro / sucesso.
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -28,6 +28,19 @@ export default function DriverDeliveriesScreen() {
   const navigation = useNavigation<ListNav>();
   const { deliveries, deliveriesState, refreshDeliveries, feedStatus } = useDriver();
   const [refreshing, setRefreshing] = useState(false);
+
+  // Ordena pela rota (issue #4): paradas 1,2,3... primeiro; entregas sem sequencia
+  // (null) vao para o fim. Estavel por orderNumber quando empatam.
+  const orderedDeliveries = useMemo(
+    () =>
+      [...deliveries].sort((a, b) => {
+        const sa = a.deliverySequence ?? Number.MAX_SAFE_INTEGER;
+        const sb = b.deliverySequence ?? Number.MAX_SAFE_INTEGER;
+        if (sa !== sb) return sa - sb;
+        return a.orderNumber.localeCompare(b.orderNumber);
+      }),
+    [deliveries],
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -84,7 +97,7 @@ export default function DriverDeliveriesScreen() {
   } else {
     content = (
       <FlatList
-        data={deliveries}
+        data={orderedDeliveries}
         keyExtractor={(o) => o.orderId}
         renderItem={renderItem}
         contentContainerStyle={styles.list}

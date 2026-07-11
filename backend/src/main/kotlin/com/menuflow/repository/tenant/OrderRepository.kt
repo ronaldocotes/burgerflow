@@ -42,6 +42,30 @@ interface OrderRepository :
     )
     fun findDispatchEligibleOrders(): List<Order>
 
+    /**
+     * Pedidos de ENTREGA aguardando despacho (issue #4 — planejador de rota): DELIVERY,
+     * SEM motoboy (driverId null), COM coordenadas (o /optimize exige) e em estado ativo
+     * de cozinha (PENDING/PREPARING/READY — nao cancelado/entregue). Escopado ao tenant
+     * pela datasource roteada (db-per-tenant); nunca recebe filtro de tenant do cliente.
+     * Mais antigo primeiro (fila).
+     */
+    @Query(
+        """
+        SELECT o FROM Order o
+        WHERE o.orderType = com.menuflow.model.OrderType.DELIVERY
+          AND o.driverId IS NULL
+          AND o.deliveryLat IS NOT NULL
+          AND o.deliveryLng IS NOT NULL
+          AND o.status IN (
+            com.menuflow.model.OrderStatus.PENDING,
+            com.menuflow.model.OrderStatus.PREPARING,
+            com.menuflow.model.OrderStatus.READY
+          )
+        ORDER BY o.createdAt ASC
+        """,
+    )
+    fun findPendingUnassignedDeliveryOrders(): List<Order>
+
     /** Pedidos mais recentes (qualquer status), para a tool get_recent_orders do Copiloto. */
     fun findAllByOrderByCreatedAtDesc(pageable: Pageable): List<Order>
 

@@ -13,6 +13,7 @@ import com.menuflow.dto.TenantConfigUpdateRequest
 import com.menuflow.exception.BusinessException
 import com.menuflow.exception.ResourceNotFoundException
 import com.menuflow.model.DeliveryStatus
+import com.menuflow.model.OrderStatus
 import com.menuflow.model.OrderType
 import com.menuflow.model.control.Tenant
 import com.menuflow.model.control.User
@@ -277,6 +278,65 @@ class RouteOptimizationTest @Autowired constructor(
         val active = orderRepository.findActiveOrdersForDriver(driver.id)
         assertEquals(1, active.size, "pedido revivido nao pode ser parada fantasma")
         assertEquals(1, active[0].deliverySequence)
+    }
+
+    // --- pending-unassigned: fonte do planejador (issue #4) ---
+    @Test
+    fun `pending-unassigned lists only unassigned DELIVERY with coords, active kitchen status`() {
+        // Elegivel: DELIVERY, sem motoboy, com coords, PENDING.
+        val eligible = newDeliveryOrder(0.005)
+
+        // (a) Ja atribuido -> NAO aparece.
+        val driver = deliveryService.createDriver(DriverCreateRequest("Zé", "5599999994"))
+        val assigned = newDeliveryOrder(0.01)
+        TenantContext.set(tenant)
+        deliveryService.assign(assigned, AssignDriverRequest(driver.id))
+
+        // (b) Sem coordenadas -> NAO aparece.
+        TenantContext.set(tenant)
+        val prod = productService.create(
+            ProductCreateRequest(UUID.randomUUID(), "NC-${UUID.randomUUID().toString().take(6)}", "Burger", priceCents = 2000),
+        )
+        orderService.create(
+            OrderCreateRequest(orderType = OrderType.DELIVERY, items = listOf(OrderItemRequest(prod.id, 1)), deliveryFeeCents = 500),
+            userId = null,
+        )
+
+        // (c) Nao-DELIVERY -> NAO aparece.
+        TenantContext.set(tenant)
+        orderService.create(
+            OrderCreateRequest(orderType = OrderType.DINE_IN, items = listOf(OrderItemRequest(prod.id, 1))),
+            userId = null,
+        )
+
+        // (d) DELIVERED (terminal) -> NAO aparece.
+        val delivered = newDeliveryOrder(0.02)
+        TenantContext.set(tenant)
+        val d = orderRepository.findById(delivered).get()
+        d.status = OrderStatus.DELIVERED
+        orderRepository.save(d)
+
+        TenantContext.set(tenant)
+        val pending = deliveryService.pendingUnassignedDeliveryOrders()
+        assertEquals(listOf(eligible), pending.map { it.orderId }, "so o pedido elegivel entra na fila")
+        assertEquals(0.005, pending[0].deliveryLat, "traz as coords do pedido")
+    }
+
+    // --- pending-unassigned: nao vaza entre tenants (db-per-tenant) ---
+    @Test
+    fun `pending-unassigned does not leak orders from another tenant`() {
+        // Elegivel no tenant do teste.
+        newDeliveryOrder(0.005)
+        TenantContext.set(tenant)
+        assertEquals(1, deliveryService.pendingUnassignedDeliveryOrders().size)
+
+        // Um tenant DIFERENTE (banco proprio) nao ve o pedido do primeiro.
+        val other = "route_other_${UUID.randomUUID().toString().take(8)}"
+        TenantContext.set(other)
+        assertTrue(
+            deliveryService.pendingUnassignedDeliveryOrders().isEmpty(),
+            "outro tenant nao pode enxergar entregas do primeiro (isolamento por banco)",
+        )
     }
 
     // --- 5. F2 recusa motoboy que nao e da FROTA ---
