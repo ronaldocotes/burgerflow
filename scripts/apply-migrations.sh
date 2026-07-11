@@ -15,12 +15,22 @@
 #   - control DB  -> default  flyway_schema_history
 #   - tenant DBs  -> schema_version
 #
+# NETWORK: the Flyway container joins the Postgres container's OWN Docker
+# network (default: menuflow-net, auto-detected — see detect_network below).
+# `--network host` was used previously, but compose.prod.yml does NOT publish
+# the Postgres port to the A1 host (intentional hardening: the DB is reachable
+# only from containers on menuflow-net, never from the host's localhost). Use
+# an internal hostname in the JDBC URL (e.g. "postgres:5432", the compose
+# service alias — same value the backend itself uses via MF_DB_HOST), never
+# "localhost". `scripts/check-tenant-migrations.sh --apply-command` already
+# generates URLs in this form.
+#
 # USAGE:
 #   scripts/apply-migrations.sh <control_url> [tenant_url ...]
 #
-# Each *_url is a full JDBC URL, e.g.:
-#   jdbc:postgresql://HOST:5432/menuflow_control?user=U&password=P
-#   jdbc:postgresql://HOST:5432/tenant_abc?user=U&password=P
+# Each *_url is a full JDBC URL using the INTERNAL compose hostname, e.g.:
+#   jdbc:postgresql://postgres:5432/menuflow_control?user=U&password=P
+#   jdbc:postgresql://postgres:5432/tenant_abc?user=U&password=P
 #
 # The FIRST argument is treated as the CONTROL database (control migrations +
 # default history table). Every argument AFTER it is a TENANT database (tenant
@@ -28,9 +38,17 @@
 #
 # EXAMPLES:
 #   scripts/apply-migrations.sh \
-#     "jdbc:postgresql://localhost:5432/menuflow_control?user=menuflow&password=menuflow123" \
-#     "jdbc:postgresql://localhost:5432/tenant_abc?user=menuflow&password=menuflow123" \
-#     "jdbc:postgresql://localhost:5432/tenant_xyz?user=menuflow&password=menuflow123"
+#     "jdbc:postgresql://postgres:5432/menuflow_control?user=menuflow&password=menuflow123" \
+#     "jdbc:postgresql://postgres:5432/tenant_abc?user=menuflow&password=menuflow123" \
+#     "jdbc:postgresql://postgres:5432/tenant_xyz?user=menuflow&password=menuflow123"
+#
+# ENV OVERRIDES:
+#   MF_DOCKER_NETWORK    Force the Docker network the Flyway container joins
+#                        (skips auto-detection). Use this if auto-detection
+#                        fails or picks the wrong network.
+#   MF_POSTGRES_CONTAINER Container used to auto-detect the network.
+#                        Default: menuflow-postgres (matches compose.prod.yml
+#                        container_name).
 #
 set -euo pipefail
 
@@ -46,6 +64,7 @@ CONTROL_MIGRATIONS="$REPO_ROOT/backend/src/main/resources/db/control/migration"
 TENANT_MIGRATIONS="$REPO_ROOT/backend/src/main/resources/db/tenant/migration"
 
 FLYWAY_IMAGE="${FLYWAY_IMAGE:-flyway/flyway:10}"
+POSTGRES_CONTAINER="${MF_POSTGRES_CONTAINER:-menuflow-postgres}"
 
 for d in "$CONTROL_MIGRATIONS" "$TENANT_MIGRATIONS"; do
   if [[ ! -d "$d" ]]; then
@@ -53,6 +72,45 @@ for d in "$CONTROL_MIGRATIONS" "$TENANT_MIGRATIONS"; do
     exit 1
   fi
 done
+
+require_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "FATAL: required command not found: $1" >&2
+    exit 1
+  fi
+}
+require_cmd docker
+
+# Auto-detect the Docker network of the running Postgres container instead of
+# hardcoding "menuflow-net": Compose prefixes network names with the project
+# name (e.g. "menuflow_menuflow-net" on the A1 host, see aprendizado.md
+# 2026-07-02), so a literal "menuflow-net" would not match in practice.
+# Reading it off the live container is robust to that prefix and to the
+# network being renamed later. MF_DOCKER_NETWORK always wins when set.
+detect_network() {
+  if [[ -n "${MF_DOCKER_NETWORK:-}" ]]; then
+    echo "$MF_DOCKER_NETWORK"
+    return
+  fi
+  if ! docker inspect "$POSTGRES_CONTAINER" >/dev/null 2>&1; then
+    echo "FATAL: container '$POSTGRES_CONTAINER' not found; cannot auto-detect its network." >&2
+    echo "       Start the stack first, or set MF_DOCKER_NETWORK explicitly." >&2
+    exit 1
+  fi
+  local net
+  net="$(docker inspect "$POSTGRES_CONTAINER" \
+    --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}' \
+    | head -n 1)"
+  if [[ -z "$net" ]]; then
+    echo "FATAL: could not auto-detect a network for '$POSTGRES_CONTAINER'." >&2
+    echo "       Set MF_DOCKER_NETWORK explicitly and re-run." >&2
+    exit 1
+  fi
+  echo "$net"
+}
+
+NETWORK="$(detect_network)"
+echo "using docker network: $NETWORK (container: $POSTGRES_CONTAINER)" >&2
 
 run_flyway() {
   local label="$1"; shift
@@ -62,7 +120,7 @@ run_flyway() {
 
   echo ">>> [$label] migrating ${url%%\?*}"   # strip query string (credentials) from the log
   docker run --rm \
-    --network host \
+    --network "$NETWORK" \
     -v "$migrations_dir":/flyway/sql:ro \
     "$FLYWAY_IMAGE" \
     -url="$url" \

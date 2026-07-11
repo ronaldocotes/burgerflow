@@ -9,19 +9,38 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${MF_ENV_FILE:-$ROOT/.env.prod}"
+# DB_HOST is only used for the DIRECT psql path (host has a local psql binary).
+# That path requires the Postgres port to be published to the A1 host, which
+# compose.prod.yml deliberately does NOT do — it will normally fail there, and
+# the script falls back to `docker exec` into $PSQL_CONTAINER instead (see
+# USE_DOCKER_PSQL below), which needs no published port.
 DB_HOST="${MF_DB_HOST:-localhost:5432}"
+# INTERNAL_DB_HOST is the hostname:port used INSIDE the JDBC URLs printed by
+# --apply-command. apply-migrations.sh now runs the Flyway container attached
+# to the Postgres container's own Docker network (menuflow-net, auto-detected
+# there), so these URLs must use the compose-internal service alias
+# ("postgres", same value the backend reads via MF_DB_HOST) — never localhost.
+INTERNAL_DB_HOST="${MF_DB_INTERNAL_HOST:-postgres:5432}"
 DB_PREFIX="${MF_DB_PREFIX:-tenant_}"
 PSQL_CONTAINER="${MF_PSQL_CONTAINER:-menuflow-postgres}"
 
 usage() {
   cat <<'EOF'
-usage: scripts/check-tenant-migrations.sh [--env FILE] [--host HOST:PORT] [--apply-command]
+usage: scripts/check-tenant-migrations.sh [--env FILE] [--host HOST:PORT] [--internal-host HOST:PORT] [--apply-command]
 
 Options:
-  --env FILE        Env file with MF_DB_USER, MF_DB_PASSWORD, MF_DB_CONTROL.
-                    Default: ./.env.prod or MF_ENV_FILE.
-  --host HOST:PORT  Postgres host and port. Default: localhost:5432 or MF_DB_HOST.
-  --apply-command   Print a ready-to-review scripts/apply-migrations.sh command.
+  --env FILE            Env file with MF_DB_USER, MF_DB_PASSWORD, MF_DB_CONTROL.
+                        Default: ./.env.prod or MF_ENV_FILE.
+  --host HOST:PORT      Postgres host:port for the DIRECT psql path only (rarely
+                        usable on the A1 host, since the Postgres port is not
+                        published there). Default: localhost:5432 or MF_DB_HOST.
+                        Has no effect on the URLs printed by --apply-command.
+  --internal-host HOST:PORT
+                        Compose-internal hostname:port used to build the JDBC
+                        URLs printed by --apply-command (apply-migrations.sh
+                        runs on the Postgres container's own Docker network).
+                        Default: postgres:5432 or MF_DB_INTERNAL_HOST.
+  --apply-command       Print a ready-to-review scripts/apply-migrations.sh command.
 
 This script is read-only. It never runs Flyway migrations.
 EOF
@@ -36,6 +55,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --host)
       DB_HOST="$2"
+      shift 2
+      ;;
+    --internal-host)
+      INTERNAL_DB_HOST="$2"
       shift 2
       ;;
     --apply-command)
@@ -163,7 +186,7 @@ for slug in "${tenants[@]}"; do
     drift_count=$((drift_count + 1))
   fi
   printf '%-28s %-24s %-16s %-8s\n' "$slug" "$db_name" "$applied" "$drift"
-  tenant_urls+=("jdbc:postgresql://$DB_HOST/$db_name?user=$MF_DB_USER&password=***")
+  tenant_urls+=("jdbc:postgresql://$INTERNAL_DB_HOST/$db_name?user=$MF_DB_USER&password=***")
 done
 
 echo
@@ -172,8 +195,11 @@ echo "tenants_with_drift=$drift_count"
 
 if [[ "$PRINT_APPLY_COMMAND" == "true" ]]; then
   echo
+  echo "# URLs use the compose-internal host ($INTERNAL_DB_HOST) because"
+  echo "# apply-migrations.sh now runs the Flyway container on the Postgres"
+  echo "# container's own Docker network (auto-detected there), not on the host."
   echo "# Review and replace *** with the real password before running:"
-  printf 'scripts/apply-migrations.sh %q' "jdbc:postgresql://$DB_HOST/$MF_DB_CONTROL?user=$MF_DB_USER&password=***"
+  printf 'scripts/apply-migrations.sh %q' "jdbc:postgresql://$INTERNAL_DB_HOST/$MF_DB_CONTROL?user=$MF_DB_USER&password=***"
   for url in "${tenant_urls[@]}"; do
     printf ' \\\n  %q' "$url"
   done
