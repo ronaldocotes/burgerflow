@@ -37,6 +37,7 @@ import {
   Sparkles,
   Store,
   Palette,
+  MapPin,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -91,6 +92,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/cardapio',      label: 'Cardápio admin', icon: Package },
       { href: '/admin/usuarios',      label: 'Usuários',       icon: Users,  roles: ['ADMIN', 'MANAGER'] },
       { href: '/admin/entregadores',  label: 'Entregadores',   icon: Truck,  roles: ['ADMIN', 'MANAGER'] },
+      { href: '/admin/zonas-entrega', label: 'Zonas de Entrega', icon: MapPin, roles: ['ADMIN', 'MANAGER'] },
       { href: '/admin/cupons',     label: 'Cupons',         icon: Tag,      roles: ['ADMIN', 'MANAGER'] },
       { href: '/admin/rfv',        label: 'RFV',            icon: Users2,   roles: ['ADMIN', 'MANAGER'] },
       { href: '/admin/campanhas',  label: 'Campanhas',      icon: Megaphone, roles: ['ADMIN', 'MANAGER'] },
