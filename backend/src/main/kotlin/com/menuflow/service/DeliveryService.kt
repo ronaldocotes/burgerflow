@@ -95,6 +95,9 @@ class DeliveryService(
 
         order.driverId = driver.id
         order.deliveryStatus = DeliveryStatus.ASSIGNED
+        // Atribuicao single (fora de rota multipla, issue #4): limpa qualquer sequencia
+        // stale de uma rota anterior — senao o app mostraria uma "parada N" fantasma.
+        order.deliverySequence = null
         val saved = orderRepository.save(order)
 
         val payload = DeliveryOrderResponse.from(saved)

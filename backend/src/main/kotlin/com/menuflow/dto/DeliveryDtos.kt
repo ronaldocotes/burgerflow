@@ -11,6 +11,7 @@ import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotEmpty
 import jakarta.validation.constraints.NotNull
 import java.time.Instant
 import java.time.LocalDate
@@ -145,6 +146,12 @@ data class DeliveryOrderResponse(
     /** PaymentStatus.name serializado como String. */
     val paymentStatus: String,
     val createdAt: Instant,
+    /**
+     * Posicao (1-based) do pedido na rota otimizada do motoboy (issue #4, F2). Null
+     * quando o pedido nao faz parte de uma rota confirmada. O app do motoboy usa este
+     * campo para exibir a ORDEM das paradas em GET /delivery/orders/my.
+     */
+    val deliverySequence: Int? = null,
 ) {
     companion object {
         fun from(o: Order) = DeliveryOrderResponse(
@@ -171,9 +178,63 @@ data class DeliveryOrderResponse(
             salesChannel = o.salesChannel.name,
             paymentStatus = o.paymentStatus.name,
             createdAt = o.createdAt,
+            deliverySequence = o.deliverySequence,
         )
     }
 }
+
+// ---------------------------------------------------------------------------
+// Roteirizacao de multiplas entregas (issue #4)
+// ---------------------------------------------------------------------------
+
+/**
+ * F1 — pedido de otimizacao (stateless). [orderIds] sao os pedidos de ENTREGA do
+ * tenant que sairao juntos com um motoboy. A ordem enviada e irrelevante: o servico
+ * a reordena. Bound de tamanho validado no servico (o brute-force do OSRM /trip
+ * degrada acima de ~10-12 pontos; teto conservador de 25).
+ */
+data class RouteOptimizeRequest(
+    @field:NotEmpty(message = "Informe ao menos um pedido")
+    val orderIds: List<UUID>,
+)
+
+/**
+ * F2 — confirmacao/atribuicao da rota a um motoboy. [orderIds] JA vem na ORDEM da
+ * rota (a sequencia devolvida pelo F1); o servico grava delivery_sequence 1..N nessa
+ * ordem e associa os pedidos ao [driverId]. Idempotente: reenviar a mesma rota
+ * converge para o mesmo estado.
+ */
+data class RouteAssignRequest(
+    @field:NotNull val driverId: UUID,
+    @field:NotEmpty(message = "Informe ao menos um pedido")
+    val orderIds: List<UUID>,
+)
+
+/** Uma parada da rota (na ordem de visita). position e 1-based. */
+data class RouteStopResponse(
+    val orderId: UUID,
+    val position: Int,
+    val orderNumber: String,
+    val deliveryLat: Double,
+    val deliveryLng: Double,
+    val deliveryRecipientName: String?,
+    val deliveryNeighborhood: String?,
+    val deliveryStreet: String?,
+    val deliveryNumber: String?,
+)
+
+/**
+ * Resposta da otimizacao (F1) e da confirmacao (F2). [optimized] = true quando a
+ * ordem veio do OSRM /trip; false quando caiu no fallback deterministico (Haversine
+ * a partir do restaurante) por OSRM indisponivel/nao configurado. Totais em metros/
+ * segundos; [totalDurationSeconds] e null no fallback (sem estimativa de tempo).
+ */
+data class RouteOptimizeResponse(
+    val stops: List<RouteStopResponse>,
+    val totalDistanceMeters: Long,
+    val totalDurationSeconds: Long?,
+    val optimized: Boolean,
+)
 
 // ---------------------------------------------------------------------------
 // Fase 6.2 — app do motoboy: perfil, ganhos e vinculo user<->driver

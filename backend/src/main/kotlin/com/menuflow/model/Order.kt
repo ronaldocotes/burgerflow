@@ -235,6 +235,16 @@ data class Order(
      */
     @Column(name = "delivery_distance_meters")
     var deliveryDistanceMeters: Long? = null,
+
+    // --- Roteirizacao de multiplas entregas (issue #4, F2) ---
+    /**
+     * Posicao (1-based) do pedido na rota otimizada atribuida a um motoboy da FROTA.
+     * NULL enquanto o pedido nao entra numa rota confirmada. Gravada em conjunto com
+     * [driverId] pelo RouteOptimizationService.assignRoute; e o que o app do motoboy
+     * le para exibir a ordem das paradas.
+     */
+    @Column(name = "delivery_sequence")
+    var deliverySequence: Int? = null,
 ) {
     @PreUpdate
     fun preUpdate() {
