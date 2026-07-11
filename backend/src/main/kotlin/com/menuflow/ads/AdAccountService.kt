@@ -9,6 +9,7 @@ import com.menuflow.model.AdAccountStatus
 import com.menuflow.model.AdProvider
 import com.menuflow.model.AdTokenType
 import com.menuflow.repository.tenant.AdAccountRepository
+import com.menuflow.repository.tenant.AdCampaignRepository
 import com.menuflow.service.AuditLogService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
@@ -35,6 +36,7 @@ import java.util.UUID
 @Service
 class AdAccountService(
     private val repository: AdAccountRepository,
+    private val campaignRepository: AdCampaignRepository,
     private val metaGraphClient: MetaGraphClient,
     private val cipher: IfoodTokenCipher,
     private val auditService: AuditLogService,
@@ -129,14 +131,79 @@ class AdAccountService(
         repository.findAllByOrderByCreatedAtAsc().map { AdAccountResponse.from(it) }
 
     /**
-     * Desconecta a conta: REMOVE a linha (hard delete). Decisao: apagar elimina o token
-     * cifrado do banco em vez de deixar um segredo orfao sem uso — melhor postura de
-     * seguranca. O historico fica preservado no audit_log (registrado antes do delete).
+     * Lista as Paginas do Facebook que o token da conta administra (para o usuario escolher
+     * qual vira o page_id do criativo). Decifra o token so em memoria; nunca o loga/devolve.
+     * Lista vazia => o token nao administra nenhuma Pagina (conecte uma ao Business Manager).
+     */
+    @Transactional("tenantTransactionManager", readOnly = true)
+    fun listPages(accountId: UUID): List<AdPageResponse> {
+        val account = repository.findById(accountId)
+            .orElseThrow { ResourceNotFoundException("Conta de anuncio nao encontrada: $accountId") }
+        val token = cipher.decrypt(account.tokenEnc, account.tokenIv)
+        val pages = try {
+            metaGraphClient.fetchPages(token)
+        } catch (e: MetaTokenInvalidException) {
+            throw BusinessException("O token da Meta desta conta foi recusado. Reconecte a conta.")
+        } catch (e: MetaGraphException) {
+            throw ServiceUnavailableException("Nao foi possivel listar as Paginas com a Meta agora. Tente em instantes.")
+        }
+        return pages.map { AdPageResponse(id = it.id, name = it.name) }
+    }
+
+    /**
+     * Grava a Pagina do Facebook escolhida na conta (pre-requisito para criar criativo).
+     * A UI escolhe a partir de [listPages]; guardamos id + nome. Auditado.
+     */
+    @Transactional("tenantTransactionManager")
+    fun setPage(accountId: UUID, pageId: String, pageName: String?): AdAccountResponse {
+        val account = repository.findById(accountId)
+            .orElseThrow { ResourceNotFoundException("Conta de anuncio nao encontrada: $accountId") }
+        val newPageId = pageId.trim()
+        if (newPageId.isBlank()) throw BusinessException("pageId invalido.")
+        account.pageId = newPageId
+        account.pageName = pageName?.trim()?.takeIf { it.isNotBlank() }
+        val saved = repository.save(account)
+        auditService.log(
+            action = "AD_ACCOUNT_SET_PAGE",
+            entity = "ad_account",
+            entityId = saved.id,
+            after = mapOf("pageId" to newPageId, "pageName" to saved.pageName),
+        )
+        return AdAccountResponse.from(saved)
+    }
+
+    /**
+     * Desconecta a conta: REMOVE a linha (hard delete) — apagar elimina o token cifrado do
+     * banco em vez de deixar um segredo orfao. O historico fica no audit_log.
+     *
+     * Fase 8.2 (FK ad_campaign.ad_account_id ON DELETE RESTRICT): NAO podemos apagar uma conta
+     * que ainda controle objetos na Meta e cujo token seja necessario para pausa-los.
+     *
+     * NAO confiamos no status LOCAL para essa decisao: se updateStatus(ACTIVE) suceder na Meta
+     * mas o commit local falhar (drift), o status local ficaria PAUSED enquanto a campanha roda
+     * na Meta — e um disconnect que so olhasse o status local soltaria o token de uma campanha
+     * gastando. Por isso a regra e por EXISTENCIA DE OBJETO NA META (external_campaign_id != null),
+     * que e fail-safe (na duvida, nao solta o token):
+     *  - se existir QUALQUER campanha ja criada na Meta -> BLOQUEIA (o usuario deve remover/limpar
+     *    essas campanhas antes; ainda nao ha endpoint de arquivar+apagar na Meta — follow-up);
+     *  - senao (so restam reservas DRAFT locais sem id externo) -> apaga-as e desconecta.
+     * NUNCA apagamos campanhas na Meta no disconnect (nenhum efeito externo silencioso).
      */
     @Transactional("tenantTransactionManager")
     fun disconnect(id: UUID) {
         val account = repository.findById(id)
             .orElseThrow { ResourceNotFoundException("Conta de anuncio nao encontrada: $id") }
+
+        if (campaignRepository.existsByAdAccountIdAndExternalCampaignIdNotNull(id)) {
+            throw BusinessException(
+                "Existem campanhas ja criadas na Meta nesta conta. Remova-as antes de desconectar " +
+                    "(sem o token, o MenuFlow perderia o controle de uma campanha que ainda pode gastar).",
+            )
+        }
+        // So restam reservas DRAFT locais (sem id na Meta): a FK RESTRICT impediria o delete da
+        // conta, entao removemos primeiro. ON DELETE CASCADE em ad_creative limpa os criativos.
+        campaignRepository.deleteByAdAccountId(id)
+
         auditService.log(
             action = "AD_ACCOUNT_DISCONNECT",
             entity = "ad_account",

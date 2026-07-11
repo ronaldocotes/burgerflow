@@ -1,5 +1,6 @@
 package com.menuflow.platform
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.menuflow.exception.BusinessException
 import com.menuflow.exception.ResourceNotFoundException
 import com.menuflow.repository.control.TenantRepository
@@ -29,6 +30,7 @@ class ModuleGateService(
     private val tenantRepository: TenantRepository,
     private val moduleRepository: TenantModuleRepository,
     private val auditService: PlatformAuditService,
+    private val objectMapper: ObjectMapper,
 ) {
 
     private data class Entry(val enabled: Boolean, val expiresAtMillis: Long)
@@ -121,6 +123,27 @@ class ModuleGateService(
             enabled = enabled,
             source = ModuleStatusResponse.Source.OVERRIDE.name,
         )
+    }
+
+    /**
+     * Le um limite NUMERICO do override de modulo do tenant (tenant_module.limits_json), no
+     * banco de CONTROLE. Ex.: readLimit(tenantId, ModuleKey.ADS, "max_daily_budget_cents").
+     *
+     * Semantica de FAIL-CLOSED do chamador: devolve null quando (a) nao ha linha de override
+     * para o modulo, (b) limits_json e nulo/invalido, ou (c) a chave nao existe / nao e numero.
+     * A Fase 8.2 (teto de verba) e o PRIMEIRO leitor deste JSON; um limite ausente NAO vira
+     * "ilimitado" — quem chama trata null como bloqueio (ou cai num default de env explicito).
+     *
+     * Nao usa o cache (Boolean) do isEnabled: e leitura administrativa pontual, fresca do banco.
+     */
+    @Transactional("controlTransactionManager", readOnly = true)
+    fun readLimit(tenantId: UUID, moduleKey: ModuleKey, limitName: String): Long? {
+        val override = moduleRepository.findByTenantIdAndModuleKey(tenantId, moduleKey.name) ?: return null
+        val json = override.limitsJson?.takeIf { it.isNotBlank() } ?: return null
+        return runCatching {
+            val node = objectMapper.readTree(json).get(limitName)
+            if (node != null && node.isNumber) node.asLong() else null
+        }.getOrNull()
     }
 
     /** Invalida o cache de um tenant inteiro (após toggle ou troca de plano). */

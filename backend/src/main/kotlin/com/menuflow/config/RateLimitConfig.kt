@@ -1,7 +1,10 @@
 package com.menuflow.config
 
+import com.menuflow.security.ratelimit.AdsWriteRateLimiter
 import com.menuflow.security.ratelimit.AiTenantRateLimiter
+import com.menuflow.security.ratelimit.InMemoryAdsWriteRateLimiter
 import com.menuflow.security.ratelimit.InMemoryAiTenantRateLimiter
+import com.menuflow.security.ratelimit.RedisAdsWriteRateLimiter
 import com.menuflow.security.ratelimit.InMemoryLoginRateLimiter
 import com.menuflow.security.ratelimit.LoginRateLimiter
 import com.menuflow.security.ratelimit.PublicOrderRateLimitProperties
@@ -111,6 +114,34 @@ class RateLimitConfig {
         }
         log.info("AI tenant rate limiter: in-memory ({}/{}s per tenant)", limit, windowSeconds)
         return InMemoryAiTenantRateLimiter(limit, windowSeconds)
+    }
+
+    /**
+     * Rate limiter das ESCRITAS de anuncio por TENANT (Fase 8.2): criar/ativar campanha
+     * gastam dinheiro real. Default conservador: 5 escritas / 60s por tenant.
+     *  - backend=redis -> contador compartilhado (INCR+EXPIRE), fail-CLOSED se o Redis cair;
+     *  - qualquer outro (default) -> contador em memoria (dev/test, zero dependencia).
+     */
+    @Bean
+    fun adsWriteRateLimiter(
+        stringRedisTemplate: ObjectProvider<StringRedisTemplate>,
+        @org.springframework.beans.factory.annotation.Value("\${menuflow.ads.rate-limit.backend:memory}")
+        backend: String,
+        @org.springframework.beans.factory.annotation.Value("\${menuflow.ads.rate-limit.tenant-limit:5}")
+        limit: Int,
+        @org.springframework.beans.factory.annotation.Value("\${menuflow.ads.rate-limit.window-seconds:60}")
+        windowSeconds: Long,
+    ): AdsWriteRateLimiter {
+        if (backend.equals("redis", ignoreCase = true)) {
+            val redis = stringRedisTemplate.ifAvailable
+            if (redis != null) {
+                log.info("Ads write rate limiter: redis ({}/{}s per tenant)", limit, windowSeconds)
+                return RedisAdsWriteRateLimiter(redis, limit, windowSeconds)
+            }
+            log.warn("Ads write rate limiter: StringRedisTemplate ausente, usando in-memory")
+        }
+        log.info("Ads write rate limiter: in-memory ({}/{}s per tenant)", limit, windowSeconds)
+        return InMemoryAdsWriteRateLimiter(limit, windowSeconds)
     }
 
     /**
