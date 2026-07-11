@@ -191,6 +191,16 @@ class DeliveryService(
         return orderRepository.findActiveDeliveryOrders(from).map { DeliveryOrderResponse.from(it) }
     }
 
+    /**
+     * Pedidos de entrega aguardando despacho (issue #4): DELIVERY, sem motoboy, com
+     * coordenadas, em estado ativo de cozinha. Fonte do planejador de rota. Escopado
+     * ao tenant pela datasource roteada (nunca por filtro do cliente).
+     */
+    @Transactional("tenantTransactionManager", readOnly = true)
+    fun pendingUnassignedDeliveryOrders(): List<com.menuflow.dto.PendingDeliveryOrderResponse> =
+        orderRepository.findPendingUnassignedDeliveryOrders()
+            .map { com.menuflow.dto.PendingDeliveryOrderResponse.from(it) }
+
     private fun validateTransition(current: DeliveryStatus, next: DeliveryStatus) {
         // Fluxo legado (Sprint 2) mantido: ASSIGNED -> OUT_FOR_DELIVERY -> DELIVERED.
         // Fluxo do motoboy (Fase 6.1) adicionado de forma compativel. FAILED e um

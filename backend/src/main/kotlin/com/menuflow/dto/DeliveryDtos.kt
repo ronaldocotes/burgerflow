@@ -210,6 +210,40 @@ data class RouteAssignRequest(
     val orderIds: List<UUID>,
 )
 
+/**
+ * Pedido de ENTREGA aguardando despacho (issue #4): DELIVERY, sem motoboy, com
+ * coordenadas, em estado ativo de cozinha. E a fonte do "Passo 1" do planejador de
+ * rota — o operador seleciona destes para otimizar+atribuir a um motoboy da frota.
+ * So os campos que a tela precisa (endereco/coords sao PII: servidos apenas por este
+ * endpoint autenticado + RBAC, do banco do tenant).
+ */
+data class PendingDeliveryOrderResponse(
+    val orderId: UUID,
+    val orderNumber: String,
+    val deliveryRecipientName: String?,
+    val deliveryStreet: String?,
+    val deliveryNumber: String?,
+    val deliveryNeighborhood: String?,
+    val deliveryLat: Double,
+    val deliveryLng: Double,
+    val totalCents: Long,
+) {
+    companion object {
+        fun from(o: Order) = PendingDeliveryOrderResponse(
+            orderId = o.id!!,
+            orderNumber = o.orderNumber,
+            deliveryRecipientName = o.deliveryRecipientName,
+            deliveryStreet = o.deliveryStreet,
+            deliveryNumber = o.deliveryNumber,
+            deliveryNeighborhood = o.deliveryNeighborhood,
+            // Nao-nulos por contrato da query (WHERE lat/lng IS NOT NULL).
+            deliveryLat = o.deliveryLat!!,
+            deliveryLng = o.deliveryLng!!,
+            totalCents = o.totalCents,
+        )
+    }
+}
+
 /** Uma parada da rota (na ordem de visita). position e 1-based. */
 data class RouteStopResponse(
     val orderId: UUID,

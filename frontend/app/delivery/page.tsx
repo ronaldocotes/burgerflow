@@ -86,6 +86,19 @@ interface RouteOptimizeResponse {
   optimized: boolean;
 }
 
+/** Pedido DELIVERY aguardando despacho — fonte do Passo 1 do planejador (issue #4). */
+interface PendingDeliveryOrder {
+  orderId: string;
+  orderNumber: string;
+  deliveryRecipientName: string | null;
+  deliveryStreet: string | null;
+  deliveryNumber: string | null;
+  deliveryNeighborhood: string | null;
+  deliveryLat: number;
+  deliveryLng: number;
+  totalCents: number;
+}
+
 interface Driver {
   id: string;
   name: string;
@@ -855,12 +868,10 @@ function stopLine(s: RouteStop): string {
  * Opera sobre os pedidos já carregados na Central (que têm coords).
  */
 function RoutePlannerModal({
-  orders,
   drivers,
   onClose,
   onAssigned,
 }: {
-  orders: DeliveryOrder[];
   drivers: Driver[];
   onClose: () => void;
   onAssigned: () => void;
@@ -868,17 +879,9 @@ function RoutePlannerModal({
   const dialogRef = useRef<HTMLDivElement>(null);
   useModalA11y(dialogRef as React.RefObject<HTMLElement>, onClose);
 
-  // Elegíveis: DELIVERY ainda ativos e COM coordenadas (o /optimize exige coords).
-  const eligible = orders.filter(
-    (o) =>
-      o.deliveryStatus !== "DELIVERED" &&
-      o.deliveryLat != null &&
-      o.deliveryLng != null,
-  );
-  const noCoords = orders.filter(
-    (o) => o.deliveryStatus !== "DELIVERED" && (o.deliveryLat == null || o.deliveryLng == null),
-  ).length;
-
+  // Fonte do Passo 1: pedidos DELIVERY aguardando despacho (sem motoboy, com coords).
+  const [eligible, setEligible] = useState<PendingDeliveryOrder[]>([]);
+  const [loadingList, setLoadingList] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [route, setRoute] = useState<RouteOptimizeResponse | null>(null);
   const [driverId, setDriverId] = useState<string>("");
@@ -886,6 +889,28 @@ function RoutePlannerModal({
   const [error, setError] = useState<string | null>(null);
 
   const activeDrivers = drivers.filter((d) => d.active);
+
+  useEffect(() => {
+    let alive = true;
+    setLoadingList(true);
+    api
+      .get<PendingDeliveryOrder[]>("/delivery/orders/pending-unassigned")
+      .then((list) => {
+        if (alive) setEligible(list);
+      })
+      .catch((err) => {
+        if (alive)
+          setError(
+            err instanceof Error ? err.message : "Erro ao carregar pedidos pendentes",
+          );
+      })
+      .finally(() => {
+        if (alive) setLoadingList(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   function toggle(orderId: string) {
     setSelected((prev) => {
@@ -979,9 +1004,14 @@ function RoutePlannerModal({
         {!route && (
           <>
             <div className="flex-1 overflow-y-auto p-4">
-              {eligible.length === 0 ? (
+              <p className="mb-3 text-xs text-text-muted">
+                Pedidos de entrega aguardando despacho (sem motoboy).
+              </p>
+              {loadingList ? (
+                <p className="py-8 text-center text-sm text-text-muted">Carregando pedidos…</p>
+              ) : eligible.length === 0 ? (
                 <p className="py-8 text-center text-sm text-text-muted">
-                  Nenhuma entrega com localização para roteirizar.
+                  Nenhum pedido aguardando despacho.
                 </p>
               ) : (
                 <ul className="flex flex-col gap-2">
@@ -1023,11 +1053,6 @@ function RoutePlannerModal({
                     );
                   })}
                 </ul>
-              )}
-              {noCoords > 0 && (
-                <p className="mt-3 text-xs text-text-muted">
-                  {noCoords} entrega(s) sem localização não podem entrar na rota.
-                </p>
               )}
             </div>
             <div className="border-t border-border-light p-4">
@@ -1311,7 +1336,7 @@ export default function DeliveryPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setRoutePlannerOpen(true)}
-            disabled={loading || orders.length === 0}
+            disabled={loading}
             className="flex min-h-11 items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
           >
             <Truck className="h-4 w-4" aria-hidden="true" />
@@ -1498,7 +1523,6 @@ export default function DeliveryPage() {
       {/* ── Route planner (issue #4) ──────────────────────────────────────── */}
       {routePlannerOpen && (
         <RoutePlannerModal
-          orders={orders}
           drivers={drivers}
           onClose={() => setRoutePlannerOpen(false)}
           onAssigned={() => void load()}

@@ -81,6 +81,17 @@ class DeliveryController(
     @PreAuthorize("hasAnyRole('OPERATOR','MANAGER','ADMIN')")
     fun active(): List<DeliveryOrderResponse> = deliveryService.activeDeliveryOrders()
 
+    /**
+     * Pedidos de ENTREGA aguardando despacho (issue #4): DELIVERY, sem motoboy, com
+     * coordenadas, ativos na cozinha. Fonte do planejador de rota (Passo 1). Expoe
+     * endereco/coords (PII) — RBAC de gestao, e o servico carrega SEMPRE do banco do
+     * tenant (nunca aceita filtro de tenant do cliente).
+     */
+    @GetMapping("/orders/pending-unassigned")
+    @PreAuthorize("hasAnyRole('OPERATOR','MANAGER','ADMIN')")
+    fun pendingUnassigned(): List<com.menuflow.dto.PendingDeliveryOrderResponse> =
+        deliveryService.pendingUnassignedDeliveryOrders()
+
     // --- Fase 6.1: app do motoboy (turno, GPS, ofertas, meus pedidos) ---
 
     /**
