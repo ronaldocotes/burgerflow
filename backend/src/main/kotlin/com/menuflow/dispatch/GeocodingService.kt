@@ -21,7 +21,9 @@ data class LatLng(val lat: Double, val lng: Double)
  * cadastro do endereco de entrega) NAO retorna lat/lng, e o despacho precisa das
  * coordenadas para calcular distancia/tarifa e ordenar por proximidade.
  *
- *  - PRIMARIO: Google Geocoding API (reaproveita a chave do Routes, GOOGLE_ROUTES_API_KEY).
+ *  - PRIMARIO: Google Geocoding API. A chave e resolvida POR REQUISICAO pelo
+ *    [GoogleApiKeyProvider] (banco de controle > env GOOGLE_ROUTES_API_KEY > vazio),
+ *    em vez de capturada no boot — com o banco vazio, o valor e a env atual.
  *  - FALLBACK: null (com log de aviso) quando nao ha chave ou o endereco nao resolve.
  *    Um mapa "centro do bairro" para Macapa pode ser plugado aqui depois, sem mudar a
  *    assinatura. O chamador decide o que fazer com null (ex.: manter fee do pedido).
@@ -41,7 +43,7 @@ data class LatLng(val lat: Double, val lng: Double)
  */
 @Service
 class GeocodingService(
-    @Value("\${google.routes.api-key:}") private val apiKey: String,
+    private val googleApiKeyProvider: GoogleApiKeyProvider,
     @Value("\${google.geocoding.base-url:https://maps.googleapis.com}") private val baseUrl: String,
     builder: RestClient.Builder,
 ) {
@@ -71,8 +73,9 @@ class GeocodingService(
      * Consulta o cache antes de chamar o Google (A1) e so guarda resultados nao-nulos.
      */
     fun geocode(street: String?, neighborhood: String?, city: String?, zip: String?): LatLng? {
+        val apiKey = googleApiKeyProvider.resolve()
         if (apiKey.isBlank()) {
-            log.debug("Geocoding sem GOOGLE_ROUTES_API_KEY -- retornando null (fallback)")
+            log.debug("Geocoding sem chave Google resolvida (banco/env) -- retornando null (fallback)")
             return null
         }
         val parts = listOf(street, neighborhood, city, zip).map { it?.trim().orEmpty() }
@@ -83,16 +86,17 @@ class GeocodingService(
         val cacheKey = parts.joinToString("|") { it.lowercase() }
         geocodeCache.getIfPresent(cacheKey)?.let { return it }
 
-        val resolved = fetchLatLng(addressText) ?: return null
+        val resolved = fetchLatLng(addressText, apiKey) ?: return null
         geocodeCache.put(cacheKey, resolved)
         return resolved
     }
 
     /**
-     * Chamada remota ao Google (seam isolado — nao consulta cache). Publico apenas para
-     * permitir o teste do cache (spy/verify times(1)); em producao so [geocode] o chama.
+     * Chamada remota ao Google (seam isolado — nao consulta cache). Recebe a [apiKey] ja
+     * resolvida pelo [geocode] (banco/env). Publico apenas para permitir o teste do cache
+     * (spy/verify times(1)); em producao so [geocode] o chama.
      */
-    fun fetchLatLng(addressText: String): LatLng? {
+    fun fetchLatLng(addressText: String, apiKey: String): LatLng? {
         return try {
             @Suppress("UNCHECKED_CAST")
             val body = client.get()
