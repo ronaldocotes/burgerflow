@@ -25,6 +25,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { api, ApiError } from '@/lib/api'
+import { useModalA11y } from '@/lib/use-modal-a11y'
 import { useSuperAdminGuard } from '@/lib/use-super-admin-guard'
 import {
   type PlatformApiKeyResponse,
@@ -87,8 +88,9 @@ function StatusBanner({ data }: { data: PlatformApiKeyResponse }) {
           <p className="text-sm font-semibold text-success-dark">
             {managed ? 'Chave definida' : 'Usando a variável de ambiente do servidor'}
           </p>
-          <p className="mt-0.5 break-all text-sm text-text-secondary">
-            <code className="rounded bg-bg-primary px-1.5 py-0.5 font-mono text-xs text-text-primary">
+          <p className="mt-0.5 text-sm text-text-secondary">
+            {/* break-all SÓ na chave mascarada — o resto (data/UUID) quebra por palavra normal */}
+            <code className="break-all rounded bg-bg-primary px-1.5 py-0.5 font-mono text-xs text-text-primary">
               {data.masked ?? '••••'}
             </code>
             {managed && data.updatedAt && (
@@ -96,7 +98,7 @@ function StatusBanner({ data }: { data: PlatformApiKeyResponse }) {
                 {' '}atualizada em {formatDateTime(data.updatedAt)}
                 {data.updatedBy && (
                   <>
-                    {' '}por{' '}
+                    {' '}por usuário{' '}
                     <span title={data.updatedBy} className="font-medium text-text-primary">
                       {data.updatedBy.slice(0, 8)}…
                     </span>
@@ -111,20 +113,10 @@ function StatusBanner({ data }: { data: PlatformApiKeyResponse }) {
     )
   }
 
-  // ABSENT
-  if (data.source === 'ENV') {
-    return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-border-light bg-bg-secondary px-4 py-3">
-        <Server className="h-5 w-5 shrink-0 text-text-secondary" aria-hidden="true" />
-        <p className="min-w-0 flex-1 text-sm font-medium text-text-primary">
-          Usando a variável de ambiente do servidor
-        </p>
-        <SourceBadge source="ENV" />
-      </div>
-    )
-  }
-
-  // ABSENT + NONE
+  // ABSENT só ocorre com source=NONE: o backend deriva status=ABSENT exatamente quando
+  // source==NONE (PlatformApiKeyService.buildResponse, l.91). DEFINED+ENV cai no ramo acima.
+  // Portanto ABSENT+ENV é impossível — não existe ramo "usando env" aqui (seria mensagem
+  // enganosa de "tudo certo" com o recurso na verdade indisponível).
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-warning/30 bg-warning-light px-4 py-3">
       <AlertTriangle className="h-5 w-5 shrink-0 text-warning-dark" aria-hidden="true" />
@@ -132,6 +124,60 @@ function StatusBanner({ data }: { data: PlatformApiKeyResponse }) {
         Nenhuma chave configurada — a distância de entrega e o geocode ficam indisponíveis.
       </p>
       <SourceBadge source="NONE" />
+    </div>
+  )
+}
+
+// Confirmação de remoção como diálogo REAL (WAI-ARIA). Componente próprio para que o
+// useModalA11y monte/desmonte junto: ao abrir move o foco p/ "Confirmar remoção", prende o
+// Tab (focus trap), ESC cancela e, ao fechar, devolve o foco ao gatilho "Remover chave"
+// (que fica montado atrás — por isso o restore do hook o reencontra). role="alertdialog" +
+// aria-describedby na mensagem de consequência.
+function DeleteConfirmDialog({
+  deleting,
+  onConfirm,
+  onCancel,
+}: {
+  deleting: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useModalA11y(dialogRef, onCancel)
+  return (
+    <div
+      ref={dialogRef}
+      role="alertdialog"
+      aria-label="Confirmar remoção da chave"
+      aria-describedby="delete-consequence"
+      className="mt-3 rounded-lg border border-error/30 bg-error-light px-4 py-3"
+    >
+      <p
+        id="delete-consequence"
+        className="flex items-start gap-2 text-sm font-medium text-error-dark"
+      >
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+        Remover a chave gerenciada aqui? Isso volta a usar a variável de ambiente do servidor.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={deleting}
+          // bg-error-dark (~8,3:1 com branco) — o bg-error DEFAULT reprovava AA (~3,8:1).
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-error-dark px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {deleting ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+          )}
+          {deleting ? 'Removendo…' : 'Confirmar remoção'}
+        </button>
+        <button type="button" onClick={onCancel} disabled={deleting} className="btn-outline">
+          Cancelar
+        </button>
+      </div>
     </div>
   )
 }
@@ -355,10 +401,13 @@ export default function ChavesApiPage() {
                   {testing ? 'Testando…' : 'Testar chave'}
                 </button>
               )}
-              {canDelete && !confirmingDelete && (
+              {canDelete && (
+                // Fica montado mesmo com a confirmação aberta: é o alvo do restore de foco
+                // ao fechar o diálogo (ESC/Cancelar). aria-expanded reflete o estado.
                 <button
                   type="button"
                   onClick={() => setConfirmingDelete(true)}
+                  aria-expanded={confirmingDelete}
                   className="btn-outline gap-2 text-error-dark hover:bg-error-light"
                 >
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -368,42 +417,13 @@ export default function ChavesApiPage() {
             </div>
           )}
 
-          {/* Confirmação de remoção (inline, dois passos) */}
+          {/* Confirmação de remoção (diálogo real, dois passos) */}
           {confirmingDelete && (
-            <div
-              role="alertdialog"
-              aria-label="Confirmar remoção da chave"
-              className="mt-3 rounded-lg border border-error/30 bg-error-light px-4 py-3"
-            >
-              <p className="flex items-start gap-2 text-sm font-medium text-error-dark">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                Remover a chave gerenciada aqui? Isso volta a usar a variável de ambiente do
-                servidor.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleDelete()}
-                  disabled={deleting}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-error px-4 py-2 text-sm font-medium text-white hover:bg-error-dark disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {deleting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                  )}
-                  {deleting ? 'Removendo…' : 'Confirmar remoção'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmingDelete(false)}
-                  disabled={deleting}
-                  className="btn-outline"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
+            <DeleteConfirmDialog
+              deleting={deleting}
+              onConfirm={() => void handleDelete()}
+              onCancel={() => setConfirmingDelete(false)}
+            />
           )}
 
           {/* Resultado do teste (texto + ícone, nunca só cor) */}
