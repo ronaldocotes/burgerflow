@@ -29,15 +29,14 @@ abstract class IntegrationTestBase {
                 .withDatabaseName("menuflow_control")
                 .withUsername("menuflow")
                 .withPassword("menuflow123")
-                // A suíte provisiona muitos tenants (1 pool por tenant) no MESMO Postgres, e
-                // DynamicTenantRoutingDataSource nunca fecha um pool sozinho (evictPool só é
-                // chamado explicitamente por quem desprovisiona um tenant) — os pools de todas
-                // as ~52 classes de teste acumulam na MESMA JVM/container. 500 já não bastava:
-                // com a suite completa (52 classes, issue #33) o Postgres recusava "FATAL: sorry,
-                // too many clients already" nas classes que rodam por último (ex.: PlatformF3-
-                // SecurityTest), mesmo cada uma passando isolada. 2000 dá folga generosa para o
-                // crescimento da suite; ajuste pool-size-per-tenant antes de subir isto de novo.
-                .withCommand("postgres", "-c", "max_connections=2000")
+                // issue #33 RESOLVIDA na raiz: DynamicTenantRoutingDataSource agora fecha seus
+                // pools no destroy() do contexto (DisposableBean) E os pools de tenant ociosos
+                // encolhem a ZERO conexões (minimum-idle=0 + idle-timeout curto). Antes, cada
+                // pool acumulado segurava 1 conexão idle indefinidamente e nada os fechava, então
+                // a suíte completa (~52 classes na mesma JVM) estourava mesmo com 500. Com o fix,
+                // 500 volta a ter folga larga (o paliativo do PR #34 que subiu p/ 2000 fica
+                // desnecessário). O TenantPoolLifecycleTest trava a regressão.
+                .withCommand("postgres", "-c", "max_connections=500")
                 .also { it.start() }
 
         @JvmStatic
@@ -54,6 +53,11 @@ abstract class IntegrationTestBase {
             // Pool pequeno por tenant nos testes: a suite provisiona muitos tenants
             // num unico Postgres compartilhado; o tamanho padrao esgotaria max_connections.
             registry.add("menuflow.tenant.pool-size-per-tenant") { "2" }
+            // Pools de tenant ociosos drenam a ZERO conexões e rápido na suíte: min-idle 0
+            // e idle-timeout no mínimo do Hikari (10s), para o pico total não acumular à
+            // medida que dezenas de classes provisionam tenants na mesma JVM (issue #33).
+            registry.add("menuflow.tenant.min-idle-per-tenant") { "0" }
+            registry.add("menuflow.tenant.idle-pool-idle-timeout-ms") { "10000" }
             registry.add("menuflow.jwt.secret") { "test-secret-key-for-menuflow-integration-tests-256!" }
             // NOTE: login rate-limit is disabled by default for tests via
             // src/test/resources/application.yml (MockMvc always reports
