@@ -154,6 +154,46 @@ data class RotateIfoodSecretRequest(
     @field:jakarta.validation.constraints.NotBlank val clientSecret: String,
 )
 
+// ── Chaves de API da plataforma (Google Maps etc.) ──────────────────────────
+
+/**
+ * Estado WRITE-ONLY de uma chave de API da plataforma. NUNCA carrega o valor: [masked]
+ * expoe so os 4 primeiros + 4 ultimos chars (ex.: "AIza…gUms"), suficiente para o
+ * super-admin confirmar QUAL chave esta ativa sem vazar o segredo.
+ *
+ *  - [status]  DEFINED (ha chave resolvivel agora) | ABSENT (nenhuma).
+ *  - [source]  DB (banco de controle) | ENV (fallback .env) | NONE.
+ *  - [keyVersion]/[updatedAt]/[updatedBy] vem da linha do BANCO; nulos quando a chave
+ *    vigente vem so da ENV (nao ha linha no banco).
+ */
+data class PlatformApiKeyResponse(
+    val provider: String,
+    val status: String,
+    val masked: String?,
+    val source: String,
+    val keyVersion: Int?,
+    val updatedAt: Instant?,
+    val updatedBy: UUID?,
+)
+
+/**
+ * Upsert/rotacao: valor em texto claro, cifrado imediatamente. NUNCA retornado.
+ * @NotBlank barra vazio (400); o tamanho plausivel e checado no service (422), para o
+ * contrato distinguir "faltou o campo" de "valor semanticamente invalido".
+ */
+data class PutPlatformApiKeyRequest(
+    @field:NotBlank
+    val value: String,
+)
+
+/** Resultado do teste de amostra (um geocode). NUNCA ecoa a chave. */
+data class PlatformApiKeyTestResponse(
+    val ok: Boolean,
+    val latencyMs: Long,
+    val source: String,
+    val message: String,
+)
+
 // ── F3: AI Usage (painel de consumo de IA por tenant) ───────────────────────
 
 /**
