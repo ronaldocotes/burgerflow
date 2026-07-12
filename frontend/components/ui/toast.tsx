@@ -42,7 +42,11 @@ export function ToastContainer({ toasts }: { toasts: ToastState[] }) {
           role="status"
           className={[
             "rounded-xl px-4 py-3 text-sm font-medium shadow-dropdown animate-slide-up",
-            t.type === "success" ? "bg-success text-white" : "bg-error text-white",
+            // -dark garante contraste WCAG AA com texto branco (success-dark ~7,7:1 / error-dark ~8,3:1);
+            // o DEFAULT reprovava (~2,5-3,8:1). Cores hex fixas: contraste igual em tema claro e escuro.
+            t.type === "success"
+              ? "bg-success-dark text-white"
+              : "bg-error-dark text-white",
           ].join(" ")}
         >
           {t.message}
