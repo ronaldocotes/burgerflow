@@ -5,6 +5,7 @@
 // (nunca só cor — daltonismo e luz forte).
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import {
   Bike,
   Network,
@@ -137,6 +138,12 @@ export default function IntegracoesPage() {
           <p className="mt-0.5 text-sm text-text-secondary">
             Saúde dos serviços externos da plataforma. Atualização automática a cada 60 segundos.
           </p>
+          <Link
+            href="/plataforma/chaves"
+            className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary-700 hover:text-primary-800"
+          >
+            Gerenciar chaves de API →
+          </Link>
         </div>
         <button
           type="button"

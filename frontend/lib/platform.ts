@@ -136,3 +136,30 @@ export interface PlatformUser {
 export function formatUsdMicros(micros: number): string {
   return `$${(micros / 1_000_000).toFixed(4)}`
 }
+
+// ── Chaves de API da plataforma (super-admin) ────────────────────────────────
+// Contrato WRITE-ONLY: o backend NUNCA devolve o valor da chave, só o estado
+// mascarado. Ver PlatformApiKeyResponse/PlatformApiKeyTestResponse (backend #53).
+
+export type ApiKeyStatus = 'DEFINED' | 'ABSENT'
+export type ApiKeySource = 'DB' | 'ENV' | 'NONE'
+
+export interface PlatformApiKeyResponse {
+  provider: string
+  status: ApiKeyStatus
+  /** 4 primeiros + 4 últimos chars (ex.: "AIza…gUms"); null quando ABSENT */
+  masked: string | null
+  source: ApiKeySource
+  /** vem da linha do banco; null quando a chave vigente vem só da ENV */
+  keyVersion: number | null
+  updatedAt: string | null
+  /** UUID do super-admin que gravou; null quando a chave vem só da ENV */
+  updatedBy: string | null
+}
+
+export interface PlatformApiKeyTestResponse {
+  ok: boolean
+  latencyMs: number
+  source: ApiKeySource
+  message: string
+}
