@@ -14,6 +14,8 @@ import com.menuflow.security.SecurityUtils
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -39,6 +41,12 @@ class PlatformApiKeyService(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
+    companion object {
+        // B1: provedores com resolver proprio HOJE. Enquanto o enum tiver 1 valor, isto e o
+        // enum inteiro; ao crescer, so o que tiver resolver entra aqui (ver requireGoogle).
+        private val SUPPORTED = listOf(PlatformApiKeyProviderType.GOOGLE_MAPS)
+    }
+
     // Rate-limit do endpoint /test por ATOR: no maximo 1 chamada a cada 5s, para nao
     // torrar a cota do Google. TTL manual (carimbo de ultima chamada por userId).
     private val testLastCallByActor = ConcurrentHashMap<UUID, Long>()
@@ -46,16 +54,40 @@ class PlatformApiKeyService(
 
     // ── Leitura (write-only) ────────────────────────────────────────────────
 
-    /** Todos os provedores conhecidos (allowlist do enum), descritos sem o valor. */
-    fun describeAll(): List<PlatformApiKeyResponse> =
-        PlatformApiKeyProviderType.entries.map { describe(it) }
+    /** Todos os provedores SUPORTADOS, descritos sem o valor. */
+    fun describeAll(): List<PlatformApiKeyResponse> = SUPPORTED.map { describe(it) }
 
+    /**
+     * GET (cached): usa o cache do provider (fast-path) para dizer de onde a chave viria
+     * AGORA e mascara-la sem devolve-la. So leitura — nunca dentro de uma tx de escrita
+     * (para nao servir de fonte de repovoamento pre-commit; ver [describeUncached]).
+     */
     fun describe(provider: PlatformApiKeyProviderType): PlatformApiKeyResponse {
+        requireGoogle(provider)
         val row = repository.findFirstByProviderAndActiveTrue(provider)
-        // source()/resolve() do provider dizem de onde a chave viria AGORA (DB > ENV > NONE)
-        // e permitem mascarar o valor vigente sem devolve-lo.
         val source = googleApiKeyProvider.source()
         val resolved = googleApiKeyProvider.resolve()
+        return buildResponse(provider, row, source, resolved)
+    }
+
+    /**
+     * Igual a [describe], mas le o estado ATUAL (banco+env) SEM tocar no cache Caffeine —
+     * usado DENTRO das transacoes de escrita para montar resposta/auditoria a partir do
+     * estado ainda-nao-commitado sem poluir o cache compartilhado (achado M1 do Centuriao).
+     */
+    private fun describeUncached(provider: PlatformApiKeyProviderType): PlatformApiKeyResponse {
+        requireGoogle(provider)
+        val row = repository.findFirstByProviderAndActiveTrue(provider)
+        val (source, resolved) = googleApiKeyProvider.resolveUncached()
+        return buildResponse(provider, row, source, resolved)
+    }
+
+    private fun buildResponse(
+        provider: PlatformApiKeyProviderType,
+        row: PlatformApiKey?,
+        source: GoogleKeySource,
+        resolved: String,
+    ): PlatformApiKeyResponse {
         val status = if (source == GoogleKeySource.NONE) "ABSENT" else "DEFINED"
         return PlatformApiKeyResponse(
             provider = provider.name,
@@ -84,7 +116,7 @@ class PlatformApiKeyService(
             throw UnprocessableEntityException("value com tamanho implausivel para uma chave de API")
         }
 
-        val before = describe(provider)
+        val before = describeUncached(provider)
         val actor = SecurityUtils.currentPrincipal()?.userId
         val (enc, iv) = cipher.encrypt(value)
 
@@ -110,9 +142,11 @@ class PlatformApiKeyService(
             )
         }
 
-        // A nova chave passa a valer imediatamente (cache do provider descartado).
-        googleApiKeyProvider.invalidate()
-        val after = describe(provider)
+        // M1: o cache do provider so e descartado POS-COMMIT — se a tx rolar (ex.: corrida
+        // no indice unico), o cache nunca chega a servir uma chave que nao existe. A
+        // resposta/auditoria usam describeUncached (estado in-tx) sem repovoar o cache.
+        invalidateAfterCommit()
+        val after = describeUncached(provider)
 
         auditService.record(
             action = "PLATFORM_API_KEY_UPSERT",
@@ -130,16 +164,16 @@ class PlatformApiKeyService(
      */
     @Transactional
     fun deactivate(provider: PlatformApiKeyProviderType): PlatformApiKeyResponse {
-        val before = describe(provider)
+        val before = describeUncached(provider)
         val existing = repository.findFirstByProviderAndActiveTrue(provider)
         if (existing != null) {
             existing.active = false
             existing.updatedAt = Instant.now()
             existing.updatedBy = SecurityUtils.currentPrincipal()?.userId
             repository.save(existing)
-            googleApiKeyProvider.invalidate()
+            invalidateAfterCommit() // M1: descarta o cache so pos-commit
         }
-        val after = describe(provider)
+        val after = describeUncached(provider)
         auditService.record(
             action = "PLATFORM_API_KEY_DELETE",
             targetEntity = provider.name,
@@ -181,10 +215,42 @@ class PlatformApiKeyService(
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /** Converte texto do path -> enum (allowlist). Provider desconhecido = 400. */
+    /**
+     * Converte texto do path -> enum (allowlist). Provider desconhecido = 400 com mensagem
+     * FIXA (B2): nao ecoar o input cru na resposta (evita reflexao de conteudo do atacante).
+     */
     fun parseProvider(raw: String): PlatformApiKeyProviderType =
         PlatformApiKeyProviderType.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
-            ?: throw BusinessException("Provedor de chave desconhecido: $raw")
+            ?: throw BusinessException("Provedor de chave desconhecido")
+
+    /**
+     * B1: hoje source()/resolve()/describe() sao servidos pelo GoogleApiKeyProvider, que so
+     * conhece GOOGLE_MAPS. Enquanto o enum tiver 1 provedor a guarda e no-op; ao adicionar o
+     * 2o, esta guarda (e o teste que assere entries.size==1) QUEBRA e forca parametrizar a
+     * resolucao por provider antes de expor a mascara de um provedor no lugar de outro.
+     */
+    private fun requireGoogle(provider: PlatformApiKeyProviderType) {
+        require(provider == PlatformApiKeyProviderType.GOOGLE_MAPS) {
+            "Provedor $provider ainda nao tem resolver proprio (so GOOGLE_MAPS)"
+        }
+    }
+
+    /**
+     * Registra o invalidate() do cache do provider para rodar POS-COMMIT (M1). Fora de uma
+     * transacao ativa (nao deveria acontecer nas mutacoes @Transactional), invalida na hora
+     * como fallback seguro.
+     */
+    private fun invalidateAfterCommit() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                object : TransactionSynchronization {
+                    override fun afterCommit() = googleApiKeyProvider.invalidate()
+                },
+            )
+        } else {
+            googleApiKeyProvider.invalidate()
+        }
+    }
 
     /** Mascara 4+4 chars (ex.: "AIza…gUms"). Curto demais -> "****". Vazio -> null. */
     private fun mask(plain: String): String? {

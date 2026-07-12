@@ -95,12 +95,19 @@ class GeocodingService(
      * Chamada remota ao Google (seam isolado — nao consulta cache). Recebe a [apiKey] ja
      * resolvida pelo [geocode] (banco/env). Publico apenas para permitir o teste do cache
      * (spy/verify times(1)); em producao so [geocode] o chama.
+     *
+     * SEGURANCA (achado A1 do Centuriao): a chave vai no header X-Goog-Api-Key, NUNCA na
+     * URL. Numa falha de I/O (timeout/DNS/conexao) o RestClient lanca ResourceAccessException
+     * cuja mensagem embute a URL — se a chave estivesse na query, ela cairia no log. Alem
+     * disso o catch loga apenas e.javaClass.simpleName (nunca e.message), como no
+     * GoogleApiKeyProvider. Defesa em profundidade: header + log sem mensagem crua.
      */
     fun fetchLatLng(addressText: String, apiKey: String): LatLng? {
         return try {
             @Suppress("UNCHECKED_CAST")
             val body = client.get()
-                .uri(buildGeocodeUri(addressText, apiKey))
+                .uri(buildGeocodeUri(addressText))
+                .header("X-Goog-Api-Key", apiKey)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError) { _, res ->
                     throw IllegalStateException("Geocoding HTTP ${res.statusCode}")
@@ -115,20 +122,22 @@ class GeocodingService(
             val lng = (location["lng"] as? Number)?.toDouble() ?: return null
             LatLng(lat, lng)
         } catch (e: Exception) {
-            log.warn("Geocoding falhou para '{}': {}", addressText, e.message)
+            // NUNCA logar e.message: numa falha de I/O ela embute a URL da chamada. So a classe.
+            log.warn("Geocoding falhou para '{}': {}", addressText, e.javaClass.simpleName)
             null
         }
     }
 
     /**
-     * Monta a URI absoluta do Geocoding com os valores percent-encodados (A3). Usa
+     * Monta a URI absoluta do Geocoding com o endereco percent-encodado (A3). Usa
      * [UriUtils.encodeQueryParam] (tipo QUERY_PARAM), que encoda '&', '=', '+', '{',
      * '}', espacos e acentos — garantindo que o valor NUNCA vira separador/parametro.
      * URI absoluta -> o RestClient a usa como esta, sem expandir template do endereco.
+     *
+     * A chave NAO entra na URI (achado A1): vai no header X-Goog-Api-Key em [fetchLatLng].
      */
-    internal fun buildGeocodeUri(addressText: String, key: String): URI {
+    internal fun buildGeocodeUri(addressText: String): URI {
         val encodedAddress = UriUtils.encodeQueryParam(addressText, StandardCharsets.UTF_8)
-        val encodedKey = UriUtils.encodeQueryParam(key, StandardCharsets.UTF_8)
-        return URI.create("$baseUrl/maps/api/geocode/json?address=$encodedAddress&key=$encodedKey")
+        return URI.create("$baseUrl/maps/api/geocode/json?address=$encodedAddress")
     }
 }

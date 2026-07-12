@@ -53,8 +53,19 @@ class GoogleApiKeyProvider(
     /** DB | ENV | NONE — para a UI/diagnostico da Fase 2 (sem devolver o valor). */
     fun source(): GoogleKeySource = resolved().source
 
-    /** Descarta o cache; a Fase 2 chama isto ao gravar/rotacionar/apagar a chave. */
+    /** Descarta o cache; a Fase 2 chama isto (POS-COMMIT) ao gravar/rotacionar/apagar. */
     fun invalidate() = cache.invalidate(PlatformApiKeyProviderType.GOOGLE_MAPS)
+
+    /**
+     * Resolve a chave lendo o estado ATUAL (banco+env) SEM tocar no cache Caffeine. Usado
+     * pela Fase 2 dentro de uma transacao de escrita para montar a resposta/auditoria a
+     * partir do estado ainda-nao-commitado, sem POLUIR o cache compartilhado (que so deve
+     * ser invalidado pos-commit). Devolve (origem, chave em claro).
+     */
+    fun resolveUncached(): Pair<GoogleKeySource, String> {
+        val r = load()
+        return r.source to r.key
+    }
 
     private fun resolved(): Resolved =
         cache.get(PlatformApiKeyProviderType.GOOGLE_MAPS) { load() }

@@ -74,4 +74,16 @@ class GoogleApiKeyProviderTest {
         val provider = GoogleApiKeyProvider(repo, cipher, envKey = "KEY-ENV")
         assertEquals("KEY-ENV", provider.resolve())
     }
+
+    // B1 (guarda): describe/resolve da Fase 2 assumem 1 provider (GOOGLE_MAPS). Este teste
+    // QUEBRA de proposito ao adicionar o 2o valor no enum, forcando parametrizar a resolucao
+    // por provider antes de expor a mascara de um provedor no lugar de outro.
+    @Test
+    fun `enum de provider tem apenas GOOGLE_MAPS (guarda B1 do Centuriao)`() {
+        assertEquals(
+            1,
+            PlatformApiKeyProviderType.entries.size,
+            "Ao adicionar um 2o provider, parametrize describe()/resolve() por provider (hoje sao GOOGLE_MAPS-only)",
+        )
+    }
 }
