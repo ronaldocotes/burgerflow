@@ -15,6 +15,10 @@ menuflow:
     # auto-create stays on (db-per-tenant on first access) but the DB role should
     # be the least-privileged one that can CREATE DATABASE for new tenants.
     auto-create-database: ${MF_DB_AUTOCREATE:true}
+    # issue #33: evita acumular 1 pool por tenant indefinidamente. Fecha o pool de
+    # um tenant sem acesso há 30 min (reaberto sob demanda no próximo request).
+    # minimum-idle=0 (padrão) já faz cada pool ocioso encolher a zero conexões.
+    idle-pool-eviction-minutes: ${MF_DB_POOL_EVICT_MIN:30}
   rate-limit:
     login:
       enabled: true
