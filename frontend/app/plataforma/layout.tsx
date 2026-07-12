@@ -15,6 +15,7 @@ import {
   Plug,
   BrainCircuit,
   Users,
+  KeyRound,
   LogOut,
   Menu,
   X,
@@ -40,6 +41,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/plataforma',             label: 'Visão Geral', icon: LayoutDashboard },
   { href: '/plataforma/tenants',     label: 'Empresas',    icon: Building2 },
   { href: '/plataforma/integracoes', label: 'Integrações', icon: Plug },
+  { href: '/plataforma/chaves',      label: 'Chaves de API', icon: KeyRound },
   { href: '/plataforma/ia',          label: 'Uso de IA',   icon: BrainCircuit },
   { href: '/plataforma/usuarios',    label: 'Usuários',    icon: Users },
 ]
