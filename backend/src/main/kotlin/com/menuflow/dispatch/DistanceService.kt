@@ -41,7 +41,10 @@ class DistanceService(
     private val haversine: HaversineDistanceProvider,
     private val google: GoogleRoutesDistanceProvider,
     private val osrm: OsrmDistanceProvider,
-    @Value("\${google.routes.api-key:}") private val googleApiKey: String,
+    // A chave do Google agora e resolvida POR REQUISICAO (banco de controle > env >
+    // vazio) via GoogleApiKeyProvider, em vez de capturada no boot. Com o banco vazio,
+    // resolve() devolve a env atual — comportamento identico ao anterior.
+    private val googleApiKeyProvider: GoogleApiKeyProvider,
     @Value("\${osrm.base-url:}") private val osrmBaseUrl: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -84,14 +87,15 @@ class DistanceService(
                 }
             }
             "GOOGLE" -> {
+                val googleApiKey = googleApiKeyProvider.resolve()
                 if (googleApiKey.isNotBlank()) {
-                    runCatching { google.distanceMeters(originLat, originLng, destLat, destLng) }
+                    runCatching { google.distanceMeters(originLat, originLng, destLat, destLng, googleApiKey) }
                         .getOrElse {
                             log.warn("Google Routes falhou ({}); usando Haversine", it.message)
                             haversine.distanceMeters(originLat, originLng, destLat, destLng)
                         }
                 } else {
-                    log.debug("GOOGLE solicitado mas GOOGLE_ROUTES_API_KEY nao configurado; usando Haversine")
+                    log.debug("GOOGLE solicitado mas nenhuma chave Google resolvida (banco/env); usando Haversine")
                     haversine.distanceMeters(originLat, originLng, destLat, destLng)
                 }
             }
@@ -111,9 +115,10 @@ class DistanceService(
         originLng: Double,
         destLat: Double,
         destLng: Double,
-    ): Long =
-        if (googleApiKey.isNotBlank()) {
-            runCatching { google.distanceMeters(originLat, originLng, destLat, destLng) }
+    ): Long {
+        val googleApiKey = googleApiKeyProvider.resolve()
+        return if (googleApiKey.isNotBlank()) {
+            runCatching { google.distanceMeters(originLat, originLng, destLat, destLng, googleApiKey) }
                 .getOrElse {
                     log.warn("Google Routes falhou ({}); usando Haversine", it.message)
                     haversine.distanceMeters(originLat, originLng, destLat, destLng)
@@ -121,6 +126,7 @@ class DistanceService(
         } else {
             haversine.distanceMeters(originLat, originLng, destLat, destLng)
         }
+    }
 
     private fun putCache(key: String, meters: Long) {
         if (cache.size >= maxEntries) {
@@ -141,12 +147,15 @@ class HaversineDistanceProvider {
 /**
  * Provedor primario: Google Routes (Compute Route Matrix), modo TWO_WHEELER.
  * Timeout curto (3s) para nao prender thread do despacho; erros propagam para o
- * [DistanceService] cair no Haversine. A chave vai no header X-Goog-Api-Key e NUNCA
- * e logada.
+ * [DistanceService] cair no Haversine.
+ *
+ * A chave NAO e mais capturada no boot: o [DistanceService] resolve via
+ * [GoogleApiKeyProvider] (banco de controle > env) e passa em [apiKey] a cada chamada.
+ * Vai no header X-Goog-Api-Key e NUNCA e logada. O RestClient/infra continua
+ * construido no boot — so a chave passa a ser por requisicao.
  */
 @Service
 class GoogleRoutesDistanceProvider(
-    @Value("\${google.routes.api-key:}") private val apiKey: String,
     @Value("\${google.routes.base-url:https://routes.googleapis.com}") baseUrl: String,
     builder: RestClient.Builder,
 ) {
@@ -160,7 +169,7 @@ class GoogleRoutesDistanceProvider(
         )
         .build()
 
-    fun distanceMeters(originLat: Double, originLng: Double, destLat: Double, destLng: Double): Long {
+    fun distanceMeters(originLat: Double, originLng: Double, destLat: Double, destLng: Double, apiKey: String): Long {
         val body = mapOf(
             "origins" to listOf(waypoint(originLat, originLng)),
             "destinations" to listOf(waypoint(destLat, destLng)),

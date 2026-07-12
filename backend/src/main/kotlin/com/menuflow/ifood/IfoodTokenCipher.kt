@@ -1,49 +1,26 @@
 package com.menuflow.ifood
 
-import org.springframework.beans.factory.annotation.Value
+import com.menuflow.crypto.SecretCipher
 import org.springframework.stereotype.Component
-import java.security.SecureRandom
-import javax.crypto.Cipher
-import javax.crypto.SecretKey
-import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.SecretKeySpec
-import java.util.Base64
 
 /**
  * Cifra/decifra tokens iFood (client_secret, app_token, access/refresh token) com
- * AES-256-GCM. Cada operacao gera um IV aleatorio de 12 bytes (armazenado no campo
- * *_iv ao lado do *_enc). O tag de autenticacao de 128 bits garante integridade:
- * decrypt lanca AEADBadTagException se o ciphertext/IV/chave nao baterem.
+ * AES-256-GCM.
  *
- * A chave (32 bytes / 256 bits, Base64) vem de ifood.encryption.key -> env
- * IFOOD_ENCRYPTION_KEY em producao. NUNCA logar plaintext nem a chave.
+ * A implementacao criptografica foi EXTRAIDA para [SecretCipher] (bean neutro,
+ * reutilizavel por outros modulos — ex.: chaves de API da plataforma). Este bean
+ * agora apenas DELEGA, preservando 100% do contrato publico usado hoje por iFood,
+ * GA4 (api_secret) e TOTP: `encrypt(plaintext): Pair<enc, iv>` e
+ * `decrypt(ciphertext, iv): String`, mesma chave (IFOOD_ENCRYPTION_KEY).
+ *
+ * Mantido como tipo proprio (nao um alias) para nao tocar nas ~10 injecoes
+ * existentes de IfoodTokenCipher e deixar clara a intencao no dominio iFood.
  */
 @Component
 class IfoodTokenCipher(
-    @Value("\${ifood.encryption.key}") private val keyBase64: String
+    private val cipher: SecretCipher,
 ) {
-    companion object {
-        private const val ALGORITHM = "AES/GCM/NoPadding"
-        private const val GCM_IV_LENGTH = 12
-        private const val GCM_TAG_LENGTH = 128
-    }
+    fun encrypt(plaintext: String): Pair<ByteArray, ByteArray> = cipher.encrypt(plaintext)
 
-    private val key: SecretKey by lazy {
-        val decoded = Base64.getDecoder().decode(keyBase64)
-        require(decoded.size == 32) { "ifood.encryption.key deve ser 32 bytes (256 bits) em Base64" }
-        SecretKeySpec(decoded, "AES")
-    }
-
-    fun encrypt(plaintext: String): Pair<ByteArray, ByteArray> {
-        val iv = ByteArray(GCM_IV_LENGTH).also { SecureRandom().nextBytes(it) }
-        val cipher = Cipher.getInstance(ALGORITHM)
-        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(GCM_TAG_LENGTH, iv))
-        return cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8)) to iv
-    }
-
-    fun decrypt(ciphertext: ByteArray, iv: ByteArray): String {
-        val cipher = Cipher.getInstance(ALGORITHM)
-        cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(GCM_TAG_LENGTH, iv))
-        return String(cipher.doFinal(ciphertext), Charsets.UTF_8)
-    }
+    fun decrypt(ciphertext: ByteArray, iv: ByteArray): String = cipher.decrypt(ciphertext, iv)
 }

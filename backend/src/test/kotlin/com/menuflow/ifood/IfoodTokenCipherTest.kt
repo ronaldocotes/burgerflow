@@ -1,6 +1,6 @@
 package com.menuflow.ifood
 
-import org.junit.jupiter.api.Assertions.assertArrayEquals
+import com.menuflow.crypto.SecretCipher
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -12,12 +12,16 @@ import javax.crypto.AEADBadTagException
 /**
  * Testes unitarios do IfoodTokenCipher (AES-256-GCM). Nao sobem contexto Spring:
  * instanciam o cipher com uma chave de teste valida (32 bytes em Base64).
+ *
+ * Apos a extracao do [SecretCipher], o IfoodTokenCipher DELEGA a ele; aqui montamos
+ * a cadeia manualmente (IfoodTokenCipher(SecretCipher(chave))) para provar que a
+ * delegacao preserva o comportamento AES-256-GCM.
  */
 class IfoodTokenCipherTest {
 
     // 32 bytes ("testkeytestkeytestkeytestkey" tem 28 -> nao serve); usamos 32 'A' bytes.
     private val testKeyBase64 = Base64.getEncoder().encodeToString(ByteArray(32) { 'A'.code.toByte() })
-    private val cipher = IfoodTokenCipher(testKeyBase64)
+    private val cipher = IfoodTokenCipher(SecretCipher(testKeyBase64))
 
     @Test
     fun `round-trip encrypt then decrypt returns original`() {
@@ -59,7 +63,7 @@ class IfoodTokenCipherTest {
     @Test
     fun `key with wrong size is rejected`() {
         val shortKey = Base64.getEncoder().encodeToString(ByteArray(16))
-        val bad = IfoodTokenCipher(shortKey)
+        val bad = IfoodTokenCipher(SecretCipher(shortKey))
         assertThrows(IllegalArgumentException::class.java) {
             bad.encrypt("x") // forca o lazy da chave
         }
