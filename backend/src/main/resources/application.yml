@@ -51,6 +51,14 @@ server:
   compression:
     enabled: true
     mime-types: application/json,text/plain
+  tomcat:
+    # Upload do APK do app do motoboy (POST /admin/app/releases) vai como
+    # application/octet-stream no corpo — NAO e multipart nem form, entao os limites de
+    # multipart/form-post NAO se aplicam (o teto de ~150 MB e imposto no
+    # AppReleaseService). max-swallow-size=-1: quando a requisicao e rejeitada ANTES de
+    # ler o corpo inteiro (ex.: 401/403/400/409 num upload grande), o Tomcat nao aborta
+    # a conexao ao descartar o corpo nao lido — o cliente recebe o status limpo.
+    max-swallow-size: -1
 
 management:
   endpoints:
