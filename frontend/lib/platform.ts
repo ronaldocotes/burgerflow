@@ -31,11 +31,24 @@ export interface ModuleStatus {
   isOverride: boolean
 }
 
+// Estado de migration POR tenant — espelha TenantMigrationStatusDto do backend
+// (TenantMigrationAdminController.kt:52-59). `drift` = versão aplicada difere da
+// mais recente disponível.
 export interface MigrationStatus {
-  tenant: string
-  currentVersion: string | null
-  expectedVersion: string
-  status: string
+  tenantSlug: string
+  appliedVersion: string | null
+  latestVersion: string
+  drift: boolean
+  lastAppliedAt: string | null
+  lastSuccess: boolean
+}
+
+// Resposta REAL de GET /admin/tenants/migration-status — um OBJETO agregado, não
+// um array. Espelha MigrationStatusResponse (TenantMigrationAdminController.kt:46-50).
+export interface MigrationOverview {
+  latestAvailableVersion: string
+  tenantsWithDrift: number
+  tenants: MigrationStatus[]
 }
 
 // ── Fase 2: integrações e uso ────────────────────────────────────────────────

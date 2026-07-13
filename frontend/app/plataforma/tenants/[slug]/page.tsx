@@ -24,6 +24,7 @@ import {
   type TenantPlan,
   type ModuleStatus,
   type MigrationStatus,
+  type MigrationOverview,
   type TenantUsageResponse,
   PLANS,
   PLAN_LABELS,
@@ -207,8 +208,11 @@ export default function TenantDetailPage() {
     setMigrationsLoading(true)
     setMigrationsError(null)
     try {
-      const all = await api.get<MigrationStatus[]>('/admin/tenants/migration-status')
-      setMigrations(all.filter((m) => m.tenant === slug))
+      // Resposta é um OBJETO agregado ({ ..., tenants: [...] }), não um array.
+      // Guarda defensiva: se `tenants` não vier como array, degrada p/ vazio.
+      const overview = await api.get<MigrationOverview>('/admin/tenants/migration-status')
+      const rows = Array.isArray(overview?.tenants) ? overview.tenants : []
+      setMigrations(rows.filter((m) => m.tenantSlug === slug))
     } catch (err) {
       setMigrationsError(err instanceof ApiError ? err.message : 'Erro ao carregar migrations.')
     } finally {
@@ -303,7 +307,7 @@ export default function TenantDetailPage() {
     }
   }
 
-  const pendingCount = migrations.filter((m) => m.currentVersion !== m.expectedVersion).length
+  const pendingCount = migrations.filter((m) => m.drift).length
 
   return (
     <main className="mx-auto max-w-4xl p-4 sm:p-6">
@@ -499,11 +503,11 @@ export default function TenantDetailPage() {
               </thead>
               <tbody className="divide-y divide-border-light">
                 {migrations.map((m, i) => {
-                  const upToDate = m.currentVersion === m.expectedVersion
+                  const upToDate = !m.drift
                   return (
                     <tr key={i}>
-                      <td className="px-4 py-3 font-mono text-xs text-text-secondary">{m.currentVersion ?? '—'}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-text-secondary">{m.expectedVersion}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-text-secondary">{m.appliedVersion ?? '—'}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-text-secondary">{m.latestVersion}</td>
                       <td className="px-4 py-3">
                         {upToDate ? (
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-success-dark">
@@ -511,7 +515,7 @@ export default function TenantDetailPage() {
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-warning-dark">
-                            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Pendente ({m.status})
+                            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Pendente
                           </span>
                         )}
                       </td>

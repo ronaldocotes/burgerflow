@@ -113,7 +113,7 @@ class GlobalExceptionHandler {
         ex: org.springframework.security.access.AccessDeniedException,
         req: WebRequest,
     ) = ResponseEntity.status(HttpStatus.FORBIDDEN)
-        .body(body(HttpStatus.FORBIDDEN, "FORBIDDEN", "You do not have permission to perform this action", req))
+        .body(body(HttpStatus.FORBIDDEN, "FORBIDDEN", "Você não tem permissão para executar esta ação", req))
 
     @ExceptionHandler(Exception::class)
     fun unexpected(ex: Exception, req: WebRequest): ResponseEntity<ErrorResponse> {
