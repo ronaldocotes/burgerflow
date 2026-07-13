@@ -4,7 +4,7 @@ import { FormEvent, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, UtensilsCrossed, Building2, Mail, Lock, ArrowRight } from "lucide-react";
-import { login } from "@/lib/auth";
+import { login, getUserRole } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
 import { useRestaurantInfo } from "@/lib/use-restaurant-info";
 
@@ -88,7 +88,9 @@ export default function LoginPage() {
     setError(null);
     try {
       await login(email.trim(), password, tenant.trim());
-      router.push("/pdv");
+      // SUPER_ADMIN não opera PDV/KDS do tenant: vai direto para o painel da
+      // plataforma (senão tomaria 403 no /pdv). Ver Sidebar.tsx:170.
+      router.push(getUserRole() === "SUPER_ADMIN" ? "/plataforma" : "/pdv");
     } catch (err) {
       setError(
         err instanceof ApiError

@@ -19,7 +19,7 @@ import { api, ApiError } from '@/lib/api'
 import { useSuperAdminGuard } from '@/lib/use-super-admin-guard'
 import {
   type TenantSummary,
-  type MigrationStatus,
+  type MigrationOverview,
   PLAN_BADGE,
   PLAN_LABELS,
 } from '@/lib/platform'
@@ -72,7 +72,7 @@ export default function PlataformaPage() {
   useSuperAdminGuard()
 
   const [tenants, setTenants] = useState<TenantSummary[]>([])
-  const [migrations, setMigrations] = useState<MigrationStatus[]>([])
+  const [migrations, setMigrations] = useState<MigrationOverview | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -80,13 +80,13 @@ export default function PlataformaPage() {
     setLoading(true)
     setError(null)
     try {
-      // migrations não bloqueia o painel: falha vira lista vazia
-      const [tenantList, migrationList] = await Promise.all([
+      // migrations não bloqueia o painel: falha vira null (KPI mostra 0)
+      const [tenantList, migrationOverview] = await Promise.all([
         api.get<TenantSummary[]>('/admin/tenants'),
-        api.get<MigrationStatus[]>('/admin/tenants/migration-status').catch(() => [] as MigrationStatus[]),
+        api.get<MigrationOverview>('/admin/tenants/migration-status').catch(() => null),
       ])
       setTenants(tenantList)
-      setMigrations(migrationList)
+      setMigrations(migrationOverview)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Erro ao carregar dados da plataforma.')
     } finally {
@@ -99,9 +99,11 @@ export default function PlataformaPage() {
   const total = tenants.length
   const active = tenants.filter((t) => t.isActive).length
   const inactive = total - active
-  const pendingMigrations = migrations.filter(
-    (m) => m.currentVersion !== m.expectedVersion,
-  ).length
+  // Usa o agregado que o backend já calcula (tenantsWithDrift). Guarda defensiva:
+  // se um contrato futuro mudar, degrada para 0 em vez de crashar a página.
+  const pendingMigrations = typeof migrations?.tenantsWithDrift === 'number'
+    ? migrations.tenantsWithDrift
+    : 0
   const recent = tenants.slice(-5).reverse()
 
   return (
