@@ -482,9 +482,15 @@ export default function MotoboySignupPage() {
         <h1 className="text-text-primary text-xl font-bold mb-2">
           Cadastro concluido!
         </h1>
-        <p className="text-text-secondary text-sm">
+        <p className="text-text-secondary text-sm mb-6">
           Em breve voce recebera corridas com prioridade.
         </p>
+        <a
+          href="/motoboy/app"
+          className="btn-primary min-h-12 rounded-xl px-8 text-base font-semibold"
+        >
+          Baixe o app do entregador
+        </a>
       </div>
     );
   }
