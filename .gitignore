@@ -80,6 +80,15 @@ mobile/ios/Pods/
 mobile/ios/build/
 mobile/ios/DerivedData/
 
+# Keystores de release e APKs buildados NUNCA vao pro repo.
+# Credenciais ficam em ~/.gradle/gradle.properties (fora do git) — ver mobile/android/RELEASE.md
+*.jks
+*.keystore
+!mobile/android/app/debug.keystore
+mobile/android/app/build/outputs/
+*.apk
+*.aab
+
 # =============================================================================
 # IA (FastAPI)
 # =============================================================================
