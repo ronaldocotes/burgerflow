@@ -9,6 +9,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { paperTheme } from '@/theme/paperTheme';
 import RootNavigator from '@/navigation/RootNavigator';
 import { navigationRef } from '@/navigation/navRef';
+import { AppUpdateGate } from '@/update/AppUpdateGate';
 
 // Providers da Fase M0 + M2. Ordem importa:
 // GestureHandlerRootView (gesto/bottom-sheet) > SafeAreaProvider > PaperProvider >
@@ -22,6 +23,9 @@ export default function App() {
           <BottomSheetModalProvider>
             <NavigationContainer ref={navigationRef}>
               <RootNavigator />
+              {/* Auto-update in-app do APK do motoboy: checa 1x no boot e sobrepoe
+                  o modal se houver versao mais nova (silencioso em erro/sem-rede). */}
+              <AppUpdateGate />
             </NavigationContainer>
           </BottomSheetModalProvider>
         </PaperProvider>
