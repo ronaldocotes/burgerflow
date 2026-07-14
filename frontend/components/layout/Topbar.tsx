@@ -115,7 +115,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
     <header
       className="sticky top-0 z-[9] flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border-light bg-bg-primary px-4"
     >
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <button
           type="button"
           onClick={onMenuClick}
@@ -150,7 +150,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         aria-pressed={soundEnabled}
         aria-label={soundEnabled ? 'Desativar som de pedido novo' : 'Ativar som de pedido novo'}
         title={soundEnabled ? 'Som de pedido novo ativado — clique para desativar' : 'Ativar som de pedido novo'}
-        className={`mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${
+        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${
           soundEnabled
             ? 'text-primary-700 hover:bg-bg-tertiary'
             : 'text-text-muted hover:bg-bg-tertiary hover:text-text-secondary'
