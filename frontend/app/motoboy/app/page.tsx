@@ -8,7 +8,7 @@ import { Smartphone, Download, ShieldAlert } from "lucide-react";
 // Pagina PUBLICA de download do app do entregador (APK self-hospedado, fora da
 // Play Store). Sem auth/sidebar: /motoboy ja esta nos PUBLIC_PREFIXES do
 // ClientLayout. Molde de UX herdado do AppDownloadButton do SISATER: QR Code
-// (destaque no desktop, aponta a camera do celular) + botao de download direto.
+// (destaque no desktop, aponta a câmera do celular) + botão de download direto.
 // Contrato do backend (PR #61):
 //   GET /public/app/latest?plataforma=android -> 200 { versionCode, versionName,
 //     notas, obrigatoria, tamanhoBytes, sha256, url } | 204 (sem release ainda).
@@ -49,7 +49,7 @@ function LoadingSkeleton() {
     <div
       className="mx-auto max-w-md animate-pulse space-y-6"
       aria-busy="true"
-      aria-label="Carregando informacoes do app"
+      aria-label="Carregando informações do app"
     >
       <div className="mx-auto h-4 w-2/3 rounded bg-bg-tertiary" />
       <div className="mx-auto aspect-square w-64 rounded-2xl bg-bg-tertiary" />
@@ -103,7 +103,7 @@ export default function MotoboyAppDownloadPage() {
   }, [fetchLatest]);
 
   // URL absoluta de download (origem atual + o `url` relativo do backend). O QR
-  // e o link direto usam a mesma URL para a camera do celular resolver.
+  // e o link direto usam a mesma URL para a câmera do celular resolver.
   const downloadUrl =
     state.kind === "success"
       ? new URL(state.release.url, origin || undefined).href
@@ -138,7 +138,7 @@ export default function MotoboyAppDownloadPage() {
         {state.kind === "empty" && (
           <div className="rounded-2xl bg-bg-secondary p-6 text-center">
             <p className="text-sm text-text-secondary">
-              App ainda nao disponivel para download.
+              App ainda não disponível para download.
             </p>
           </div>
         )}
@@ -146,8 +146,8 @@ export default function MotoboyAppDownloadPage() {
         {state.kind === "error" && (
           <div className="rounded-2xl bg-bg-secondary p-6 text-center">
             <p className="mb-4 text-sm text-text-secondary">
-              Nao foi possivel carregar as informacoes do app. Verifique sua
-              conexao e tente novamente.
+              Não foi possível carregar as informações do app. Verifique sua
+              conexão e tente novamente.
             </p>
             <button
               type="button"
@@ -161,10 +161,10 @@ export default function MotoboyAppDownloadPage() {
 
         {state.kind === "success" && (
           <>
-            {/* Versao e tamanho */}
+            {/* Versão e tamanho */}
             <div className="mb-6 flex items-center justify-center gap-2 text-sm text-text-secondary">
               <span className="font-semibold text-text-primary">
-                Versao {state.release.versionName}
+                Versão {state.release.versionName}
               </span>
               <span aria-hidden="true">·</span>
               <span>{formatMb(state.release.tamanhoBytes)} MB</span>
@@ -185,7 +185,7 @@ export default function MotoboyAppDownloadPage() {
               </div>
             </div>
             <p className="mb-6 text-center text-sm text-text-secondary">
-              No computador: aponte a camera do celular para o QR Code.
+              No computador: aponte a câmera do celular para o QR Code.
             </p>
 
             {/* Download direto — para quem ja esta no celular */}
@@ -197,11 +197,11 @@ export default function MotoboyAppDownloadPage() {
               Baixar / Instalar no celular
             </a>
 
-            {/* Notas da versao */}
+            {/* Notas da versão */}
             {state.release.notas && (
               <div className="mt-6 rounded-2xl bg-bg-secondary p-5">
                 <h2 className="mb-2 text-sm font-semibold text-text-primary">
-                  Novidades desta versao
+                  Novidades desta versão
                 </h2>
                 <p className="whitespace-pre-line text-sm text-text-secondary">
                   {state.release.notas}
@@ -216,7 +216,7 @@ export default function MotoboyAppDownloadPage() {
                 aria-hidden="true"
               />
               <p className="text-sm text-text-secondary leading-relaxed">
-                E um arquivo Android (APK), fora da Play Store. Ao instalar, o
+                É um arquivo Android (APK), fora da Play Store. Ao instalar, o
                 celular pode pedir para permitir &quot;instalar apps de fontes
                 desconhecidas&quot;.
               </p>

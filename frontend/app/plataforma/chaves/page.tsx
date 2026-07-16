@@ -82,7 +82,7 @@ function StatusBanner({ data }: { data: PlatformApiKeyResponse }) {
   if (data.status === 'DEFINED') {
     const managed = data.source === 'DB'
     return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-success/30 bg-success-light px-4 py-3">
+      <div className="flex flex-col gap-2 rounded-lg border border-success/30 bg-success-light px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2">
         <CheckCircle className="h-5 w-5 shrink-0 text-success-dark" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-success-dark">
@@ -118,7 +118,7 @@ function StatusBanner({ data }: { data: PlatformApiKeyResponse }) {
   // Portanto ABSENT+ENV é impossível — não existe ramo "usando env" aqui (seria mensagem
   // enganosa de "tudo certo" com o recurso na verdade indisponível).
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-warning/30 bg-warning-light px-4 py-3">
+    <div className="flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning-light px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2">
       <AlertTriangle className="h-5 w-5 shrink-0 text-warning-dark" aria-hidden="true" />
       <p className="min-w-0 flex-1 text-sm font-medium text-warning-dark">
         Nenhuma chave configurada — a distância de entrega e o geocode ficam indisponíveis.
