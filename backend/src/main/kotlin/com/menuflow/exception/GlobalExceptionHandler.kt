@@ -84,6 +84,11 @@ class GlobalExceptionHandler {
         ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
             .body(body(HttpStatus.UNPROCESSABLE_ENTITY, "UNPROCESSABLE", ex.message, req, details = ex.details))
 
+    @ExceptionHandler(PayloadTooLargeException::class)
+    fun payloadTooLarge(ex: PayloadTooLargeException, req: WebRequest) =
+        ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+            .body(body(HttpStatus.PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE", ex.message, req))
+
     @ExceptionHandler(ServiceUnavailableException::class)
     fun serviceUnavailable(ex: ServiceUnavailableException, req: WebRequest) =
         ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)

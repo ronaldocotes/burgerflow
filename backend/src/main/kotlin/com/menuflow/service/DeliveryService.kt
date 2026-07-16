@@ -57,6 +57,14 @@ class DeliveryService(
 ) {
     private val saoPaulo = ZoneId.of("America/Sao_Paulo")
 
+    companion object {
+        /**
+         * Teto da fila de despacho lida de uma vez (B1). Uma fila de entrega real nunca
+         * passa disso simultaneamente; evita carregar a fila inteira em memoria.
+         */
+        private const val MAX_DISPATCH_QUEUE = 200
+    }
+
     @Transactional("tenantTransactionManager")
     fun createDriver(req: DriverCreateRequest): DriverResponse {
         val tenantUuid = SecurityUtils.currentPrincipalOrThrow().tenantUuid
@@ -198,8 +206,9 @@ class DeliveryService(
      */
     @Transactional("tenantTransactionManager", readOnly = true)
     fun pendingUnassignedDeliveryOrders(): List<com.menuflow.dto.PendingDeliveryOrderResponse> =
-        orderRepository.findPendingUnassignedDeliveryOrders()
-            .map { com.menuflow.dto.PendingDeliveryOrderResponse.from(it) }
+        orderRepository.findPendingUnassignedDeliveryOrders(
+            org.springframework.data.domain.PageRequest.of(0, MAX_DISPATCH_QUEUE),
+        ).map { com.menuflow.dto.PendingDeliveryOrderResponse.from(it) }
 
     private fun validateTransition(current: DeliveryStatus, next: DeliveryStatus) {
         // Fluxo legado (Sprint 2) mantido: ASSIGNED -> OUT_FOR_DELIVERY -> DELIVERED.

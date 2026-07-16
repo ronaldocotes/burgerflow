@@ -48,6 +48,10 @@ interface OrderRepository :
      * de cozinha (PENDING/PREPARING/READY — nao cancelado/entregue). Escopado ao tenant
      * pela datasource roteada (db-per-tenant); nunca recebe filtro de tenant do cliente.
      * Mais antigo primeiro (fila).
+     *
+     * [pageable] impoe um LIMIT: uma fila de despacho nunca precisa carregar a fila
+     * inteira de uma vez (B1) — sem teto, um tenant com milhares de pedidos abertos
+     * traria tudo para a memoria. O servico passa um teto fixo (ver DeliveryService).
      */
     @Query(
         """
@@ -64,7 +68,7 @@ interface OrderRepository :
         ORDER BY o.createdAt ASC
         """,
     )
-    fun findPendingUnassignedDeliveryOrders(): List<Order>
+    fun findPendingUnassignedDeliveryOrders(pageable: Pageable): List<Order>
 
     /** Pedidos mais recentes (qualquer status), para a tool get_recent_orders do Copiloto. */
     fun findAllByOrderByCreatedAtDesc(pageable: Pageable): List<Order>

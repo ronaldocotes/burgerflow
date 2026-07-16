@@ -19,6 +19,13 @@ class ForbiddenException(message: String) : RuntimeException(message)
 /** 429 — limite de uso atingido (ex.: teto diario de perguntas ao copiloto de IA). */
 class TooManyRequestsException(message: String) : RuntimeException(message)
 
+/**
+ * 413 — corpo da requisicao grande demais. Lancada pelo upload do APK do motoboy
+ * (POST /admin/app/releases) ao rejeitar CEDO — pelo Content-Length declarado ou pelo
+ * limite de leitura em stream — antes de bufferizar um corpo gigante na memoria (OOM).
+ */
+class PayloadTooLargeException(message: String) : RuntimeException(message)
+
 /** 409 — conflict (duplicate unique key, optimistic lock, idempotency-key reuse with different payload). */
 class ConflictException(message: String) : RuntimeException(message)
 

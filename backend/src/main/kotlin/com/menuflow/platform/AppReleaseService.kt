@@ -28,7 +28,13 @@ class AppReleaseService(
 ) {
     companion object {
         private const val MIN_BYTES = 1024                       // 1 KiB: menos que isso e lixo
-        private const val MAX_BYTES = 150L * 1024 * 1024         // ~150 MB (ver max-swallow-size no application.yml)
+
+        /**
+         * Teto do APK (~150 MB). Publico para o controller rejeitar CEDO pelo
+         * Content-Length antes de bufferizar o corpo. O max-swallow-size do Tomcat
+         * (application.yml) da uma folga acima disto.
+         */
+        const val MAX_UPLOAD_BYTES = 150L * 1024 * 1024
     }
 
     /** Ultima versao publicada (maior version_code), SEM o binario. null = nenhuma. */
@@ -56,8 +62,8 @@ class AppReleaseService(
         if (apk.size < MIN_BYTES) {
             throw BusinessException("APK vazio ou muito pequeno (minimo ${MIN_BYTES} bytes)")
         }
-        if (apk.size.toLong() > MAX_BYTES) {
-            throw BusinessException("APK excede o limite de ${MAX_BYTES / (1024 * 1024)} MB")
+        if (apk.size.toLong() > MAX_UPLOAD_BYTES) {
+            throw BusinessException("APK excede o limite de ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB")
         }
         // Todo APK e um zip -> os dois primeiros bytes sao o magic "PK" (0x50 0x4B).
         if (apk[0] != 'P'.code.toByte() || apk[1] != 'K'.code.toByte()) {

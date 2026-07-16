@@ -1,5 +1,8 @@
 package com.menuflow.platform
 
+import com.menuflow.exception.PayloadTooLargeException
+import jakarta.servlet.http.HttpServletRequest
+import org.springframework.http.CacheControl
 import org.springframework.http.ContentDisposition
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
@@ -8,9 +11,11 @@ import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import java.time.Duration
 
 /**
  * Distribuicao/atualizacao do app do motoboy FORA da Play Store (self-hospedado).
@@ -36,6 +41,40 @@ class AppReleaseController(
     companion object {
         private const val APK_MIME = "application/vnd.android.package-archive"
         private const val CONTEXT_PATH = "/api/v1"
+
+        /**
+         * Le [input] para memoria com teto rigido [cap], rejeitando CEDO. Dois guardas
+         * contra OOM (extraido para ser testavel com um cap pequeno):
+         *  1) Se o Content-Length [declaredLength] ja excede o teto -> 413 ANTES de ler
+         *     qualquer byte.
+         *  2) Corpo sem/ com Content-Length mentiroso (ex.: chunked): leitura em blocos
+         *     que ABORTA com 413 assim que o acumulado passa do teto — nunca bufferiza
+         *     alem dele.
+         */
+        internal fun readBounded(input: InputStream, declaredLength: Long, cap: Long): ByteArray {
+            val mb = cap / (1024 * 1024)
+            if (declaredLength > cap) {
+                throw PayloadTooLargeException(
+                    "Upload de $declaredLength bytes excede o limite de $mb MB",
+                )
+            }
+            val initial = if (declaredLength in 1..cap) declaredLength.toInt() else 64 * 1024
+            val out = ByteArrayOutputStream(initial)
+            val chunk = ByteArray(64 * 1024)
+            var total = 0L
+            input.use { stream ->
+                while (true) {
+                    val n = stream.read(chunk)
+                    if (n == -1) break
+                    total += n
+                    if (total > cap) {
+                        throw PayloadTooLargeException("Upload excede o limite de $mb MB")
+                    }
+                    out.write(chunk, 0, n)
+                }
+            }
+            return out.toByteArray()
+        }
     }
 
     /**
@@ -64,6 +103,12 @@ class AppReleaseController(
     /**
      * Stream do APK de uma versao especifica. Content-Type de APK, download como anexo
      * com o nome menuflow-motoboy-<versionName>.apk e Content-Length. 404 se nao existir.
+     *
+     * O APK de um versionCode e IMUTAVEL (publicar duplicado da 409, nunca sobrescreve),
+     * entao o binario pode ser cacheado agressivamente: Cache-Control public + max-age de
+     * 1 ano + immutable (o navegador nem revalida) e um ETag = sha256 do arquivo (para
+     * CDN/proxy que queiram revalidar por If-None-Match). Assim o mesmo APK nao e
+     * re-baixado a toa por navegador/CDN.
      */
     @GetMapping("/public/app/download/{versionCode}")
     fun download(
@@ -72,14 +117,17 @@ class AppReleaseController(
     ): ResponseEntity<ByteArray> {
         val release = service.forDownload(plataforma, versionCode)
         val filename = "menuflow-motoboy-${release.versionName}.apk"
-        return ResponseEntity.ok()
+        val builder = ResponseEntity.ok()
             .contentType(MediaType.parseMediaType(APK_MIME))
             .header(
                 HttpHeaders.CONTENT_DISPOSITION,
                 ContentDisposition.attachment().filename(filename).build().toString(),
             )
+            .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable())
             .contentLength(release.apkBytes.size.toLong())
-            .body(release.apkBytes)
+        // ETag = sha256 (forte, imutavel por versionCode). eTag() ja envolve em aspas.
+        release.sha256?.let { builder.eTag("\"$it\"") }
+        return builder.body(release.apkBytes)
     }
 
     /**
@@ -89,7 +137,13 @@ class AppReleaseController(
      *        -H "Authorization: Bearer <token-super-admin>" \
      *        -H "Content-Type: application/octet-stream" --data-binary @app.apk}
      *
-     * versionCode duplicado -> 409; arquivo nao-APK / vazio / grande demais -> 400.
+     * versionCode duplicado -> 409; arquivo nao-APK / vazio -> 400; corpo maior que o
+     * teto -> 413 (rejeitado CEDO, sem bufferizar o corpo inteiro).
+     *
+     * O corpo NAO e lido via @RequestBody (que bufferizaria tudo antes do metodo);
+     * lemos o stream nós mesmos com [readBoundedApkBody], que rejeita pelo
+     * Content-Length declarado e trava a leitura no teto — para um corpo gigante
+     * (honesto ou mentiroso) nunca virar OOM.
      */
     @PostMapping("/admin/app/releases", consumes = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
     @PreAuthorize("hasRole('SUPER_ADMIN')")
@@ -99,8 +153,9 @@ class AppReleaseController(
         @RequestParam(defaultValue = "android") plataforma: String,
         @RequestParam(required = false) notas: String?,
         @RequestParam(defaultValue = "false") obrigatoria: Boolean,
-        @RequestBody apk: ByteArray,
+        request: HttpServletRequest,
     ): Map<String, Any?> {
+        val apk = readBoundedApkBody(request)
         val r = service.publish(plataforma, versionCode, versionName, notas, obrigatoria, apk)
         return linkedMapOf(
             "ok" to true,
@@ -112,4 +167,11 @@ class AppReleaseController(
             "sha256" to r.sha256,
         )
     }
+
+    /**
+     * Le o corpo octet-stream do request com teto rigido, sem bufferizar alem dele.
+     * A validacao fina (magic PK, tamanho minimo, duplicata) continua no service.
+     */
+    private fun readBoundedApkBody(request: HttpServletRequest): ByteArray =
+        readBounded(request.inputStream, request.contentLengthLong, AppReleaseService.MAX_UPLOAD_BYTES)
 }

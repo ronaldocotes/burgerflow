@@ -51,14 +51,18 @@ server:
   compression:
     enabled: true
     mime-types: application/json,text/plain
-  tomcat:
     # Upload do APK do app do motoboy (POST /admin/app/releases) vai como
     # application/octet-stream no corpo — NAO e multipart nem form, entao os limites de
     # multipart/form-post NAO se aplicam (o teto de ~150 MB e imposto no
-    # AppReleaseService). max-swallow-size=-1: quando a requisicao e rejeitada ANTES de
-    # ler o corpo inteiro (ex.: 401/403/400/409 num upload grande), o Tomcat nao aborta
-    # a conexao ao descartar o corpo nao lido — o cliente recebe o status limpo.
-    max-swallow-size: -1
+    # AppReleaseService, e o controller rejeita cedo por Content-Length antes de
+    # bufferizar). max-swallow-size delimita quantos bytes o Tomcat "engole" de um corpo
+    # NAO lido quando a requisicao e rejeitada antes do fim (ex.: 401/403/413/409 num
+    # upload) para manter a conexao viva e o cliente receber o status limpo. Antes era
+    # -1 (ILIMITADO) — um upload rejeitado podia fazer o Tomcat engolir bytes sem teto
+    # (risco de DoS). 160 MB da folga sobre o teto de 150 MB do APK: um upload no limite
+    # ainda recebe resposta limpa; um corpo gigante alem disso tem a conexao resetada
+    # (nao lhe devemos uma resposta bonita).
+    max-swallow-size: 160MB
 
 management:
   endpoints:
