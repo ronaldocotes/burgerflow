@@ -94,9 +94,14 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const [payload, setPayload] = useState<JwtPayload | null>(null)
 
   const roleLabel = getRoleLabel(payload)
-  const email = payload?.email ?? payload?.sub ?? ''
+  // Só usa o e-mail se for e-mail de verdade (contém "@"). O JWT do MenuFlow costuma
+  // trazer só roles/sub — nesse caso payload.sub é o UUID do usuário, que NUNCA deve
+  // aparecer na UI. Sem e-mail real, o botão/dropdown recaem no rótulo do papel.
+  const email =
+    payload?.email && payload.email.includes('@') ? payload.email : ''
   const title = routeTitle(pathname)
-  const initial = (email[0] ?? 'U').toUpperCase()
+  // Inicial do avatar: e-mail real quando houver, senão o rótulo do papel; nunca o UUID.
+  const initial = ((email || roleLabel)[0] ?? 'U').toUpperCase()
 
   useEffect(() => {
     queueMicrotask(() => {
