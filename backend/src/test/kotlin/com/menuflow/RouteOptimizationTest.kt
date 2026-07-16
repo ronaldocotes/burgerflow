@@ -322,6 +322,26 @@ class RouteOptimizationTest @Autowired constructor(
         assertEquals(0.005, pending[0].deliveryLat, "traz as coords do pedido")
     }
 
+    // --- pending-unassigned: respeita o LIMIT da fila de despacho (B1) ---
+    @Test
+    fun `pending-unassigned query respects the page limit and yields oldest-first`() {
+        // Tres pedidos elegiveis; a query com LIMIT 2 traz no maximo 2, os mais antigos.
+        val first = newDeliveryOrder(0.005)
+        val second = newDeliveryOrder(0.006)
+        newDeliveryOrder(0.007)
+
+        TenantContext.set(tenant)
+        val capped = orderRepository.findPendingUnassignedDeliveryOrders(
+            org.springframework.data.domain.PageRequest.of(0, 2),
+        )
+        assertEquals(2, capped.size, "o LIMIT trava a fila carregada de uma vez (nao traz os 3)")
+        assertEquals(
+            listOf(first, second),
+            capped.map { it.id },
+            "traz os 2 mais antigos (ORDER BY createdAt ASC), nunca a fila inteira",
+        )
+    }
+
     // --- pending-unassigned: nao vaza entre tenants (db-per-tenant) ---
     @Test
     fun `pending-unassigned does not leak orders from another tenant`() {

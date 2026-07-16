@@ -173,6 +173,28 @@ class AppReleaseControllerIT @Autowired constructor(
         mockMvc.perform(get("/public/app/download/999")).andExpect(status().isNotFound)
     }
 
+    @Test
+    fun `download traz Cache-Control imutavel de 1 ano e ETag = sha256`() {
+        val token = superAdminToken()
+        publish(token, 2, "1.1.0", apkFalso(8)).andExpect(status().isOk)
+        // O sha256 gravado vira o ETag (entre aspas).
+        val sha = releaseRepository.findFirstByPlataformaAndVersionCode("android", 2)!!.sha256
+
+        mockMvc.perform(get("/public/app/download/2"))
+            .andExpect(status().isOk)
+            // APK de um versionCode e imutavel -> pode cachear forte (1 ano) sem revalidar.
+            .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("max-age=31536000")))
+            .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("public")))
+            .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("immutable")))
+            .andExpect(header().string("ETag", "\"$sha\""))
+    }
+
+    // Obs.: o guarda de tamanho do upload (A2) e a leitura em stream com teto — nao da
+    // para forjar Content-Length no MockHttpServletRequest (getContentLengthLong deriva
+    // do proprio content). Ele e testado, deterministico e rapido, com um cap pequeno em
+    // [AppReleaseControllerBoundedReadTest]. Aqui garantimos so que um upload normal (bem
+    // abaixo do teto) continua passando fim-a-fim apos a mudanca de @RequestBody -> stream.
+
     // ── RBAC ─────────────────────────────────────────────────────────────────────
 
     @Test
